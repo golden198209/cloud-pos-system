@@ -109,6 +109,7 @@
             padding: 6px 8px;
             text-align: center;
             font-size: 11px;
+            position: relative;
         }
         .items-table th {
             background-color: #eaeaea;
@@ -117,6 +118,32 @@
         .items-table td.left { text-align: left; }
         .items-table td.right { text-align: right; }
         
+        /* Custom Dropdown Suggestion Box */
+        .custom-dropdown-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid #007bff;
+            max-height: 160px;
+            overflow-y: auto;
+            z-index: 999;
+            display: none;
+            text-align: left;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .custom-dropdown-item {
+            padding: 6px 8px;
+            font-size: 11px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .custom-dropdown-item:hover {
+            background-color: #007bff;
+            color: #fff;
+        }
+
         .tax-summary-table {
             margin-top: 10px;
         }
@@ -208,15 +235,13 @@
             .container, .invoice-box { box-shadow: none; border: none; padding: 0; max-width: 100%; }
             .tab-buttons, .no-print, .settings-bar { display: none; }
             .input-field, select, textarea { border: none; background: transparent; appearance: none; resize: none; }
+            .custom-dropdown-list { display: none !important; }
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- Global Datalist for Auto-Suggest Inventory Items -->
-    <datalist id="inventoryList"></datalist>
-
     <!-- Navigation Tabs -->
     <div class="tab-buttons no-print">
         <button class="tab-btn active" onclick="switchTab('invoice', event)">Create Invoice</button>
@@ -308,7 +333,7 @@ State: 01-Jammu & Kashmir</textarea>
                 <thead>
                     <tr>
                         <th style="width: 4%;">#</th>
-                        <th style="width: 24%;">Item Name (Type to auto-suggest)</th>
+                        <th style="width: 24%;">Item Name (Click or Type)</th>
                         <th style="width: 10%;">Barcode</th>
                         <th style="width: 10%;">HSN/SAC</th>
                         <th style="width: 7%;">Qty</th>
@@ -562,7 +587,6 @@ State: 01-Jammu & Kashmir</textarea>
         document.getElementById('invDate').valueAsDate = new Date();
         populateFirmDropdowns();
         populateCustomerDropdown();
-        updateInventoryDatalist();
         onFirmChange();
         renderCompanyTable();
         renderCustomerTable();
@@ -578,6 +602,13 @@ State: 01-Jammu & Kashmir</textarea>
                 document.getElementById('firebaseConfigInput').value = savedCfg;
                 initFirebase(cfgObj);
             } catch(e) {}
+        }
+    };
+
+    // Close custom dropdowns when clicking outside
+    window.onclick = function(event) {
+        if (!event.target.classList.contains('row-name')) {
+            document.querySelectorAll('.custom-dropdown-list').forEach(el => el.style.display = 'none');
         }
     };
 
@@ -634,7 +665,6 @@ State: 01-Jammu & Kashmir</textarea>
                 if(data.invoices) invoices = data.invoices;
                 populateFirmDropdowns();
                 populateCustomerDropdown();
-                updateInventoryDatalist();
                 renderInventoryTable();
                 onFirmChange();
             }
@@ -652,19 +682,6 @@ State: 01-Jammu & Kashmir</textarea>
         db.collection('pos_data').doc('store').set({
             companies, customers, inventory, invoices
         }).catch(e => {});
-    }
-
-    // Update Datalist options for auto-suggest
-    function updateInventoryDatalist() {
-        let datalist = document.getElementById('inventoryList');
-        if(!datalist) return;
-        datalist.innerHTML = '';
-        inventory.forEach(prod => {
-            let opt = document.createElement('option');
-            opt.value = prod.name;
-            opt.setAttribute('label', `Stock: ${prod.stock} | Price: ₹${prod.price}`);
-            datalist.appendChild(opt);
-        });
     }
 
     let activeScannerTarget = 'global';
@@ -797,7 +814,10 @@ State: 01-Jammu & Kashmir</textarea>
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${rowCount}</td>
-            <td class="left"><input type="text" class="input-field row-name" value="${prod.name}" list="inventoryList" oninput="onRowProductSelected(this)" onchange="onRowProductSelected(this)" style="margin-bottom:0;"></td>
+            <td class="left" style="position:relative;">
+                <input type="text" class="input-field row-name" value="${prod.name}" placeholder="Type item..." oninput="filterCustomDropdown(this)" onclick="filterCustomDropdown(this)" style="margin-bottom:0;">
+                <div class="custom-dropdown-list"></div>
+            </td>
             <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
             <td><input type="number" class="input-field row-qty" value="1" min="1" oninput="calculateTotals()" style="margin-bottom:0;"></td>
@@ -820,19 +840,38 @@ State: 01-Jammu & Kashmir</textarea>
         calculateTotals();
     }
 
-    // Auto-fill row details when product is selected from dropdown
-    function onRowProductSelected(inputElem) {
-        let val = inputElem.value.trim();
-        let prod = inventory.find(p => p.name.toLowerCase() === val.toLowerCase());
-        if(prod) {
-            let tr = inputElem.closest('tr');
-            tr.querySelector('.row-barcode').value = prod.barcode || '';
-            tr.querySelector('.row-hsn').value = prod.hsn || '';
-            tr.querySelector('.row-price').value = prod.price || 0;
-            let gstSelect = tr.querySelector('.row-gst');
-            if(gstSelect) gstSelect.value = prod.gst || 18;
-            calculateTotals();
+    // Custom Dropdown Filtering & Selection Logic (Universal Browser & Incognito Compatible)
+    function filterCustomDropdown(inputElem) {
+        let query = inputElem.value.toLowerCase();
+        let dropdown = inputElem.nextElementSibling;
+        dropdown.innerHTML = '';
+
+        let filtered = inventory.filter(p => p.name.toLowerCase().includes(query));
+        if(filtered.length === 0) {
+            dropdown.style.display = 'none';
+            return;
         }
+
+        filtered.forEach(prod => {
+            let itemDiv = document.createElement('div');
+            itemDiv.className = 'custom-dropdown-item';
+            itemDiv.innerHTML = `<strong>${prod.name}</strong> <br><small style="color:#555;">Stock: ${prod.stock} | Price: ₹${prod.price}</small>`;
+            itemDiv.onmousedown = function(e) {
+                e.preventDefault(); // Prevent blur before selection
+                inputElem.value = prod.name;
+                let tr = inputElem.closest('tr');
+                tr.querySelector('.row-barcode').value = prod.barcode || '';
+                tr.querySelector('.row-hsn').value = prod.hsn || '';
+                tr.querySelector('.row-price').value = prod.price || 0;
+                let gstSelect = tr.querySelector('.row-gst');
+                if(gstSelect) gstSelect.value = prod.gst || 18;
+                dropdown.style.display = 'none';
+                calculateTotals();
+            };
+            dropdown.appendChild(itemDiv);
+        });
+
+        dropdown.style.display = 'block';
     }
 
     function addItemRow() {
@@ -1125,7 +1164,6 @@ State: 01-Jammu & Kashmir</textarea>
             tr.innerHTML = `<td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
-        updateInventoryDatalist();
     }
 
     function saveProduct() {
@@ -1141,7 +1179,6 @@ State: 01-Jammu & Kashmir</textarea>
         });
         syncToCloud();
         renderInventoryTable();
-        updateInventoryDatalist();
         alert("Product saved successfully!");
     }
 
@@ -1149,7 +1186,6 @@ State: 01-Jammu & Kashmir</textarea>
         inventory.splice(idx, 1);
         syncToCloud();
         renderInventoryTable();
-        updateInventoryDatalist();
     }
 
     function renderHistoryTable() {
