@@ -12,7 +12,15 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
     <style>
-        body {
+        body <!-- Login Screen (Pehle yeh dikhegi) -->
+<div id="login-screen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f6fa; position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;">
+    <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center;">
+        <h2>POS Login</h2>
+        <input type="email" id="login-email" placeholder="Email" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
+        <input type="password" id="login-password" placeholder="Password" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
+        <button onclick="handleLogin()" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Login</button>
+    </div>
+</div> <div id="main-pos-app" style="display: none;">{
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
@@ -1295,5 +1303,5 @@
         }
     }
 </script>
-</body>
+</div></body>
 </html>
