@@ -118,7 +118,7 @@
         .items-table td.left { text-align: left; }
         .items-table td.right { text-align: right; }
         
-        /* Custom Dropdown Suggestion Box */
+        /* Foolproof Custom Dropdown List */
         .custom-dropdown-list {
             position: absolute;
             top: 100%;
@@ -126,18 +126,19 @@
             right: 0;
             background: #fff;
             border: 1px solid #007bff;
-            max-height: 160px;
+            max-height: 180px;
             overflow-y: auto;
-            z-index: 999;
+            z-index: 9999;
             display: none;
             text-align: left;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         .custom-dropdown-item {
-            padding: 6px 8px;
+            padding: 8px 10px;
             font-size: 11px;
             border-bottom: 1px solid #eee;
             cursor: pointer;
+            background-color: #fff;
         }
         .custom-dropdown-item:hover {
             background-color: #007bff;
@@ -605,12 +606,12 @@ State: 01-Jammu & Kashmir</textarea>
         }
     };
 
-    // Close custom dropdowns when clicking outside
-    window.onclick = function(event) {
-        if (!event.target.classList.contains('row-name')) {
+    // Close custom dropdowns when clicking anywhere outside
+    window.addEventListener('click', function(e) {
+        if (!e.target.classList.contains('row-name')) {
             document.querySelectorAll('.custom-dropdown-list').forEach(el => el.style.display = 'none');
         }
-    };
+    });
 
     function switchTab(tabID, evt) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -815,7 +816,7 @@ State: 01-Jammu & Kashmir</textarea>
         tr.innerHTML = `
             <td>${rowCount}</td>
             <td class="left" style="position:relative;">
-                <input type="text" class="input-field row-name" value="${prod.name}" placeholder="Type item..." oninput="filterCustomDropdown(this)" onclick="filterCustomDropdown(this)" style="margin-bottom:0;">
+                <input type="text" class="input-field row-name" value="${prod.name}" placeholder="Type item name..." autocomplete="off">
                 <div class="custom-dropdown-list"></div>
             </td>
             <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
@@ -837,10 +838,16 @@ State: 01-Jammu & Kashmir</textarea>
             <td class="no-print"><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotals();">X</button></td>
         `;
         tbody.appendChild(tr);
+        
+        // Attach direct event listeners to avoid any compatibility issues
+        let nameInput = tr.querySelector('.row-name');
+        nameInput.addEventListener('input', function() { filterCustomDropdown(this); });
+        nameInput.addEventListener('focus', function() { filterCustomDropdown(this); });
+
         calculateTotals();
     }
 
-    // Custom Dropdown Filtering & Selection Logic (Universal Browser & Incognito Compatible)
+    // Foolproof Custom Dropdown Function
     function filterCustomDropdown(inputElem) {
         let query = inputElem.value.toLowerCase();
         let dropdown = inputElem.nextElementSibling;
@@ -856,8 +863,10 @@ State: 01-Jammu & Kashmir</textarea>
             let itemDiv = document.createElement('div');
             itemDiv.className = 'custom-dropdown-item';
             itemDiv.innerHTML = `<strong>${prod.name}</strong> <br><small style="color:#555;">Stock: ${prod.stock} | Price: ₹${prod.price}</small>`;
-            itemDiv.onmousedown = function(e) {
-                e.preventDefault(); // Prevent blur before selection
+            
+            // Use pointerdown/mousedown to reliably capture selection before blur
+            itemDiv.addEventListener('pointerdown', function(e) {
+                e.preventDefault();
                 inputElem.value = prod.name;
                 let tr = inputElem.closest('tr');
                 tr.querySelector('.row-barcode').value = prod.barcode || '';
@@ -867,7 +876,7 @@ State: 01-Jammu & Kashmir</textarea>
                 if(gstSelect) gstSelect.value = prod.gst || 18;
                 dropdown.style.display = 'none';
                 calculateTotals();
-            };
+            });
             dropdown.appendChild(itemDiv);
         });
 
