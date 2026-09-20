@@ -12,7 +12,87 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
     <style>
-        body <!-- Login Screen (Pehle yeh dikhegi) -->
+        body <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BillBook POS</title>
+    <!-- Aapki koi aur CSS ya styles yahan ho toh rehne dein -->
+</head>
+<body>
+
+    <!-- 1. LOGIN SCREEN (Jab tak login nahi hoga, yeh dikhegi) -->
+    <div id="login-screen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f6fa; position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;">
+        <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center;">
+            <h2>POS Login</h2>
+            <input type="email" id="login-email" placeholder="Email" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
+            <input type="password" id="login-password" placeholder="Password" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
+            <button onclick="handleLogin()" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Login</button>
+        </div>
+    </div>
+
+    <!-- 2. MAIN POS APP WRAPPER (Login hone ke baad yeh khulega) -->
+    <div id="main-pos-app" style="display: none;">
+
+        <!-- ========================================== -->
+        <!-- YAHAN APKA PURANA POS KA SARA CODE RAHEGA -->
+        <!-- ========================================== -->
+        <div style="padding: 20px;">
+            <h1>Welcome to my POS Application</h1>
+            <!-- Aapka purana POS design aur elements yahan hain -->
+        </div>
+
+    </div>
+
+    <!-- 3. FIREBASE CONFIGURATION & SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Aapki Asli Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDlHR_MyuEIu9mIs-4_Mmk8NRUsLGQslw0",
+            authDomain: "my-pos-app-54ef4.firebaseapp.com",
+            projectId: "my-pos-app-54ef4",
+            storageBucket: "my-pos-app-54ef4.firebasestorage.app",
+            messagingSenderId: "974088050332",
+            appId: "1:974088050332:web:69dfd694fb6024cf197f59",
+            measurementId: "G-9GENNN74FE"
+        };
+
+        // Firebase Initialize
+        firebase.initializeApp(firebaseConfig);
+
+        // Firebase Auth State Check (Login Gate Logic)
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                // User logged in hai -> Login screen hide, POS show
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('main-pos-app').style.display = 'block';
+                console.log("Logged in user UID:", user.uid);
+            } else {
+                // User logged out hai -> Login screen show, POS hide
+                document.getElementById('login-screen').style.display = 'flex';
+                document.getElementById('main-pos-app').style.display = 'none';
+            }
+        });
+
+        // Login Function
+        function handleLogin() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            firebase.auth().signInWithEmailAndPassword(email, password)
+                .catch((error) => {
+                    alert("Login Error: " + error.message);
+                });
+        }
+    </script>
+</body>
+</html><!-- Login Screen (Pehle yeh dikhegi) -->
 <div id="login-screen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f6fa; position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;">
     <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center;">
         <h2>POS Login</h2>
