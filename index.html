@@ -3,606 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BillBook - Multi-User Cloud POS System</title>
-    <!-- QuaggaJS for Camera Barcode Scanning -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-    <!-- Firebase App, Auth & Firestore SDKs -->
+    <title>Cloud POS & Billing System</title>
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    
+    <!-- QuaggaJS for Barcode Scanning -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <style>
-        body <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BillBook POS</title>
-    <!-- Aapki koi aur CSS ya styles yahan ho toh rehne dein -->
-</head>
-<body>
-
-    <!-- 1. LOGIN SCREEN (Jab tak login nahi hoga, yeh dikhegi) -->
-    <div id="login-screen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f6fa; position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;">
-        <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center;">
-            <h2>POS Login</h2>
-            <input type="email" id="login-email" placeholder="Email" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
-            <input type="password" id="login-password" placeholder="Password" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
-            <button onclick="handleLogin()" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Login</button>
-        </div>
-    </div>
-
-    <!-- 2. MAIN POS APP WRAPPER (Login hone ke baad yeh khulega) -->
-    <div id="main-pos-app" style="display: none;">
-
-        <!-- ========================================== -->
-        <!-- YAHAN APKA PURANA POS KA SARA CODE RAHEGA -->
-        <!-- ========================================== -->
-        <div style="padding: 20px;">
-            <h1>Welcome to my POS Application</h1>
-            <!-- Aapka purana POS design aur elements yahan hain -->
-        </div>
-
-    </div>
-
-    <!-- 3. FIREBASE CONFIGURATION & SDKs -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
-    <script>
-        // Aapki Asli Firebase Config
-        const firebaseConfig = {
-            apiKey: "AIzaSyDlHR_MyuEIu9mIs-4_Mmk8NRUsLGQslw0",
-            authDomain: "my-pos-app-54ef4.firebaseapp.com",
-            projectId: "my-pos-app-54ef4",
-            storageBucket: "my-pos-app-54ef4.firebasestorage.app",
-            messagingSenderId: "974088050332",
-            appId: "1:974088050332:web:69dfd694fb6024cf197f59",
-            measurementId: "G-9GENNN74FE"
-        };
-
-        // Firebase Initialize
-        firebase.initializeApp(firebaseConfig);
-
-        // Firebase Auth State Check (Login Gate Logic)
-        firebase.auth().onAuthStateChanged((user) => {
-            if (user) {
-                // User logged in hai -> Login screen hide, POS show
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('main-pos-app').style.display = 'block';
-                console.log("Logged in user UID:", user.uid);
-            } else {
-                // User logged out hai -> Login screen show, POS hide
-                document.getElementById('login-screen').style.display = 'flex';
-                document.getElementById('main-pos-app').style.display = 'none';
-            }
-        });
-
-        // Login Function
-        function handleLogin() {
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            
-            firebase.auth().signInWithEmailAndPassword(email, password)
-                .catch((error) => {
-                    alert("Login Error: " + error.message);
-                });
-        }
-    </script>
-</body>
-</html><!-- Login Screen (Pehle yeh dikhegi) -->
-<div id="login-screen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f6fa; position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;">
-    <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center;">
-        <h2>POS Login</h2>
-        <input type="email" id="login-email" placeholder="Email" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
-        <input type="password" id="login-password" placeholder="Password" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
-        <button onclick="handleLogin()" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Login</button>
-    </div>
-</div> <div id="main-pos-app" style="display: none;">{
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f2f5;
-            color: #000;
-        }
-        .container {
-            max-width: 950px;
-            margin: auto;
-        }
-        /* Auth Panel Styles */
-        #authPanel {
-            max-width: 400px;
-            margin: 80px auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        #authPanel h2 { margin-bottom: 20px; color: #2c3e50; }
-        
-        .tab-buttons {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .tab-btn {
-            padding: 8px 12px;
-            background-color: #ddd;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        .tab-btn.active {
-            background-color: #2c3e50;
-            color: white;
-        }
-        .panel {
-            display: none;
-            background: #fff;
-            padding: 20px;
-            border-radius: 6px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .panel.active {
-            display: block;
-        }
-        .invoice-box {
-            background-color: #fff;
-            padding: 25px;
-            border: 1px solid #333;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
-        }
-        .invoice-main-title {
-            text-align: center;
-            font-size: 22px;
-            font-weight: bold;
-            text-transform: uppercase;
-            border-bottom: 2px solid #333;
-            padding-bottom: 5px;
-            margin-bottom: 10px;
-        }
-        .header-table, .details-table, .items-table, .tax-summary-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .company-title {
-            font-size: 20px;
-            font-weight: bold;
-            color: #000;
-            text-transform: uppercase;
-        }
-        .sub-text {
-            font-size: 12px;
-            color: #333;
-            line-height: 1.4;
-        }
-        .box-section {
-            border: 1px solid #333;
-            padding: 10px;
-            margin-top: 10px;
-            font-size: 12px;
-            background: #fafafa;
-        }
-        .split-table {
-            width: 100%;
-            border: 1px solid #333;
-            margin-top: 10px;
-            border-collapse: collapse;
-        }
-        .split-table td {
-            width: 50%;
-            border: 1px solid #333;
-            padding: 8px;
-            vertical-align: top;
-            font-size: 12px;
-        }
-        .items-table {
-            margin-top: 10px;
-        }
-        .items-table th, .items-table td {
-            border: 1px solid #333;
-            padding: 6px 8px;
-            text-align: center;
-            font-size: 11px;
-            position: relative;
-        }
-        .items-table th {
-            background-color: #eaeaea;
-            font-weight: bold;
-        }
-        .items-table td.left { text-align: left; }
-        .items-table td.right { text-align: right; }
-        
-        /* Custom Dropdown List */
-        .custom-dropdown-list {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: #fff;
-            border: 1px solid #007bff;
-            max-height: 180px;
-            overflow-y: auto;
-            z-index: 9999;
-            display: none;
-            text-align: left;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        .custom-dropdown-item {
-            padding: 8px 10px;
-            font-size: 11px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            background-color: #fff;
-        }
-        .custom-dropdown-item:hover {
-            background-color: #007bff;
-            color: #fff;
-        }
-
-        .tax-summary-table {
-            margin-top: 10px;
-        }
-        .tax-summary-table th, .tax-summary-table td {
-            border: 1px solid #333;
-            padding: 5px;
-            text-align: center;
-            font-size: 11px;
-        }
-        .tax-summary-table th {
-            background-color: #f2f2f2;
-        }
-        
-        .totals-box-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: -1px;
-        }
-        .totals-box-table td {
-            border: 1px solid #333;
-            padding: 5px 8px;
-            font-size: 12px;
-        }
-        .input-field, select, textarea {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 5px;
-            font-size: 12px;
-            margin-bottom: 5px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-        }
-        .btn-success { background-color: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;}
-        .btn-info { background-color: #17a2b8; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;}
-        .btn-whatsapp { background-color: #25d366; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-email { background-color: #ea4335; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-danger { background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;}
-        .btn-warning { background-color: #ffc107; color: #000; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-secondary { background-color: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;}
-        
-        .settings-bar {
-            background: #e9ecef;
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            font-size: 13px;
-            flex-wrap: wrap;
-        }
-        .stat-card {
-            background: #fff;
-            border: 1px solid #ccc;
-            padding: 15px;
-            border-radius: 5px;
-            text-align: center;
-            flex: 1;
-            min-width: 180px;
-        }
-        .stat-card h4 { margin: 0 0 5px 0; color: #555; font-size: 13px; }
-        .stat-card div { font-size: 18px; font-weight: bold; color: #2c3e50; }
-        .low-stock { background-color: #ffd2d2 !important; color: #900; font-weight: bold; }
-        
-        #scannerModal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
-            justify-content: center; align-items: center;
-            z-index: 2000;
-            flex-direction: column;
-        }
-        #interactive.viewport {
-            width: 100%;
-            max-width: 400px;
-            height: 300px;
-            position: relative;
-        }
-        #interactive.viewport canvas, #interactive.viewport video {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0; left: 0;
-        }
-
-        @media print {
-            body { background-color: #fff; padding: 0; }
-            .container, .invoice-box { box-shadow: none; border: none; padding: 0; max-width: 100%; }
-            .tab-buttons, .no-print, .settings-bar { display: none; }
-            .input-field, select, textarea { border: none; background: transparent; appearance: none; resize: none; }
-            .custom-dropdown-list { display: none !important; }
-        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f7f6; color: #333; }
+        .container { max-width: 1200px; margin: auto; padding: 20px; }
+        .panel { display: none; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 20px; }
+        .panel.active { display: block; }
+        .input-field { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-success { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        .btn-danger { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-warning { background: #ffc107; color: black; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .items-table th, .items-table td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+        .items-table th { background: #f8f9fa; }
+        .right { text-align: right; }
+        .low-stock { background-color: #ffeeba !important; }
+        #scannerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .viewport { width: 100%; height: 200px; position: relative; }
+        .viewport canvas, .viewport video { width: 100%; height: 100%; object-fit: cover; }
+        .custom-dropdown-list { display: none; position: absolute; background: #fff; border: 1px solid #ccc; width: 100%; max-height: 150px; overflow-y: auto; z-index: 99; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .custom-dropdown-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
+        .custom-dropdown-item:hover { background: #f1f1f1; }
+        @media print { .no-print { display: none !important; } }
     </style>
 </head>
 <body>
 
-<!-- AUTHENTICATION PANEL (LOGIN / SIGNUP) -->
-<div id="authPanel">
-    <h2>🏪 BillBook POS Login</h2>
-    <p style="font-size: 12px; color: #666; margin-bottom: 20px;">Manage your business securely in the cloud</p>
-    <input type="email" id="authEmail" class="input-field" placeholder="Enter your business email">
-    <input type="password" id="authPassword" class="input-field" placeholder="Enter password">
-    <button class="btn-success" onclick="handleLogin()" style="width:100%; margin-bottom: 8px;">Login to POS</button>
-    <button class="btn-info" onclick="handleSignup()" style="width:100%;">Create New Business Account</button>
+<!-- AUTHENTICATION PANEL -->
+<div id="authPanel" class="container" style="max-width: 400px; margin-top: 50px;">
+    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h3 style="margin-top:0; text-align:center;">POS Login / Signup</h3>
+        <input type="email" id="authEmail" class="input-field" placeholder="Email Address">
+        <input type="password" id="authPassword" class="input-field" placeholder="Password">
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button class="btn-success" onclick="handleLogin()" style="flex:1;">Login</button>
+            <button class="btn-warning" onclick="handleSignup()" style="flex:1;">Register</button>
+        </div>
+    </div>
 </div>
 
-<!-- MAIN POS APPLICATION CONTAINER (Hidden until logged in) -->
-<div class="container" id="mainAppContainer" style="display: none;">
-    
-    <!-- User Bar & Logout -->
-    <div style="display: flex; justify-content: space-between; align-items: center; background: #2c3e50; color: white; padding: 8px 15px; border-radius: 4px; margin-bottom: 10px;" class="no-print">
-        <span id="loggedInUserEmail" style="font-size: 12px;">Logged in: user@email.com</span>
-        <button class="btn-danger" onclick="handleLogout()" style="padding: 4px 10px; font-size: 11px;">Logout</button>
+<!-- MAIN APP CONTAINER -->
+<div id="mainAppContainer" class="container" style="display:none;">
+    <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div>
+            <span id="loggedInUserEmail" style="font-weight: bold; margin-right: 15px;"></span>
+            <select id="activeFirmSelect" class="input-field" style="width: auto; display: inline-block; margin-bottom: 0;" onchange="onFirmChange()"></select>
+        </div>
+        <div>
+            <button class="tab-btn btn-success" onclick="switchTab('billing', event)">Billing</button>
+            <button class="tab-btn btn-success" onclick="switchTab('company', event)">Firm Profile</button>
+            <button class="tab-btn btn-success" onclick="switchTab('customers', event)">Customers</button>
+            <button class="tab-btn btn-success" onclick="switchTab('inventory', event)">Inventory</button>
+            <button class="tab-btn btn-success" onclick="switchTab('history', event)">History</button>
+            <button class="tab-btn btn-success" onclick="switchTab('ledger', event)">Ledger</button>
+            <button class="tab-btn btn-success" onclick="switchTab('reports', event)">Reports</button>
+            <button class="btn-danger" onclick="handleLogout()">Logout</button>
+        </div>
     </div>
 
-    <!-- Navigation Tabs -->
-    <div class="tab-buttons no-print">
-        <button class="tab-btn active" onclick="switchTab('invoice', event)">Create Invoice</button>
-        <button class="tab-btn" onclick="switchTab('history', event)">Invoice History</button>
-        <button class="tab-btn" onclick="switchTab('ledger', event)">Pending Payments (Udhaar)</button>
-        <button class="tab-btn" onclick="switchTab('reports', event)">📊 Reports & GSTR-1</button>
-        <button class="tab-btn" onclick="switchTab('business', event)">Manage Firms</button>
-        <button class="tab-btn" onclick="switchTab('customers', event)">Customers & Ledger</button>
-        <button class="tab-btn" onclick="switchTab('inventory', event)">Stock & Barcode</button>
-    </div>
-
-    <!-- SETTINGS & CLOUD BAR -->
-    <div class="settings-bar no-print">
-        <strong>Price Mode:</strong>
-        <label><input type="radio" name="priceMode" value="exclusive" checked onchange="calculateTotals()"> Without GST</label>
-        <label><input type="radio" name="priceMode" value="inclusive" onchange="calculateTotals()"> With GST</label>
-        
-        <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="globalBarcodeScan" class="input-field" placeholder="🔍 Scan Barcode / Search..." onkeypress="handleGlobalBarcode(event)" style="margin-bottom: 0; width: 200px; font-weight: bold;">
-            <button class="btn-warning" onclick="startCameraScanner()" style="padding: 5px 10px; font-size: 11px;">📷 Scan Camera</button>
+    <!-- 1. BILLING PANEL -->
+    <div id="billingPanel" class="panel active">
+        <h3>New Invoice Billing</h3>
+        <div class="box-section" style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="globalBarcodeScan" class="input-field" placeholder="Scan Barcode or Type Product Name & Press Enter..." onkeypress="handleGlobalBarcode(event)" style="margin-bottom:0; flex: 2;">
+            <button class="btn-warning" onclick="startCameraScanner('global')" style="flex: 1;">📷 Scan via Camera</button>
         </div>
         
-        <div style="margin-left: auto;">
-            <span id="syncStatus" style="font-size: 11px; color: green; font-weight: bold;">☁️ Cloud Synced</span>
-        </div>
-    </div>
-
-    <!-- 1. INVOICE PANEL -->
-    <div id="invoicePanel" class="panel active">
-        <div class="invoice-box">
-            <!-- Firm & Customer Selector Bar -->
-            <div class="box-section no-print" style="margin-bottom: 10px; background: #f9f9f9; display: flex; gap: 15px; align-items: center;">
-                <div style="flex: 1; display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
-                    <label style="white-space: nowrap; margin-bottom: 0;"><strong>Select Billing Firm:</strong></label>
-                    <select id="activeFirmSelect" class="input-field" onchange="onFirmChange()" style="font-weight: bold; margin-bottom: 0;"></select>
-                </div>
-                <div style="flex: 1; display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
-                    <label style="white-space: nowrap; margin-bottom: 0;"><strong>Bill To:</strong></label>
-                    <select id="invoiceCustDropdown" class="input-field" onchange="onCustomerSelected()" style="font-weight: bold; margin-bottom: 0;"></select>
-                </div>
+        <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+            <div style="flex: 1;">
+                <label><strong>Invoice No:</strong></label>
+                <input type="text" id="invNumber" class="input-field" style="margin-top: 5px;">
             </div>
-
-            <div class="invoice-main-title">Tax Invoice</div>
-
-            <!-- Company & Invoice Details Header -->
-            <table class="header-table">
-                <tr>
-                    <td style="width: 55%; vertical-align: top;">
-                        <div class="company-title" id="lblCompanyName">Golden Star Furniture</div>
-                        <div class="sub-text" id="lblCompanyDetails" style="margin-top: 4px;"></div>
-                    </td>
-                    <td style="width: 45%; vertical-align: top; text-align: right;">
-                        <div class="sub-text" style="text-align: left;">
-                            <strong>Invoice:</strong> <input type="text" id="invNumber" class="input-field" value="1" style="width: 120px; display:inline-block;"><br>
-                            <strong>Date:</strong> <input type="date" class="input-field" id="invDate" style="width: 130px; display:inline-block;"><br>
-                            <strong>Place of Supply:</strong> <input type="text" class="input-field" id="placeOfSupply" value="01-Jammu & Kashmir" style="width: 140px; display:inline-block;">
-                        </div>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Bill To & Customer Details Split Box -->
-            <table class="split-table">
-                <tr>
-                    <td>
-                        <div style="margin-bottom: 4px;"><strong>Bill To (Customer Details):</strong></div>
-                        <textarea id="manualCustDetails" class="input-field" rows="4" placeholder="Enter Customer Name, Address, GSTIN, State etc." style="margin-top: 4px; font-family: Arial, sans-serif;">Cash Customer</textarea>
-                    </td>
-                    <td>
-                        <strong>Notes / Remarks:</strong>
-                        <textarea id="invoiceRemarks" class="input-field" rows="4" placeholder="Optional notes or dispatch details..." style="margin-top: 4px; font-family: Arial, sans-serif;"></textarea>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Items Table -->
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th style="width: 4%;">#</th>
-                        <th style="width: 24%;">Item Name (Click or Type)</th>
-                        <th style="width: 10%;">Barcode</th>
-                        <th style="width: 10%;">HSN/SAC</th>
-                        <th style="width: 7%;">Qty</th>
-                        <th style="width: 7%;">Unit</th>
-                        <th style="width: 10%;">Price (₹)</th>
-                        <th style="width: 8%;">GST Rate</th>
-                        <th style="width: 10%;">GST (₹)</th>
-                        <th style="width: 12%;">Amount(₹)</th>
-                        <th class="no-print" style="width: 4%;">Act</th>
-                    </tr>
-                </thead>
-                <tbody id="itemRows"></tbody>
-            </table>
-            <button class="btn-success no-print" onclick="addItemRow()" style="margin-top: 5px; padding: 4px 10px; font-size: 12px;">+ Add Item</button>
-
-            <!-- Tax Summary & Totals Section -->
-            <table style="width: 100%; margin-top: 10px; border-collapse: collapse;">
-                <tr>
-                    <td style="width: 62%; vertical-align: top; padding-right: 5px;">
-                        <div style="font-size: 11px; font-weight: bold; margin-bottom: 2px;">Tax Summary:</div>
-                        <table class="tax-summary-table">
-                            <thead>
-                                <tr>
-                                    <th rowspan="2" style="vertical-align: middle;">HSN/ SAC</th>
-                                    <th rowspan="2" style="vertical-align: middle;">Taxable Amount (₹)</th>
-                                    <th colspan="2">CGST</th>
-                                    <th colspan="2">SGST</th>
-                                    <th rowspan="2" style="vertical-align: middle;">Total Tax(₹)</th>
-                                </tr>
-                                <tr>
-                                    <th>Rate (%)</th>
-                                    <th>Amt (₹)</th>
-                                    <th>Rate (%)</th>
-                                    <th>Amt (₹)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="taxSummaryRows"></tbody>
-                        </table>
-                    </td>
-                    <td style="width: 38%; vertical-align: top; padding-left: 5px;">
-                        <table class="totals-box-table">
-                            <tr>
-                                <td>Sub Total :</td>
-                                <td style="text-align: right;" id="subTotal">0.00</td>
-                            </tr>
-                            <tr>
-                                <td>Total :</td>
-                                <td style="text-align: right; font-weight: bold;" id="grandTotal">0.00</td>
-                            </tr>
-                            <tr>
-                                <td colspan="2" style="font-size: 11px;">
-                                    <strong>Invoice Amount In Words:</strong><br>
-                                    <span id="amountInWords" style="font-style: italic;">Zero Rupees Only</span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Received :</td>
-                                <td style="text-align: right;"><input type="number" id="amtReceived" class="input-field" value="0" oninput="calculateTotals()" style="width: 80px; text-align: right; display:inline-block; margin-bottom:0;"></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Balance :</strong></td>
-                                <td style="text-align: right; font-weight: bold; color: #b30000;" id="balanceAmount">0.00</td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Terms and Conditions -->
-            <div class="box-section" style="margin-top: 10px; background:#fff;">
-                <strong>Terms And Conditions:</strong><br>
-                <span class="sub-text">Thank you for doing business with us. Goods once sold will not be taken back.</span>
+            <div style="flex: 1;">
+                <label><strong>Invoice Date:</strong></label>
+                <input type="date" id="invDate" class="input-field" style="margin-top: 5px;">
             </div>
-
-            <!-- Bank Details and Signatory Split Box -->
-            <table class="split-table">
-                <tr>
-                    <td>
-                        <strong>Bank Details:</strong>
-                        <div id="lblBankDetails" class="sub-text" style="margin-top: 4px;"></div>
-                    </td>
-                    <td style="text-align: right; vertical-align: bottom;">
-                        <div id="lblSignCompanyName" style="font-size: 11px; font-weight: bold; margin-bottom: 35px;">For Firm:</div>
-                        <div style="border-top: 1px solid #333; display: inline-block; padding-top: 2px; font-size: 11px; width: 150px; text-align: center;">Authorized Signatory</div>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Action Buttons -->
-            <div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;" class="no-print">
-                <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 1;">Save & Print A4</button>
-                <button class="btn-info" onclick="openThermalReceipt()" style="flex: 1;">🖨️ Print POS</button>
-                <button class="btn-info" onclick="downloadOrSharePDF()" style="flex: 1;">📥 PDF Download</button>
-                <button class="btn-whatsapp" onclick="shareOnWhatsApp()" style="flex: 1;">📱 WhatsApp</button>
-                <button class="btn-email" onclick="shareViaEmail()" style="flex: 0.8;">✉️ Email</button>
-                <button class="btn-danger" onclick="resetInvoiceForm()" style="flex: 0.5;">Clear</button>
+            <div style="flex: 1;">
+                <label><strong>Select Customer:</strong></label>
+                <select id="invoiceCustDropdown" class="input-field" style="margin-top: 5px;" onchange="onCustomerSelected()"></select>
             </div>
         </div>
-    </div>
 
-    <!-- 2. HISTORY PANEL -->
-    <div id="historyPanel" class="panel">
-        <h3>Invoice History</h3>
+        <div style="margin-bottom: 15px;">
+            <label><strong>Customer Details (Billing Address):</strong></label>
+            <textarea id="manualCustDetails" class="input-field" style="height: 60px; margin-top: 5px;"></textarea>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+            <label><input type="radio" name="priceMode" value="exclusive" checked onchange="calculateTotals()"> Price Exclusive of GST</label>
+            <label style="margin-left: 20px;"><input type="radio" name="priceMode" value="inclusive" onchange="calculateTotals()"> Price Inclusive of GST</label>
+        </div>
+
         <table class="items-table">
             <thead>
-                <tr><th>Firm</th><th>Invoice No.</th><th>Date</th><th>Customer</th><th>Status</th><th>Total (₹)</th><th>Action</th></tr>
+                <tr>
+                    <th>#</th>
+                    <th style="width: 25%;">Item Name</th>
+                    <th>Barcode</th>
+                    <th>HSN</th>
+                    <th>Qty</th>
+                    <th>Unit</th>
+                    <th>Price</th>
+                    <th>GST %</th>
+                    <th>GST Amt</th>
+                    <th>Total</th>
+                    <th class="no-print">Action</th>
+                </tr>
             </thead>
-            <tbody id="historyTableBody"></tbody>
+            <tbody id="itemRows"></tbody>
         </table>
-    </div>
 
-    <!-- 3. LEDGER PANEL -->
-    <div id="ledgerPanel" class="panel">
-        <h3>Pending Payments (Kisse Paise Lene Hain)</h3>
-        <table class="items-table">
-            <thead>
-                <tr><th>Customer Name / Details</th><th>Invoice No.</th><th>Balance Amount (₹)</th><th>Action</th></tr>
-            </thead>
-            <tbody id="ledgerTableBody"></tbody>
-        </table>
-    </div>
+        <button class="btn-success no-print" onclick="addItemRow()" style="margin-top: 10px;">+ Add Item Row</button>
 
-    <!-- 4. REPORTS PANEL -->
-    <div id="reportsPanel" class="panel">
-        <h3>📊 Business Reports & GSTR-1 Tax Summary</h3>
-        <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-            <div class="stat-card"><h4>Total Sales Revenue</h4><div id="repTotalSales">₹0.00</div></div>
-            <div class="stat-card"><h4>Total Amount Received</h4><div id="repTotalReceived" style="color: green;">₹0.00</div></div>
-            <div class="stat-card"><h4>Total Pending (Udhaar)</h4><div id="repTotalPending" style="color: red;">₹0.00</div></div>
+        <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+            <div style="width: 50%;">
+                <h4>Tax Summary</h4>
+                <table class="items-table">
+                    <thead><tr><th>HSN</th><th>Taxable</th><th>CGST %</th><th>CGST</th><th>SGST %</th><th>SGST</th><th>Total Tax</th></tr></thead>
+                    <tbody id="taxSummaryRows"></tbody>
+                </table>
+            </div>
+            <div style="width: 40%; text-align: right;">
+                <p>Sub Total: ₹<span id="subTotal">0.00</span></p>
+                <h3>Grand Total: ₹<span id="grandTotal">0.00</span></h3>
+                <p id="amountInWords" style="font-style: italic; font-size: 12px;"></p>
+                <div style="margin-top: 10px;">
+                    <label>Amount Received: ₹</label>
+                    <input type="number" id="amtReceived" class="input-field" value="0" style="width: 150px; display: inline-block;" oninput="calculateTotals()">
+                </div>
+                <p>Balance Due: ₹<span id="balanceAmount" style="font-weight: bold;">0.00</span></p>
+            </div>
         </div>
-        <h4 style="border-top: 1px solid #ccc; padding-top: 10px;">GSTR-1 HSN-Wise Summary Report</h4>
-        <table class="items-table">
-            <thead><tr><th>HSN / SAC</th><th>Total Taxable Value (₹)</th><th>CGST Amount (₹)</th><th>SGST Amount (₹)</th><th>Total Tax Amount (₹)</th></tr></thead>
-            <tbody id="gstr1TableBody"></tbody>
-        </table>
-        <h4 style="margin-top:20px;">Day Book</h4>
-        <table class="items-table">
-            <thead><tr><th>Date</th><th>Invoice No.</th><th>Customer Name</th><th>Total Bill (₹)</th><th>Status</th></tr></thead>
-            <tbody id="dayBookTableBody"></tbody>
-        </table>
+
+        <div class="no-print" style="margin-top: 20px; display: flex; gap: 10px;">
+            <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 2; padding: 12px; font-size: 15px;">Save & Print Invoice</button>
+            <button class="btn-warning" onclick="openThermalReceipt()" style="flex: 1;">Thermal Print</button>
+            <button class="btn-success" onclick="shareOnWhatsApp()" style="flex: 1; background: #25d366;">WhatsApp</button>
+            <button class="btn-warning" onclick="shareViaEmail()" style="flex: 1;">Email</button>
+        </div>
     </div>
 
-    <!-- 5. BUSINESS PROFILES PANEL -->
-    <div id="businessPanel" class="panel">
-        <h3>Manage Firms</h3>
+    <!-- 2. COMPANY PROFILE PANEL -->
+    <div id="companyPanel" class="panel">
+        <h3>Business Profile Management</h3>
         <div class="box-section">
             <input type="text" id="busName" class="input-field" placeholder="Firm Name">
-            <input type="text" id="busPrefix" class="input-field" placeholder="Prefix">
-            <textarea id="busAddress" class="input-field" placeholder="Address"></textarea>
-            <input type="text" id="busPhone" class="input-field" placeholder="Phone">
-            <input type="text" id="busGstin" class="input-field" placeholder="GSTIN">
-            <button class="btn-success" onclick="saveBusinessProfile()" style="margin-top: 10px; width:100%;">Save Firm</button>
+            <input type="text" id="busPrefix" class="input-field" placeholder="Invoice Prefix (e.g. MB)">
+            <textarea id="busAddress" class="input-field" placeholder="Business Address"></textarea>
+            <input type="text" id="busPhone" class="input-field" placeholder="Phone Number">
+            <input type="text" id="busGstin" class="input-field" placeholder="GSTIN Number">
+            <button class="btn-success" onclick="saveBusinessProfile()">Save Firm Profile</button>
         </div>
-        <table class="items-table" style="margin-top:15px;">
+        <table class="items-table" style="margin-top: 15px;">
             <thead><tr><th>Firm Name</th><th>GSTIN</th><th>Action</th></tr></thead>
             <tbody id="companyTableBody"></tbody>
         </table>
     </div>
 
-    <!-- 6. CUSTOMERS PANEL -->
+    <!-- 3. CUSTOMERS PANEL -->
     <div id="customersPanel" class="panel">
         <h3>Customer Management</h3>
         <div class="box-section">
@@ -618,7 +182,7 @@
         </table>
     </div>
 
-    <!-- 7. INVENTORY PANEL -->
+    <!-- 4. INVENTORY PANEL -->
     <div id="inventoryPanel" class="panel">
         <h3>Stock & Barcode Management</h3>
         <div class="box-section">
@@ -642,6 +206,55 @@
         <table class="items-table" style="margin-top: 15px;">
             <thead><tr><th>Product</th><th>Barcode</th><th>HSN</th><th>Price</th><th>GST</th><th>Stock</th><th>Action</th></tr></thead>
             <tbody id="inventoryTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- 5. HISTORY PANEL -->
+    <div id="historyPanel" class="panel">
+        <h3>Invoice History</h3>
+        <table class="items-table">
+            <thead><tr><th>Firm</th><th>Inv No</th><th>Date</th><th>Customer</th><th>Status</th><th>Total Amount</th><th>Action</th></tr></thead>
+            <tbody id="historyTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- 6. LEDGER PANEL -->
+    <div id="ledgerPanel" class="panel">
+        <h3>Customer Dues & Ledger</h3>
+        <table class="items-table">
+            <thead><tr><th>Customer Name</th><th>Inv No</th><th>Balance Due</th><th>Action</th></tr></thead>
+            <tbody id="ledgerTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- 7. REPORTS PANEL -->
+    <div id="reportsPanel" class="panel">
+        <h3>Business Reports & GSTR-1 Summary</h3>
+        <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+            <div style="flex: 1; background: #e2e8f0; padding: 15px; border-radius: 6px;">
+                <h4>Total Sales</h4>
+                <h2 id="repTotalSales">₹0.00</h2>
+            </div>
+            <div style="flex: 1; background: #c6f6d5; padding: 15px; border-radius: 6px;">
+                <h4>Total Received</h4>
+                <h2 id="repTotalReceived">₹0.00</h2>
+            </div>
+            <div style="flex: 1; background: #fed7d7; padding: 15px; border-radius: 6px;">
+                <h4>Total Pending</h4>
+                <h2 id="repTotalPending">₹0.00</h2>
+            </div>
+        </div>
+
+        <h4>Day Book</h4>
+        <table class="items-table" style="margin-bottom: 20px;">
+            <thead><tr><th>Date</th><th>Inv No</th><th>Customer</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody id="dayBookTableBody"></tbody>
+        </table>
+
+        <h4>GSTR-1 B2C Summary (HSN-wise)</h4>
+        <table class="items-table">
+            <thead><tr><th>HSN</th><th>Taxable Value</th><th>CGST</th><th>SGST</th><th>Total Tax</th></tr></thead>
+            <tbody id="gstr1TableBody"></tbody>
         </table>
     </div>
 </div>
@@ -668,8 +281,7 @@
 
 <script>
     // FIREBASE INITIALIZATION CONFIG
-    // NOTE: Apni Firebase config yahan daal dein agar pehle se nahi dali hai
-   const firebaseConfig = {
+    const firebaseConfig = {
         apiKey: "AIzaSyDlHR_MyuEIu9mIs-4_Mmk8NRUsLGQslw0",
         authDomain: "my-pos-app-54ef4.firebaseapp.com",
         projectId: "my-pos-app-54ef4",
@@ -686,7 +298,6 @@
     const db = firebase.firestore();
 
     let currentUserUid = null;
-
     let companies = [];
     let customers = [];
     let inventory = [];
@@ -714,7 +325,6 @@
         
         auth.createUserWithEmailAndPassword(email, pass)
         .then((res) => {
-            // Create default initial profile for new user
             companies = [{ name: "My Business", prefix: "MB", address: "Main Bazaar", phone: "9876543210", gstin: "Unregistered" }];
             customers = [{ name: "Cash Customer", address: "Local", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" }];
             inventory = [{ name: "Sample Item", barcode: "1001", hsn: "9403", price: 1000, gst: 18, stock: 10 }];
@@ -731,9 +341,6 @@
         if(!email || !pass) { alert("Please enter email and password"); return; }
 
         auth.signInWithEmailAndPassword(email, pass)
-        .then((res) => {
-            // Logged in successfully
-        })
         .catch((err) => { alert("Login Failed: " + err.message); });
     }
 
@@ -743,7 +350,7 @@
         });
     }
 
-    // CLOUD SYNC WITH USER ISOLATION (users/{uid}/store_data/config)
+    // CLOUD SYNC WITH USER ISOLATION
     async function fetchUserDataFromCloud() {
         if(!currentUserUid) return;
         try {
@@ -756,14 +363,12 @@
                 inventory = data.inventory || [];
                 invoices = data.invoices || [];
             } else {
-                // Default setup if first time
                 companies = [{ name: "My Business", prefix: "MB", address: "Main Bazaar", phone: "9876543210", gstin: "Unregistered" }];
                 customers = [{ name: "Cash Customer", address: "Local", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" }];
                 inventory = [{ name: "Sample Item", barcode: "1001", hsn: "9403", price: 1000, gst: 18, stock: 10 }];
                 invoices = [];
                 syncToCloud();
             }
-            // Initialize UI elements
             document.getElementById('invDate').valueAsDate = new Date();
             populateFirmDropdowns();
             populateCustomerDropdown();
@@ -786,7 +391,6 @@
         }).catch(e => console.log("Sync error:", e));
     }
 
-    // Close custom dropdowns when clicking anywhere outside
     window.addEventListener('click', function(e) {
         if (!e.target.classList.contains('row-name')) {
             document.querySelectorAll('.custom-dropdown-list').forEach(el => el.style.display = 'none');
@@ -867,6 +471,8 @@
             let lastInv = invoices[invoices.length - 1];
             let nextNum = (parseInt(lastInv.invNumber) || invoices.length) + 1;
             document.getElementById('invNumber').value = nextNum;
+        } else {
+            document.getElementById('invNumber').value = 1;
         }
     }
 
@@ -896,10 +502,11 @@
         let idx = document.getElementById('activeFirmSelect').value;
         if(companies[idx]) {
             let firm = companies[idx];
-            document.getElementById('lblCompanyName').innerText = firm.name;
-            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone}<br>GSTIN: ${firm.gstin}`;
-            document.getElementById('lblBankDetails').innerHTML = `Bank Name: ${firm.bankName || 'N/A'}<br>A/C No: ${firm.accNo || 'N/A'}<br>IFSC: ${firm.ifsc || 'N/A'}`;
-            document.getElementById('lblSignCompanyName').innerText = `For ${firm.name} :`;
+            // If firm labels exist in DOM
+            if(document.getElementById('lblCompanyName')) {
+                document.getElementById('lblCompanyName').innerText = firm.name;
+                document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone}<br>GSTIN: ${firm.gstin}`;
+            }
         }
     }
 
@@ -1193,8 +800,6 @@
         document.getElementById('thermalReceiptModal').style.display = 'flex';
     }
 
-    function downloadOrSharePDF() { window.print(); }
-
     function shareOnWhatsApp() {
         let custDetails = document.getElementById('manualCustDetails').value;
         let grandTotal = document.getElementById('grandTotal').innerText;
@@ -1383,5 +988,5 @@
         }
     }
 </script>
-</div></body>
+</body>
 </html>
