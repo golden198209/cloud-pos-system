@@ -27,7 +27,7 @@
         #scannerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
         .viewport { width: 100%; height: 200px; position: relative; }
         .viewport canvas, .viewport video { width: 100%; height: 100%; object-fit: cover; }
-        .custom-dropdown-list { display: none; position: absolute; background: #fff; border: 1px solid #ccc; width: 100%; max-height: 150px; overflow-y: auto; z-index: 99; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .custom-dropdown-list { display: none; position: absolute; background: #fff; border: 1px solid #ccc; width: 100%; max-height: 150px; overflow-y: auto; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .custom-dropdown-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #eee; }
         .custom-dropdown-item:hover { background: #f1f1f1; }
         @media print { .no-print { display: none !important; } }
@@ -502,7 +502,6 @@
         let idx = document.getElementById('activeFirmSelect').value;
         if(companies[idx]) {
             let firm = companies[idx];
-            // If firm labels exist in DOM
             if(document.getElementById('lblCompanyName')) {
                 document.getElementById('lblCompanyName').innerText = firm.name;
                 document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone}<br>GSTIN: ${firm.gstin}`;
@@ -541,14 +540,14 @@
         tr.innerHTML = `
             <td>${rowCount}</td>
             <td class="left" style="position:relative;">
-                <input type="text" class="input-field row-name" value="${prod.name}" placeholder="Type item name..." autocomplete="off">
+                <input type="text" class="input-field row-name" value="${prod.name || ''}" placeholder="Type item name..." autocomplete="off">
                 <div class="custom-dropdown-list"></div>
             </td>
             <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
             <td><input type="number" class="input-field row-qty" value="1" min="1" oninput="calculateTotals()" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-unit" value="Nos" style="margin-bottom:0;"></td>
-            <td><input type="number" class="input-field row-price" value="${prod.price}" step="0.01" oninput="calculateTotals()" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-price" value="${prod.price || 0}" step="0.01" oninput="calculateTotals()" style="margin-bottom:0;"></td>
             <td>
                 <select class="input-field row-gst" onchange="calculateTotals()" style="margin-bottom:0;">
                     <option value="18" ${prod.gst==18?'selected':''}>18%</option>
@@ -572,7 +571,7 @@
     }
 
     function filterCustomDropdown(inputElem) {
-        let query = inputElem.value.toLowerCase();
+        let query = inputElem.value.toLowerCase().trim();
         let dropdown = inputElem.nextElementSibling;
         dropdown.innerHTML = '';
 
@@ -587,7 +586,7 @@
             itemDiv.className = 'custom-dropdown-item';
             itemDiv.innerHTML = `<strong>${prod.name}</strong> <br><small style="color:#555;">Stock: ${prod.stock} | Price: ₹${prod.price}</small>`;
             
-            itemDiv.addEventListener('pointerdown', function(e) {
+            itemDiv.addEventListener('mousedown', function(e) {
                 e.preventDefault();
                 inputElem.value = prod.name;
                 let tr = inputElem.closest('tr');
@@ -606,7 +605,7 @@
     }
 
     function addItemRow() {
-        addItemRowWithProduct({ name: '', barcode: '', hsn: '', price: 0, gst: 18 });
+        addItemRowWithProduct({ name: '', barcode: '', hsn: '', price: 0, gst: 18, stock: 0 });
     }
 
     function calculateTotals() {
