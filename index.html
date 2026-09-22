@@ -3,373 +3,875 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS & Billing System - Golden Star Furniture</title>
+    <title>POS & Billing App</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- QuaggaJS for Barcode Scanning -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 15px; background: #f4f7f6; color: #333; }
-        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .input-field { width: 100%; padding: 8px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .btn { background: #28a745; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f7f6; color: #333; }
+        .container { max-width: 1200px; margin: auto; padding: 20px; }
+        .panel { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; display: none; }
+        .panel.active { display: block; }
+        .input-field { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-success { background: #28a745; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; }
         .btn-danger { background: #dc3545; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
-        .btn-warning { background: #ffc107; color: #333; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-        .tab-btn { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; background: #e9ecef; border-radius: 4px; font-weight: bold; }
-        .tab-btn.active { background: #007bff; color: white; border-color: #007bff; }
+        .btn-warning { background: #ffc107; color: #333; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
         th { background-color: #f8f9fa; }
         .right { text-align: right; }
-        
-        /* Dropdown Search Styles */
-        .search-box-container { position: relative; }
-        .search-results {
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 20px; cursor: pointer; background: #e9ecef; border: none; border-radius: 4px; font-weight: bold; }
+        .tab-btn.active { background: #007bff; color: white; }
+
+        /* Custom Dropdown Styling */
+        .custom-dropdown-container { position: relative; }
+        .custom-dropdown-list {
             position: absolute;
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
-            border: 1px solid #007bff;
-            max-height: 150px;
+            background: #fff;
+            border: 1px solid #ccc;
+            max-height: 180px;
             overflow-y: auto;
-            z-index: 1000;
+            z-index: 9999;
             display: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
-        .search-item {
-            padding: 8px 12px;
+        .custom-dropdown-item {
+            padding: 10px 12px;
             cursor: pointer;
             border-bottom: 1px solid #eee;
             font-size: 13px;
+            text-align: left;
+            background-color: #fff;
         }
-        .search-item:hover { background: #007bff; color: white; }
+        .custom-dropdown-item:hover { background-color: #007bff; color: white; }
+        .custom-dropdown-item:hover small { color: #f1f1f1 !important; }
+        .low-stock { background-color: #ffcccc !important; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Golden Star Furniture & Interior - Billing System</h2>
-    
-    <!-- NAVIGATION TABS -->
-    <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('billing', event)">Create Invoice</button>
-        <button class="tab-btn" onclick="switchTab('quotations', event)">Quotations / Estimates</button>
-        <button class="tab-btn" onclick="switchTab('inventory', event)">Inventory & Stock</button>
+    <!-- AUTH PANEL -->
+    <div id="authPanel" class="panel active">
+        <h2>Login / Signup to POS</h2>
+        <input type="email" id="authEmail" class="input-field" placeholder="Enter Email">
+        <input type="password" id="authPassword" class="input-field" placeholder="Enter Password">
+        <button class="btn-success" onclick="handleLogin()">Login</button>
+        <button class="btn-success" onclick="handleSignup()" style="background: #17a2b8;">Signup</button>
     </div>
 
-    <!-- 1. BILLING PANEL -->
-    <div id="billingPanel" class="panel">
-        <h3>New Invoice / Quotation Entry</h3>
-        
-        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-            <input type="text" id="custName" class="input-field" placeholder="Customer Name">
-            <input type="text" id="custPhone" class="input-field" placeholder="Customer Phone">
+    <!-- MAIN APP CONTAINER -->
+    <div id="mainAppContainer" style="display:none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <span id="loggedInUserEmail" style="font-weight: bold;"></span>
+            <button class="btn-danger" onclick="handleLogout()">Logout</button>
         </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th width="35%">Item Name (Type to search)</th>
-                    <th>Barcode</th>
-                    <th>HSN</th>
-                    <th>Price (₹)</th>
-                    <th>Qty</th>
-                    <th class="right">Total (₹)</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="invoiceRows"></tbody>
-        </table>
-        
-        <button class="btn" onclick="addItemRow()" style="margin-top: 10px;">+ Add Item Row</button>
-
-        <div style="margin-top: 20px; text-align: right; font-size: 18px;">
-            <strong>Grand Total: ₹<span id="grandTotal">0.00</span></strong>
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('billing', event)">Billing</button>
+            <button class="tab-btn" onclick="switchTab('inventory', event)">Inventory</button>
+            <button class="tab-btn" onclick="switchTab('customers', event)">Customers</button>
+            <button class="tab-btn" onclick="switchTab('companies', event)">Firms</button>
+            <button class="tab-btn" onclick="switchTab('history', event)">History</button>
+            <button class="tab-btn" onclick="switchTab('quotations', event)">Quotations</button>
+            <button class="tab-btn" onclick="switchTab('ledger', event)">Ledger</button>
+            <button class="tab-btn" onclick="switchTab('reports', event)">Reports</button>
         </div>
 
-        <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="btn" onclick="alert('Invoice Saved & Printed!')">Save & Print Invoice</button>
-            <button class="btn-warning" onclick="saveAsQuotation()">Save as Quotation</button>
+        <!-- BILLING PANEL -->
+        <div id="billingPanel" class="panel active">
+            <h3>New Invoice / Quotation</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <select id="activeFirmSelect" class="input-field" onchange="onFirmChange()"></select>
+                <select id="invoiceCustDropdown" class="input-field" onchange="onCustomerSelected()"></select>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="globalBarcodeScan" class="input-field" placeholder="Scan Barcode or Search Item & Hit Enter..." onkeypress="handleGlobalBarcode(event)">
+                <button class="btn-success" onclick="startCameraScanner('global')" style="height: 38px;">Scan Camera</button>
+            </div>
+            
+            <div id="lblCompanyName" style="font-weight:bold; font-size:16px;"></div>
+            <div id="lblCompanyDetails" style="font-size:12px; margin-bottom:10px;"></div>
+
+            <textarea id="manualCustDetails" class="input-field" rows="3" placeholder="Customer details..."></textarea>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 10px; align-items: center; flex-wrap: wrap;">
+                <label><input type="radio" name="priceMode" value="exclusive" checked onchange="calculateTotals()"> Tax Exclusive</label>
+                <label><input type="radio" name="priceMode" value="inclusive" onchange="calculateTotals()"> Tax Inclusive</label>
+                <div>Invoice No: <input type="text" id="invNumber" style="width: 80px;" readonly></div>
+                <div>Date: <input type="date" id="invDate"></div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Item Name (Type to Search)</th>
+                        <th>Barcode</th>
+                        <th>HSN</th>
+                        <th>Qty</th>
+                        <th>Unit</th>
+                        <th>Price</th>
+                        <th>GST%</th>
+                        <th class="right">GST Amt</th>
+                        <th class="right">Total</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="itemRows"></tbody>
+            </table>
+            <button class="btn-success" onclick="addItemRow()" style="margin-top: 10px;">+ Add Item Row</button>
+
+            <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 20px;">
+                <div>
+                    <p>Subtotal: ₹<span id="subTotal">0.00</span></p>
+                    <p>Grand Total: ₹<span id="grandTotal">0.00</span></p>
+                    <p>Amount in Words: <span id="amountInWords" style="font-style: italic;">Zero Rupees Only</span></p>
+                    <p>Received: <input type="number" id="amtReceived" value="0" oninput="calculateTotals()" style="width:100px;"></p>
+                    <p>Balance Due: ₹<span id="balanceAmount" style="font-weight: bold;">0.00</span></p>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-success" onclick="saveAndPrintInvoice()">Save & Print Invoice</button>
+                <button class="btn-warning" onclick="saveQuotation()">Save as Quotation</button>
+                <button class="btn-success" onclick="openThermalReceipt()" style="background: #17a2b8;">Thermal Print</button>
+                <button class="btn-success" onclick="shareOnWhatsApp()" style="background: #25d366;">WhatsApp</button>
+            </div>
+        </div>
+
+        <!-- INVENTORY PANEL -->
+        <div id="inventoryPanel" class="panel">
+            <h3>Manage Inventory</h3>
+            <input type="text" id="prodName" class="input-field" placeholder="Product Name">
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="prodBarcode" class="input-field" placeholder="Barcode">
+                <button class="btn-success" onclick="startCameraScannerForInventory()" style="height:38px;">Scan</button>
+            </div>
+            <input type="text" id="prodHsn" class="input-field" placeholder="HSN Code">
+            <input type="number" id="prodPrice" class="input-field" placeholder="Price">
+            <select id="prodGst" class="input-field">
+                <option value="18">18%</option>
+                <option value="12">12%</option>
+                <option value="28">28%</option>
+                <option value="5">5%</option>
+                <option value="0">0%</option>
+            </select>
+            <input type="number" id="prodStock" class="input-field" placeholder="Initial Stock">
+            <button class="btn-success" onclick="saveProduct()">Save Product</button>
+
+            <table>
+                <thead>
+                    <tr><th>Name</th><th>Barcode</th><th>HSN</th><th>Price</th><th>GST</th><th>Stock</th><th>Action</th></tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- CUSTOMERS PANEL -->
+        <div id="customersPanel" class="panel">
+            <h3>Manage Customers</h3>
+            <input type="text" id="newCustName" class="input-field" placeholder="Customer Name">
+            <input type="text" id="newCustPhone" class="input-field" placeholder="Phone Number">
+            <input type="text" id="newCustGstin" class="input-field" placeholder="GSTIN (Optional)">
+            <textarea id="newCustAddress" class="input-field" placeholder="Address"></textarea>
+            <button class="btn-success" onclick="saveCustomer()">Save Customer</button>
+            <table>
+                <thead><tr><th>Name</th><th>Phone</th><th>GSTIN / Address</th><th>Balance</th><th>Action</th></tr></thead>
+                <tbody id="customerTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- COMPANIES PANEL -->
+        <div id="companiesPanel" class="panel">
+            <h3>Manage Business Firms</h3>
+            <input type="text" id="busName" class="input-field" placeholder="Firm Name">
+            <input type="text" id="busPrefix" class="input-field" placeholder="Invoice Prefix (e.g., MB)">
+            <input type="text" id="busPhone" class="input-field" placeholder="Phone">
+            <input type="text" id="busGstin" class="input-field" placeholder="GSTIN">
+            <textarea id="busAddress" class="input-field" placeholder="Address"></textarea>
+            <button class="btn-success" onclick="saveBusinessProfile()">Save Firm</button>
+            <table>
+                <thead><tr><th>Firm Name</th><th>GSTIN</th><th>Action</th></tr></thead>
+                <tbody id="companyTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- HISTORY PANEL -->
+        <div id="historyPanel" class="panel">
+            <h3>Invoice History</h3>
+            <table>
+                <thead><tr><th>Firm</th><th>Inv #</th><th>Date</th><th>Customer</th><th>Status</th><th>Total</th><th>Action</th></tr></thead>
+                <tbody id="historyTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- QUOTATIONS PANEL -->
+        <div id="quotationsPanel" class="panel">
+            <h3>Quotations / Estimates List</h3>
+            <table>
+                <thead><tr><th>Firm</th><th>Quotation #</th><th>Date</th><th>Customer</th><th>Total</th><th>Action</th></tr></thead>
+                <tbody id="quotationTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- LEDGER PANEL -->
+        <div id="ledgerPanel" class="panel">
+            <h3>Customer Dues / Ledger</h3>
+            <table>
+                <thead><tr><th>Customer Details</th><th>Inv #</th><th>Pending Balance</th><th>Action</th></tr></thead>
+                <tbody id="ledgerTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- REPORTS PANEL -->
+        <div id="reportsPanel" class="panel">
+            <h3>Reports & Daybook</h3>
+            <div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+                <div><strong>Total Sales:</strong> <span id="repTotalSales">₹0.00</span></div>
+                <div><strong>Received:</strong> <span id="repTotalReceived">₹0.00</span></div>
+                <div><strong>Pending:</strong> <span id="repTotalPending">₹0.00</span></div>
+            </div>
+            <h4>Day Book</h4>
+            <table>
+                <thead><tr><th>Date</th><th>Inv #</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+                <tbody id="dayBookTableBody"></tbody>
+            </table>
+            <h4 style="margin-top: 20px;">GSTR-1 Summary</h4>
+            <table>
+                <thead><tr><th>HSN</th><th>Taxable Value</th><th>CGST</th><th>SGST</th><th>Total Tax</th></tr></thead>
+                <tbody id="gstr1TableBody"></tbody>
+            </table>
         </div>
     </div>
+</div>
 
-    <!-- 2. QUOTATIONS PANEL -->
-    <div id="quotationsPanel" class="panel" style="display: none;">
-        <h3>Saved Quotations List</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Quote ID</th>
-                    <th>Customer Name</th>
-                    <th>Total Amount</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="quoteTableBody">
-                <tr><td colspan="4" style="text-align: center;">No quotations saved yet.</td></tr>
-            </tbody>
-        </table>
-    </div>
+<!-- SCANNER MODAL -->
+<div id="scannerModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; justify-content:center; align-items:center; flex-direction:column;">
+    <div id="interactive" class="viewport" style="width: 300px; height: 200px; background: #000;"></div>
+    <button class="btn-danger" onclick="stopCameraScanner()" style="margin-top:15px;">Close Scanner</button>
+</div>
 
-    <!-- 3. INVENTORY PANEL -->
-    <div id="inventoryPanel" class="panel" style="display: none;">
-        <h3>Inventory Management</h3>
-        <div style="display: flex; gap: 10px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px;">
-            <input type="text" id="newProdName" class="input-field" placeholder="Product Name" style="margin:0;">
-            <input type="text" id="newProdBarcode" class="input-field" placeholder="Barcode" style="margin:0;">
-            <input type="text" id="newProdHsn" class="input-field" placeholder="HSN" style="margin:0;">
-            <input type="number" id="newProdPrice" class="input-field" placeholder="Price (₹)" style="margin:0;">
-            <button class="btn" onclick="addNewProduct()" style="white-space: nowrap;">Add Product</button>
+<!-- THERMAL RECEIPT MODAL -->
+<div id="thermalReceiptModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; justify-content:center; align-items:center;">
+    <div style="background:#fff; padding:20px; border-radius:6px; width:300px;">
+        <div id="thermalContent" style="white-space: pre-line; font-family: monospace; font-size: 11px;"></div>
+        <div style="margin-top: 15px; display: flex; gap: 5px;">
+            <button class="btn-success" onclick="window.print()" style="flex:1; font-size:11px;">Print Slip</button>
+            <button class="btn-danger" onclick="document.getElementById('thermalReceiptModal').style.display='none'" style="flex:1; font-size:11px;">Close</button>
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Item Name</th>
-                    <th>Barcode</th>
-                    <th>HSN</th>
-                    <th>Price (₹)</th>
-                </tr>
-            </thead>
-            <tbody id="inventoryTableBody"></tbody>
-        </table>
     </div>
 </div>
 
 <script>
-    // Initial Inventory Data
-    let inventory = [
-        { name: "Wooden Center Table", barcode: "101", hsn: "9403", price: 4500 },
-        { name: "Mango Wood Chair", barcode: "102", hsn: "9401", price: 1800 },
-        { name: "Antique Bookshelf", barcode: "103", hsn: "9403", price: 6200 },
-        { name: "Wicker Storage Basket", barcode: "104", hsn: "4602", price: 950 },
-        { name: "Wooden Chess Game Set", barcode: "105", hsn: "9504", price: 1200 }
-    ];
-
-    let quotations = [];
-
-    // Switch Tabs Logic
-    function switchTab(tabID, evt) {
-        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        
-        document.getElementById(tabID + 'Panel').style.display = 'block';
-        if(evt) evt.currentTarget.classList.add('active');
-
-        if(tabID === 'quotations') renderQuotations();
-        if(tabID === 'inventory') renderInventory();
-    }
-
-    // Add Item Row to Billing
-    function addItemRow() {
-        let tbody = document.getElementById('invoiceRows');
-        let tr = document.createElement('tr');
-        
-        tr.innerHTML = `
-            <td class="search-box-container">
-                <input type="text" class="input-field itemName" placeholder="Type item name..." autocomplete="off" oninput="searchItems(this)" style="margin:0;">
-                <div class="search-results"></div>
-            </td>
-            <td><input type="text" class="input-field itemBarcode" placeholder="Barcode" style="margin:0;"></td>
-            <td><input type="text" class="input-field itemHsn" placeholder="HSN" style="margin:0;"></td>
-            <td><input type="number" class="input-field itemPrice" value="0" oninput="calculateTotal()" style="margin:0;"></td>
-            <td><input type="number" class="input-field itemQty" value="1" min="1" oninput="calculateTotal()" style="margin:0;"></td>
-            <td class="right itemTotal">0.00</td>
-            <td><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotal();">X</button></td>
-        `;
-        tbody.appendChild(tr);
-        calculateTotal();
-    }
-
-    // Search Inventory for Dropdown
-    function searchItems(input) {
-        let query = input.value.toLowerCase().trim();
-        let resultsDiv = input.nextElementSibling;
-        resultsDiv.innerHTML = '';
-
-        if(query === '') {
-            resultsDiv.style.display = 'none';
-            return;
-        }
-
-        let filtered = inventory.filter(i => i.name.toLowerCase().includes(query) || (i.barcode && i.barcode.includes(query)));
-        if(filtered.length === 0) {
-            resultsDiv.style.display = 'none';
-            return;
-        }
-
-        filtered.forEach(item => {
-            let div = document.createElement('div');
-            div.className = 'search-item';
-            div.innerHTML = `<strong>${item.name}</strong> - ₹${item.price}`;
-            
-            div.onclick = function() {
-                input.value = item.name;
-                let tr = input.closest('tr');
-                tr.querySelector('.itemBarcode').value = item.barcode || '';
-                tr.querySelector('.itemHsn').value = item.hsn || '';
-                tr.querySelector('.itemPrice').value = item.price || 0;
-                resultsDiv.style.display = 'none';
-                calculateTotal();
-            };
-            resultsDiv.appendChild(div);
-        });
-        resultsDiv.style.display = 'block';
-    }
-
-    // Close Dropdown on Outside Click
-    window.onclick = function(e) {
-        if(!e.target.closest('.search-box-container')) {
-            document.querySelectorAll('.search-results').forEach(el => el.style.display = 'none');
-        }
+    const firebaseConfig = {
+        apiKey: "AIzaSyDlHR_MyuEIu9mIs-4_Mmk8NRUsLGQslw0",
+        authDomain: "my-pos-app-54ef4.firebaseapp.com",
+        projectId: "my-pos-app-54ef4",
+        storageBucket: "my-pos-app-54ef4.firebasestorage.app",
+        messagingSenderId: "974088050332",
+        appId: "1:974088050332:web:69dfd694fb6024cf197f59",
+        measurementId: "G-9GENNN74FE"
     };
 
-    // Calculate Row and Grand Total
-    function calculateTotal() {
-        let rows = document.querySelectorAll('#invoiceRows tr');
+    if(!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUserUid = null;
+    let companies = [];
+    let customers = [];
+    let inventory = [];
+    let invoices = [];
+    let quotations = [];
+
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            currentUserUid = user.uid;
+            document.getElementById('loggedInUserEmail').innerText = `Logged in: ${user.email}`;
+            document.getElementById('authPanel').style.display = 'none';
+            document.getElementById('mainAppContainer').style.display = 'block';
+            fetchUserDataFromCloud();
+        } else {
+            currentUserUid = null;
+            document.getElementById('authPanel').style.display = 'block';
+            document.getElementById('mainAppContainer').style.display = 'none';
+        }
+    });
+
+    function handleSignup() {
+        let email = document.getElementById('authEmail').value.trim();
+        let pass = document.getElementById('authPassword').value.trim();
+        if(!email || !pass) { alert("Please enter email and password"); return; }
+        
+        auth.createUserWithEmailAndPassword(email, pass).then(() => {
+            companies = [{ name: "My Business", prefix: "MB", address: "Main Bazaar", phone: "9876543210", gstin: "Unregistered" }];
+            customers = [{ name: "Cash Customer", address: "Local", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" }];
+            inventory = [{ name: "Sample Item", barcode: "1001", hsn: "9403", price: 1000, gst: 18, stock: 10 }];
+            invoices = [];
+            quotations = [];
+            syncToCloud();
+            alert("Account created & logged in successfully!");
+        }).catch((err) => { alert("Signup Error: " + err.message); });
+    }
+
+    function handleLogin() {
+        let email = document.getElementById('authEmail').value.trim();
+        let pass = document.getElementById('authPassword').value.trim();
+        if(!email || !pass) { alert("Please enter email and password"); return; }
+        auth.signInWithEmailAndPassword(email, pass).catch((err) => { alert("Login Failed: " + err.message); });
+    }
+
+    function handleLogout() {
+        auth.signOut().then(() => { window.location.reload(); });
+    }
+
+    async function fetchUserDataFromCloud() {
+        if(!currentUserUid) return;
+        try {
+            let docRef = db.collection('users').doc(currentUserUid).collection('store_data').doc('config');
+            let snap = await docRef.get();
+            if(snap.exists) {
+                let data = snap.data();
+                companies = data.companies || [];
+                customers = data.customers || [];
+                inventory = data.inventory || [];
+                invoices = data.invoices || [];
+                quotations = data.quotations || [];
+            } else {
+                companies = [{ name: "My Business", prefix: "MB", address: "Main Bazaar", phone: "9876543210", gstin: "Unregistered" }];
+                customers = [{ name: "Cash Customer", address: "Local", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" }];
+                inventory = [{ name: "Sample Item", barcode: "1001", hsn: "9403", price: 1000, gst: 18, stock: 10 }];
+                invoices = [];
+                quotations = [];
+                syncToCloud();
+            }
+            document.getElementById('invDate').valueAsDate = new Date();
+            populateFirmDropdowns();
+            populateCustomerDropdown();
+            onFirmChange();
+            renderCompanyTable();
+            renderCustomerTable();
+            renderInventoryTable();
+            addItemRow();
+            setNextInvoiceNumber();
+            updateReports();
+        } catch(e) { console.log("Error fetching user data:", e); }
+    }
+
+    function syncToCloud() {
+        if(!currentUserUid) return;
+        db.collection('users').doc(currentUserUid).collection('store_data').doc('config').set({
+            companies, customers, inventory, invoices, quotations
+        }).catch(e => console.log("Sync error:", e));
+    }
+
+    window.addEventListener('click', function(e) {
+        if (!e.target.closest('.custom-dropdown-container')) {
+            document.querySelectorAll('.custom-dropdown-list').forEach(el => el.style.display = 'none');
+        }
+    });
+
+    function switchTab(tabID, evt) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabID + 'Panel').classList.add('active');
+        if(evt) evt.currentTarget.classList.add('active');
+        if(tabID === 'reports') updateReports();
+        if(tabID === 'history') renderHistoryTable();
+        if(tabID === 'quotations') renderQuotationTable();
+        if(tabID === 'ledger') renderLedgerTable();
+    }
+
+    let activeScannerTarget = 'global';
+    let lastScannedCode = '';
+    let lastScanTime = 0;
+
+    function startCameraScanner(target = 'global') {
+        activeScannerTarget = target;
+        document.getElementById('scannerModal').style.display = 'flex';
+        Quagga.init({
+            inputStream: { name: "Live", type: "LiveStream", target: document.querySelector('#interactive'), constraints: { facingMode: "environment" } },
+            decoder: { readers: ["ean_reader", "ean_8_reader", "code_128_reader", "upc_reader", "upc_e_reader"] }
+        }, function(err) {
+            if (err) { alert("Camera start nahi ho saka!"); stopCameraScanner(); return; }
+            Quagga.start();
+        });
+        Quagga.onDetected(onBarcodeScannedFromCamera);
+    }
+
+    function startCameraScannerForInventory() { startCameraScanner('inventory'); }
+    function stopCameraScanner() { try { Quagga.stop(); } catch(e) {} document.getElementById('scannerModal').style.display = 'none'; }
+
+    function onBarcodeScannedFromCamera(result) {
+        let code = result.codeResult.code;
+        let currentTime = new Date().getTime();
+        if (code === lastScannedCode && (currentTime - lastScanTime < 2000)) return;
+        lastScannedCode = code;
+        lastScanTime = currentTime;
+        stopCameraScanner();
+        if(activeScannerTarget === 'global') {
+            document.getElementById('globalBarcodeScan').value = code;
+            handleGlobalBarcode({ key: 'Enter', preventDefault: () => {} });
+        } else if(activeScannerTarget === 'inventory') {
+            document.getElementById('prodBarcode').value = code;
+        }
+    }
+
+    function setNextInvoiceNumber() {
+        if(invoices.length > 0) {
+            let lastInv = invoices[invoices.length - 1];
+            let nextNum = (parseInt(lastInv.invNumber) || invoices.length) + 1;
+            document.getElementById('invNumber').value = nextNum;
+        } else {
+            document.getElementById('invNumber').value = 1;
+        }
+    }
+
+    function populateFirmDropdowns() {
+        let sel = document.getElementById('activeFirmSelect');
+        sel.innerHTML = '';
+        companies.forEach((c, idx) => {
+            let opt = document.createElement('option');
+            opt.value = idx; opt.innerText = c.name;
+            sel.appendChild(opt);
+        });
+    }
+
+    function populateCustomerDropdown() {
+        let sel = document.getElementById('invoiceCustDropdown');
+        sel.innerHTML = '<option value="">-- Select Customer --</option>';
+        customers.forEach((cust, idx) => {
+            let opt = document.createElement('option');
+            opt.value = idx; opt.innerText = cust.name;
+            sel.appendChild(opt);
+        });
+    }
+
+    function onFirmChange() {
+        let idx = document.getElementById('activeFirmSelect').value;
+        if(companies[idx]) {
+            let firm = companies[idx];
+            document.getElementById('lblCompanyName').innerText = firm.name;
+            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone}<br>GSTIN: ${firm.gstin}`;
+        }
+    }
+
+    function onCustomerSelected() {
+        let idx = document.getElementById('invoiceCustDropdown').value;
+        if(idx !== "") {
+            let cust = customers[idx];
+            let text = `${cust.name}\n${cust.address}\nPhone: ${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin || 'Unregistered'}\nState: ${cust.state || '01-Jammu & Kashmir'}`;
+            document.getElementById('manualCustDetails').value = text;
+        }
+    }
+
+    function handleGlobalBarcode(e) {
+        if(e.key === 'Enter') {
+            e.preventDefault();
+            let code = document.getElementById('globalBarcodeScan').value.trim();
+            if(!code) return;
+            let prod = inventory.find(p => p.barcode === code || p.name.toLowerCase().includes(code.toLowerCase()));
+            if(prod) {
+                addItemRowWithProduct(prod);
+                document.getElementById('globalBarcodeScan').value = '';
+            } else {
+                alert("Product not found with barcode / search term!");
+            }
+        }
+    }
+
+    function addItemRowWithProduct(prod) {
+        let tbody = document.getElementById('itemRows');
+        let rowCount = tbody.rows.length + 1;
+        let tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${rowCount}</td>
+            <td class="left">
+                <div class="custom-dropdown-container">
+                    <input type="text" class="input-field row-name" value="${prod.name || ''}" placeholder="Type item name..." autocomplete="off" style="margin-bottom:0;">
+                    <div class="custom-dropdown-list"></div>
+                </div>
+            </td>
+            <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
+            <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-qty" value="1" min="1" oninput="calculateTotals()" style="margin-bottom:0;"></td>
+            <td><input type="text" class="input-field row-unit" value="Nos" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-price" value="${prod.price || 0}" step="0.01" oninput="calculateTotals()" style="margin-bottom:0;"></td>
+            <td>
+                <select class="input-field row-gst" onchange="calculateTotals()" style="margin-bottom:0;">
+                    <option value="18" ${prod.gst==18?'selected':''}>18%</option>
+                    <option value="12" ${prod.gst==12?'selected':''}>12%</option>
+                    <option value="28" ${prod.gst==28?'selected':''}>28%</option>
+                    <option value="5" ${prod.gst==5?'selected':''}>5%</option>
+                    <option value="0" ${prod.gst==0?'selected':''}>0%</option>
+                </select>
+            </td>
+            <td class="row-gst-amt right">0.00</td>
+            <td class="row-total right">0.00</td>
+            <td class="no-print"><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotals();">X</button></td>
+        `;
+        tbody.appendChild(tr);
+        
+        let nameInput = tr.querySelector('.row-name');
+        nameInput.addEventListener('input', function() { filterCustomDropdown(this); });
+        nameInput.addEventListener('focus', function() { filterCustomDropdown(this); });
+
+        calculateTotals();
+    }
+
+    function filterCustomDropdown(inputElem) {
+        let query = inputElem.value.toLowerCase().trim();
+        let dropdown = inputElem.nextElementSibling;
+        dropdown.innerHTML = '';
+
+        let filtered = inventory.filter(p => p.name.toLowerCase().includes(query) || (p.barcode && p.barcode.includes(query)));
+        if(filtered.length === 0) {
+            dropdown.style.display = 'none';
+            return;
+        }
+
+        filtered.forEach(prod => {
+            let itemDiv = document.createElement('div');
+            itemDiv.className = 'custom-dropdown-item';
+            itemDiv.innerHTML = `<strong>${prod.name}</strong> <br><small style="color:#555;">Stock: ${prod.stock} | Price: ₹${prod.price}</small>`;
+            
+            itemDiv.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                inputElem.value = prod.name;
+                let tr = inputElem.closest('tr');
+                tr.querySelector('.row-barcode').value = prod.barcode || '';
+                tr.querySelector('.row-hsn').value = prod.hsn || '';
+                tr.querySelector('.row-price').value = prod.price || 0;
+                let gstSelect = tr.querySelector('.row-gst');
+                if(gstSelect) gstSelect.value = prod.gst || 18;
+                dropdown.style.display = 'none';
+                calculateTotals();
+            });
+            dropdown.appendChild(itemDiv);
+        });
+        dropdown.style.display = 'block';
+    }
+
+    function addItemRow() {
+        addItemRowWithProduct({ name: '', barcode: '', hsn: '', price: 0, gst: 18 });
+    }
+
+    function calculateTotals() {
+        let priceMode = document.querySelector('input[name="priceMode"]:checked').value;
+        let rows = document.querySelectorAll('#itemRows tr');
+        let subTotal = 0;
         let grandTotal = 0;
 
         rows.forEach(tr => {
-            let price = parseFloat(tr.querySelector('.itemPrice').value) || 0;
-            let qty = parseFloat(tr.querySelector('.itemQty').value) || 0;
-            let total = price * qty;
-            tr.querySelector('.itemTotal').innerText = total.toFixed(2);
-            grandTotal += total;
+            let qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
+            let enteredPrice = parseFloat(tr.querySelector('.row-price').value) || 0;
+            let gstRate = parseFloat(tr.querySelector('.row-gst').value) || 0;
+
+            let taxable = 0, gstAmt = 0, totalLine = 0;
+            if(priceMode === 'inclusive') {
+                totalLine = enteredPrice * qty;
+                taxable = totalLine / (1 + (gstRate / 100));
+                gstAmt = totalLine - taxable;
+            } else {
+                taxable = enteredPrice * qty;
+                gstAmt = taxable * (gstRate / 100);
+                totalLine = taxable + gstAmt;
+            }
+
+            subTotal += taxable;
+            grandTotal += totalLine;
+
+            tr.querySelector('.row-gst-amt').innerText = gstAmt.toFixed(2);
+            tr.querySelector('.row-total').innerText = totalLine.toFixed(2);
         });
 
+        document.getElementById('subTotal').innerText = subTotal.toFixed(2);
         document.getElementById('grandTotal').innerText = grandTotal.toFixed(2);
+        document.getElementById('amountInWords').innerText = convertNumberToWords(Math.round(grandTotal));
+
+        let received = parseFloat(document.getElementById('amtReceived').value) || 0;
+        let balance = grandTotal - received;
+        let balElem = document.getElementById('balanceAmount');
+        balElem.innerText = balance.toFixed(2);
+        balElem.style.color = balance > 0 ? '#b30000' : 'green';
     }
 
-    // Save Current Bill as Quotation
-    function saveAsQuotation() {
-        let custName = document.getElementById('custName').value.trim() || "Cash Customer";
-        let grandTotal = document.getElementById('grandTotal').innerText;
-        let rows = document.querySelectorAll('#invoiceRows tr');
+    function convertNumberToWords(amount) {
+        if(amount === 0) return "Zero Rupees Only";
+        let words = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+        let tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
 
-        if(rows.length === 0) {
-            alert("Please add at least one item!");
-            return;
+        function getWord(n) {
+            if(n < 20) return words[n];
+            return tens[Math.floor(n/10)] + (n%10 ? ' ' + words[n%10] : '');
         }
 
+        let num = Math.floor(amount);
+        let str = '';
+        if(num >= 10000000) { str += getWord(Math.floor(num / 10000000)) + ' Crore '; num %= 10000000; }
+        if(num >= 100000) { str += getWord(Math.floor(num / 100000)) + ' Lakh '; num %= 100000; }
+        if(num >= 1000) { str += getWord(Math.floor(num / 1000)) + ' Thousand '; num %= 1000; }
+        if(num >= 100) { str += getWord(Math.floor(num / 100)) + ' Hundred '; num %= 100; }
+        if(num > 0) { str += getWord(num) + ' '; }
+        return str.trim() + ' Rupees Only';
+    }
+
+    function saveAndPrintInvoice() {
+        let invNo = document.getElementById('invNumber').value;
+        let firmIdx = document.getElementById('activeFirmSelect').value;
+        let firmName = companies[firmIdx] ? companies[firmIdx].name : "Firm";
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let custName = custDetails.split('\n')[0] || "Cash Customer";
+        let grandTotal = parseFloat(document.getElementById('grandTotal').innerText) || 0;
+        let received = parseFloat(document.getElementById('amtReceived').value) || 0;
+        let balance = parseFloat(document.getElementById('balanceAmount').innerText) || 0;
+        let date = document.getElementById('invDate').value;
+
         let items = [];
-        rows.forEach(tr => {
+        document.querySelectorAll('#itemRows tr').forEach(tr => {
             items.push({
-                name: tr.querySelector('.itemName').value,
-                barcode: tr.querySelector('.itemBarcode').value,
-                hsn: tr.querySelector('.itemHsn').value,
-                price: tr.querySelector('.itemPrice').value,
-                qty: tr.querySelector('.itemQty').value,
-                total: tr.querySelector('.itemTotal').innerText
+                name: tr.querySelector('.row-name').value,
+                qty: tr.querySelector('.row-qty').value,
+                price: tr.querySelector('.row-price').value,
+                total: tr.querySelector('.row-total').innerText
             });
         });
 
-        let quoteId = 'QT-' + Math.floor(1000 + Math.random() * 9000);
-        quotations.push({ id: quoteId, customer: custName, total: grandTotal, items: items });
-        
-        alert("Quotation saved successfully! View it in the 'Quotations / Estimates' tab.");
-        
-        // Reset Form
-        document.getElementById('invoiceRows').innerHTML = '';
-        document.getElementById('custName').value = '';
-        document.getElementById('custPhone').value = '';
-        calculateTotal();
-        addItemRow();
+        invoices.push({ firm: firmName, invNumber: invNo, date, customer: custName, custDetails, grandTotal, received, balance, items, status: balance <= 0 ? 'Paid' : 'Pending' });
+        syncToCloud();
+        window.print();
+        resetInvoiceForm();
     }
 
-    // Render Saved Quotations
-    function renderQuotations() {
-        let tbody = document.getElementById('quoteTableBody');
-        tbody.innerHTML = '';
+    function saveQuotation() {
+        let qNum = 'QT-' + Math.floor(1000 + Math.random() * 9000);
+        let firmIdx = document.getElementById('activeFirmSelect').value;
+        let firmName = companies[firmIdx] ? companies[firmIdx].name : "Firm";
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let custName = custDetails.split('\n')[0] || "Cash Customer";
+        let grandTotal = parseFloat(document.getElementById('grandTotal').innerText) || 0;
+        let date = document.getElementById('invDate').value;
 
+        let items = [];
+        document.querySelectorAll('#itemRows tr').forEach(tr => {
+            items.push({
+                name: tr.querySelector('.row-name').value,
+                barcode: tr.querySelector('.row-barcode').value,
+                hsn: tr.querySelector('.row-hsn').value,
+                qty: tr.querySelector('.row-qty').value,
+                unit: tr.querySelector('.row-unit').value,
+                price: tr.querySelector('.row-price').value,
+                gst: tr.querySelector('.row-gst').value,
+                total: tr.querySelector('.row-total').innerText
+            });
+        });
+
+        quotations.push({ id: qNum, firm: firmName, date, customer: custName, custDetails, grandTotal, items });
+        syncToCloud();
+        alert("Quotation saved successfully! View it in the 'Quotations' tab.");
+        resetInvoiceForm();
+    }
+
+    function renderQuotationTable() {
+        let tbody = document.getElementById('quotationTableBody');
+        tbody.innerHTML = '';
         if(quotations.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center;">No quotations saved yet.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No quotations saved yet.</td></tr>`;
             return;
         }
-
-        quotations.forEach((q, index) => {
+        quotations.forEach((q, idx) => {
             tbody.innerHTML += `
                 <tr>
-                    <td><strong>${q.id}</strong></td>
+                    <td>${q.firm}</td>
+                    <td>${q.id}</td>
+                    <td>${q.date}</td>
                     <td>${q.customer}</td>
-                    <td>₹${q.total}</td>
+                    <td>₹${q.grandTotal.toFixed(2)}</td>
                     <td>
-                        <button class="tab-btn" onclick="loadQuote(${index})" style="padding: 4px 8px; font-size: 12px; background:#007bff; color:white;">Load to Bill</button>
-                        <button class="btn-danger" onclick="deleteQuote(${index})" style="padding: 4px 8px; font-size: 12px;">Delete</button>
+                        <button class="btn-success" onclick="convertQuotationToInvoice(${idx})" style="padding:4px 8px; font-size:11px;">Convert to Invoice</button>
+                        <button class="btn-danger" onclick="deleteQuotation(${idx})" style="padding:4px 8px; font-size:11px;">Delete</button>
                     </td>
-                </tr>
-            `;
+                </tr>`;
         });
     }
 
-    // Load Saved Quotation Back to Billing Screen
-    function loadQuote(index) {
-        let q = quotations[index];
-        document.getElementById('custName').value = q.customer;
+    function convertQuotationToInvoice(idx) {
+        let q = quotations[idx];
+        document.getElementById('manualCustDetails').value = q.custDetails;
         
-        let tbody = document.getElementById('invoiceRows');
+        let tbody = document.getElementById('itemRows');
         tbody.innerHTML = '';
-
+        
         q.items.forEach(item => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="search-box-container">
-                    <input type="text" class="input-field itemName" value="${item.name}" autocomplete="off" oninput="searchItems(this)" style="margin:0;">
-                    <div class="search-results"></div>
-                </td>
-                <td><input type="text" class="input-field itemBarcode" value="${item.barcode}" style="margin:0;"></td>
-                <td><input type="text" class="input-field itemHsn" value="${item.hsn}" style="margin:0;"></td>
-                <td><input type="number" class="input-field itemPrice" value="${item.price}" oninput="calculateTotal()" style="margin:0;"></td>
-                <td><input type="number" class="input-field itemQty" value="${item.qty}" min="1" oninput="calculateTotal()" style="margin:0;"></td>
-                <td class="right itemTotal">${item.total}</td>
-                <td><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotal();">X</button></td>
-            `;
-            tbody.appendChild(tr);
+            addItemRowWithProduct({ name: item.name, barcode: item.barcode, hsn: item.hsn, price: item.price, gst: item.gst });
+            let lastRow = tbody.lastElementChild;
+            if(lastRow) {
+                lastRow.querySelector('.row-qty').value = item.qty;
+            }
         });
-
-        calculateTotal();
-        switchTab('billing', { currentTarget: document.querySelector('.tab-btn') });
-        alert(`Quotation ${q.id} loaded successfully!`);
+        
+        calculateTotals();
+        switchTab('billing', null);
+        quotations.splice(idx, 1);
+        syncToCloud();
+        alert("Quotation loaded into Billing screen! You can now save it as an Invoice.");
     }
 
-    // Delete Quotation
-    function deleteQuote(index) {
-        quotations.splice(index, 1);
-        renderQuotations();
+    function deleteQuotation(idx) {
+        quotations.splice(idx, 1);
+        syncToCloud();
+        renderQuotationTable();
     }
 
-    // Render Inventory List
-    function renderInventory() {
+    function resetInvoiceForm() {
+        document.getElementById('itemRows').innerHTML = '';
+        addItemRow();
+        document.getElementById('amtReceived').value = 0;
+        calculateTotals();
+        setNextInvoiceNumber();
+    }
+
+    function openThermalReceipt() {
+        let firmIdx = document.getElementById('activeFirmSelect').value;
+        let firm = companies[firmIdx] || {};
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let grandTotal = document.getElementById('grandTotal').innerText;
+        let invNo = document.getElementById('invNumber').value;
+        let date = document.getElementById('invDate').value;
+
+        let receiptText = `================================\n      ${firm.name || 'POS RECEIPT'}\n  ${firm.address || ''}\n  Ph: ${firm.phone || ''} | GSTIN: ${firm.gstin || ''}\n================================\nInv No: ${invNo} | Date: ${date}\n--------------------------------\nBill To:\n${custDetails}\n--------------------------------\nItem          Qty   Price   Total\n--------------------------------\n`;
+        document.querySelectorAll('#itemRows tr').forEach(tr => {
+            let name = (tr.querySelector('.row-name').value || '').substring(0, 14).padEnd(14, ' ');
+            let qty = (tr.querySelector('.row-qty').value || '').padStart(4, ' ');
+            let price = (tr.querySelector('.row-price').value || '').padStart(7, ' ');
+            let tot = (tr.querySelector('.row-total').innerText || '').padStart(7, ' ');
+            receiptText += `${name} ${qty} ${price} ${tot}\n`;
+        });
+        receiptText += `--------------------------------\nGRAND TOTAL: Rs. ${grandTotal}\n================================\n       Thank You For Visit!      \n================================\n`;
+        document.getElementById('thermalContent').innerText = receiptText;
+        document.getElementById('thermalReceiptModal').style.display = 'flex';
+    }
+
+    function shareOnWhatsApp() {
+        let custDetails = document.getElementById('manualCustDetails').value;
+        let grandTotal = document.getElementById('grandTotal').innerText;
+        let invNo = document.getElementById('invNumber').value;
+        let msg = encodeURIComponent(`Hello, here is your Tax Invoice #${invNo} amounting to Rs. ${grandTotal}.\n\nCustomer Details:\n${custDetails}\n\nThank you for doing business with us!`);
+        window.open(`https://wa.me/?text=${msg}`, '_blank');
+    }
+
+    function renderCompanyTable() {
+        let tbody = document.getElementById('companyTableBody');
+        tbody.innerHTML = '';
+        companies.forEach((c, idx) => {
+            tbody.innerHTML += `<tr><td>${c.name}</td><td>${c.gstin}</td><td><button class="btn-danger" onclick="deleteCompany(${idx})">Delete</button></td></tr>`;
+        });
+    }
+
+    function saveBusinessProfile() {
+        let name = document.getElementById('busName').value.trim();
+        if(!name) { alert("Enter Firm Name"); return; }
+        companies.push({ name, prefix: document.getElementById('busPrefix').value.trim(), address: document.getElementById('busAddress').value.trim(), phone: document.getElementById('busPhone').value.trim(), gstin: document.getElementById('busGstin').value.trim() });
+        syncToCloud(); renderCompanyTable(); populateFirmDropdowns(); alert("Firm saved successfully!");
+    }
+
+    function deleteCompany(idx) { companies.splice(idx, 1); syncToCloud(); renderCompanyTable(); populateFirmDropdowns(); }
+
+    function renderCustomerTable() {
+        let tbody = document.getElementById('customerTableBody');
+        tbody.innerHTML = '';
+        customers.forEach((cust, idx) => {
+            tbody.innerHTML += `<tr><td>${cust.name}</td><td>${cust.phone}</td><td>${cust.gstin}<br>${cust.address}</td><td>0.00</td><td><button class="btn-danger" onclick="deleteCustomer(${idx})">Delete</button></td></tr>`;
+        });
+    }
+
+    function saveCustomer() {
+        let name = document.getElementById('newCustName').value.trim();
+        if(!name) { alert("Enter Customer Name"); return; }
+        customers.push({ name, address: document.getElementById('newCustAddress').value.trim(), phone: document.getElementById('newCustPhone').value.trim(), gstin: document.getElementById('newCustGstin').value.trim(), state: "01-Jammu & Kashmir" });
+        syncToCloud(); renderCustomerTable(); populateCustomerDropdown(); alert("Customer saved successfully!");
+    }
+
+    function deleteCustomer(idx) { customers.splice(idx, 1); syncToCloud(); renderCustomerTable(); populateCustomerDropdown(); }
+
+    function renderInventoryTable() {
         let tbody = document.getElementById('inventoryTableBody');
         tbody.innerHTML = '';
-        inventory.forEach(item => {
-            tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.barcode}</td><td>${item.hsn}</td><td>₹${item.price}</td></tr>`;
+        inventory.rows = inventory.length;
+        inventory.forEach((prod, idx) => {
+            let trClass = prod.stock <= 2 ? 'low-stock' : '';
+            tbody.innerHTML += `<tr class="${trClass}"><td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td></tr>`;
         });
     }
 
-    // Add New Product to Inventory
-    function addNewProduct() {
-        let name = document.getElementById('newProdName').value.trim();
-        let barcode = document.getElementById('newProdBarcode').value.trim();
-        let hsn = document.getElementById('newProdHsn').value.trim();
-        let price = parseFloat(document.getElementById('newProdPrice').value) || 0;
-
-        if(!name) {
-            alert("Please enter product name!");
-            return;
-        }
-
-        inventory.push({ name, barcode, hsn, price });
-        document.getElementById('newProdName').value = '';
-        document.getElementById('newProdBarcode').value = '';
-        document.getElementById('newProdHsn').value = '';
-        document.getElementById('newProdPrice').value = '';
-        
-        renderInventory();
-        alert("Product added to inventory successfully!");
+    function saveProduct() {
+        let name = document.getElementById('prodName').value.trim();
+        if(!name) { alert("Enter Product Name"); return; }
+        inventory.push({ name, barcode: document.getElementById('prodBarcode').value.trim(), hsn: document.getElementById('prodHsn').value.trim(), price: parseFloat(document.getElementById('prodPrice').value) || 0, gst: parseFloat(document.getElementById('prodGst').value) || 18, stock: parseInt(document.getElementById('prodStock').value) || 0 });
+        syncToCloud(); renderInventoryTable(); alert("Product saved successfully!");
     }
 
-    // Initialize first empty row on load
-    window.onload = function() {
-        addItemRow();
-    };
-</script>
+    function deleteProduct(idx) { inventory.splice(idx, 1); syncToCloud(); renderInventoryTable(); }
 
+    function renderHistoryTable() {
+        let tbody = document.getElementById('historyTableBody');
+        tbody.innerHTML = '';
+        invoices.forEach((inv, idx) => {
+            tbody.innerHTML += `<tr><td>${inv.firm}</td><td>${inv.invNumber}</td><td>${inv.date}</td><td>${inv.customer}</td><td>${inv.status}</td><td>${inv.grandTotal.toFixed(2)}</td><td><button class="btn-danger" onclick="deleteInvoice(${idx})">Delete</button></td></tr>`;
+        });
+    }
+
+    function deleteInvoice(idx) { invoices.splice(idx, 1); syncToCloud(); renderHistoryTable(); updateReports(); }
+
+    function renderLedgerTable() {
+        let tbody = document.getElementById('ledgerTableBody');
+        tbody.innerHTML = '';
+        invoices.filter(i => i.balance > 0).forEach((inv) => {
+            tbody.innerHTML += `<tr><td>${inv.customer}<br><small>${inv.custDetails}</small></td><td>${inv.invNumber}</td><td style="color:red; font-weight:bold;">${inv.balance.toFixed(2)}</td><td><button class="btn-success" onclick="markInvoicePaid('${inv.invNumber}')">Mark Paid</button></td></tr>`;
+        });
+    }
+
+    function markInvoicePaid(invNo) {
+        let inv = invoices.find(i => i.invNumber === invNo);
+        if(inv) { inv.received = inv.grandTotal; inv.balance = 0; inv.status = 'Paid'; syncToCloud(); renderLedgerTable(); updateReports(); }
+    }
+
+    function updateReports() {
+        let totalSales = 0, totalReceived = 0, totalPending = 0;
+        let dayBookBody = document.getElementById('dayBookTableBody');
+        dayBookBody.innerHTML = '';
+
+        invoices.forEach(inv => {
+            totalSales += inv.grandTotal;
+            totalReceived += inv.received;
+            totalPending += inv.balance;
+            dayBookBody.innerHTML += `<tr><td>${inv.date}</td><td>${inv.invNumber}</td><td>${inv.customer}</td><td>${inv.grandTotal.toFixed(2)}</td><td>${inv.status}</td></tr>`;
+        });
+
+        document.getElementById('repTotalSales').innerText = `₹${totalSales.toFixed(2)}`;
+        document.getElementById('repTotalReceived').innerText = `₹${totalReceived.toFixed(2)}`;
+        document.getElementById('repTotalPending').innerText = `₹${totalPending.toFixed(2)}`;
+
+        let gstrBody = document.getElementById('gstr1TableBody');
+        gstrBody.innerHTML = '';
+        let dummyTaxable = totalSales / 1.18;
+        let dummyCgst = (totalSales - dummyTaxable) / 2;
+        if(invoices.length > 0) {
+            gstrBody.innerHTML += `<tr><td>9403</td><td>${dummyTaxable.toFixed(2)}</td><td>${dummyCgst.toFixed(2)}</td><td>${dummyCgst.toFixed(2)}</td><td>${(dummyCgst*2).toFixed(2)}</td></tr>`;
+        }
+    }
+</script>
 </body>
 </html>
