@@ -3,20 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS & Billing App - Fixed</title>
+    <title>POS & Billing System - Golden Star Furniture</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f7f6; color: #333; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .input-field { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 15px; background: #f4f7f6; color: #333; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .input-field { width: 100%; padding: 8px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         .btn { background: #28a745; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .btn-danger { background: #dc3545; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
         .btn-warning { background: #ffc107; color: #333; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; background: #e9ecef; border-radius: 4px; font-weight: bold; }
+        .tab-btn.active { background: #007bff; color: white; border-color: #007bff; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
         th { background-color: #f8f9fa; }
         .right { text-align: right; }
         
-        /* Dropdown Search Box Styles */
+        /* Dropdown Search Styles */
         .search-box-container { position: relative; }
         .search-results {
             position: absolute;
@@ -43,17 +46,18 @@
 <body>
 
 <div class="container">
-    <h2>Simple & Working POS System</h2>
+    <h2>Golden Star Furniture & Interior - Billing System</h2>
     
-    <!-- TABS -->
-    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
-        <button class="btn" onclick="switchTab('billing')" id="tabBilling">Billing / Quotation</button>
-        <button class="btn" onclick="switchTab('quotes')" id="tabQuotes" style="background: #17a2b8;">Saved Quotations (<span id="quoteCount">0</span>)</button>
+    <!-- NAVIGATION TABS -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('billing', event)">Create Invoice</button>
+        <button class="tab-btn" onclick="switchTab('quotations', event)">Quotations / Estimates</button>
+        <button class="tab-btn" onclick="switchTab('inventory', event)">Inventory & Stock</button>
     </div>
 
-    <!-- BILLING PANEL -->
-    <div id="billingPanel">
-        <h3>Create Invoice or Quotation</h3>
+    <!-- 1. BILLING PANEL -->
+    <div id="billingPanel" class="panel">
+        <h3>New Invoice / Quotation Entry</h3>
         
         <div style="display: flex; gap: 15px; margin-bottom: 15px;">
             <input type="text" id="custName" class="input-field" placeholder="Customer Name">
@@ -63,38 +67,38 @@
         <table>
             <thead>
                 <tr>
-                    <th width="40%">Item Name (Type to search)</th>
+                    <th width="35%">Item Name (Type to search)</th>
+                    <th>Barcode</th>
+                    <th>HSN</th>
                     <th>Price (₹)</th>
                     <th>Qty</th>
                     <th class="right">Total (₹)</th>
                     <th>Action</th>
                 </tr>
             </thead>
-            <tbody id="invoiceRows">
-                <!-- Rows will be added here -->
-            </tbody>
+            <tbody id="invoiceRows"></tbody>
         </table>
         
-        <button class="btn" onclick="addItemRow()" style="margin-top: 10px;">+ Add Item</button>
+        <button class="btn" onclick="addItemRow()" style="margin-top: 10px;">+ Add Item Row</button>
 
         <div style="margin-top: 20px; text-align: right; font-size: 18px;">
             <strong>Grand Total: ₹<span id="grandTotal">0.00</span></strong>
         </div>
 
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
             <button class="btn" onclick="alert('Invoice Saved & Printed!')">Save & Print Invoice</button>
             <button class="btn-warning" onclick="saveAsQuotation()">Save as Quotation</button>
         </div>
     </div>
 
-    <!-- QUOTATIONS PANEL -->
-    <div id="quotesPanel" style="display: none;">
+    <!-- 2. QUOTATIONS PANEL -->
+    <div id="quotationsPanel" class="panel" style="display: none;">
         <h3>Saved Quotations List</h3>
         <table>
             <thead>
                 <tr>
                     <th>Quote ID</th>
-                    <th>Customer</th>
+                    <th>Customer Name</th>
                     <th>Total Amount</th>
                     <th>Actions</th>
                 </tr>
@@ -104,42 +108,67 @@
             </tbody>
         </table>
     </div>
+
+    <!-- 3. INVENTORY PANEL -->
+    <div id="inventoryPanel" class="panel" style="display: none;">
+        <h3>Inventory Management</h3>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+            <input type="text" id="newProdName" class="input-field" placeholder="Product Name" style="margin:0;">
+            <input type="text" id="newProdBarcode" class="input-field" placeholder="Barcode" style="margin:0;">
+            <input type="text" id="newProdHsn" class="input-field" placeholder="HSN" style="margin:0;">
+            <input type="number" id="newProdPrice" class="input-field" placeholder="Price (₹)" style="margin:0;">
+            <button class="btn" onclick="addNewProduct()" style="white-space: nowrap;">Add Product</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Barcode</th>
+                    <th>HSN</th>
+                    <th>Price (₹)</th>
+                </tr>
+            </thead>
+            <tbody id="inventoryTableBody"></tbody>
+        </table>
+    </div>
 </div>
 
 <script>
-    // Sample Inventory Items for Dropdown Search
-    const inventory = [
-        { name: "Wooden Center Table", price: 4500 },
-        { name: "Mango Wood Chair", price: 1800 },
-        { name: "Antique Bookshelf", price: 6200 },
-        { name: "Wicker Storage Basket", price: 950 },
-        { name: "Wooden Chess Game Set", price: 1200 }
+    // Initial Inventory Data
+    let inventory = [
+        { name: "Wooden Center Table", barcode: "101", hsn: "9403", price: 4500 },
+        { name: "Mango Wood Chair", barcode: "102", hsn: "9401", price: 1800 },
+        { name: "Antique Bookshelf", barcode: "103", hsn: "9403", price: 6200 },
+        { name: "Wicker Storage Basket", barcode: "104", hsn: "4602", price: 950 },
+        { name: "Wooden Chess Game Set", barcode: "105", hsn: "9504", price: 1200 }
     ];
 
     let quotations = [];
 
-    // Switch Tabs Function
-    function switchTab(tab) {
-        if(tab === 'billing') {
-            document.getElementById('billingPanel').style.display = 'block';
-            document.getElementById('quotesPanel').style.display = 'none';
-        } else {
-            document.getElementById('billingPanel').style.display = 'none';
-            document.getElementById('quotesPanel').style.display = 'block';
-            renderQuotations();
-        }
+    // Switch Tabs Logic
+    function switchTab(tabID, evt) {
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        
+        document.getElementById(tabID + 'Panel').style.display = 'block';
+        if(evt) evt.currentTarget.classList.add('active');
+
+        if(tabID === 'quotations') renderQuotations();
+        if(tabID === 'inventory') renderInventory();
     }
 
-    // Add Row to Invoice Table
+    // Add Item Row to Billing
     function addItemRow() {
         let tbody = document.getElementById('invoiceRows');
         let tr = document.createElement('tr');
         
         tr.innerHTML = `
             <td class="search-box-container">
-                <input type="text" class="input-field itemName" placeholder="Type to search item..." autocomplete="off" oninput="searchItems(this)" style="margin:0;">
+                <input type="text" class="input-field itemName" placeholder="Type item name..." autocomplete="off" oninput="searchItems(this)" style="margin:0;">
                 <div class="search-results"></div>
             </td>
+            <td><input type="text" class="input-field itemBarcode" placeholder="Barcode" style="margin:0;"></td>
+            <td><input type="text" class="input-field itemHsn" placeholder="HSN" style="margin:0;"></td>
             <td><input type="number" class="input-field itemPrice" value="0" oninput="calculateTotal()" style="margin:0;"></td>
             <td><input type="number" class="input-field itemQty" value="1" min="1" oninput="calculateTotal()" style="margin:0;"></td>
             <td class="right itemTotal">0.00</td>
@@ -149,7 +178,7 @@
         calculateTotal();
     }
 
-    // Item Search Logic (Dropdown)
+    // Search Inventory for Dropdown
     function searchItems(input) {
         let query = input.value.toLowerCase().trim();
         let resultsDiv = input.nextElementSibling;
@@ -160,7 +189,7 @@
             return;
         }
 
-        let filtered = inventory.filter(i => i.name.toLowerCase().includes(query));
+        let filtered = inventory.filter(i => i.name.toLowerCase().includes(query) || (i.barcode && i.barcode.includes(query)));
         if(filtered.length === 0) {
             resultsDiv.style.display = 'none';
             return;
@@ -174,7 +203,9 @@
             div.onclick = function() {
                 input.value = item.name;
                 let tr = input.closest('tr');
-                tr.querySelector('.itemPrice').value = item.price;
+                tr.querySelector('.itemBarcode').value = item.barcode || '';
+                tr.querySelector('.itemHsn').value = item.hsn || '';
+                tr.querySelector('.itemPrice').value = item.price || 0;
                 resultsDiv.style.display = 'none';
                 calculateTotal();
             };
@@ -183,14 +214,14 @@
         resultsDiv.style.display = 'block';
     }
 
-    // Close dropdown on outside click
+    // Close Dropdown on Outside Click
     window.onclick = function(e) {
         if(!e.target.closest('.search-box-container')) {
             document.querySelectorAll('.search-results').forEach(el => el.style.display = 'none');
         }
     };
 
-    // Calculate Total Amounts
+    // Calculate Row and Grand Total
     function calculateTotal() {
         let rows = document.querySelectorAll('#invoiceRows tr');
         let grandTotal = 0;
@@ -206,7 +237,7 @@
         document.getElementById('grandTotal').innerText = grandTotal.toFixed(2);
     }
 
-    // Save Quotation Logic
+    // Save Current Bill as Quotation
     function saveAsQuotation() {
         let custName = document.getElementById('custName').value.trim() || "Cash Customer";
         let grandTotal = document.getElementById('grandTotal').innerText;
@@ -221,6 +252,8 @@
         rows.forEach(tr => {
             items.push({
                 name: tr.querySelector('.itemName').value,
+                barcode: tr.querySelector('.itemBarcode').value,
+                hsn: tr.querySelector('.itemHsn').value,
                 price: tr.querySelector('.itemPrice').value,
                 qty: tr.querySelector('.itemQty').value,
                 total: tr.querySelector('.itemTotal').innerText
@@ -230,10 +263,9 @@
         let quoteId = 'QT-' + Math.floor(1000 + Math.random() * 9000);
         quotations.push({ id: quoteId, customer: custName, total: grandTotal, items: items });
         
-        document.getElementById('quoteCount').innerText = quotations.length;
-        alert("Quotation saved successfully! Check 'Saved Quotations' tab.");
+        alert("Quotation saved successfully! View it in the 'Quotations / Estimates' tab.");
         
-        // Reset form
+        // Reset Form
         document.getElementById('invoiceRows').innerHTML = '';
         document.getElementById('custName').value = '';
         document.getElementById('custPhone').value = '';
@@ -241,7 +273,7 @@
         addItemRow();
     }
 
-    // Render Quotations in Table
+    // Render Saved Quotations
     function renderQuotations() {
         let tbody = document.getElementById('quoteTableBody');
         tbody.innerHTML = '';
@@ -258,7 +290,7 @@
                     <td>${q.customer}</td>
                     <td>₹${q.total}</td>
                     <td>
-                        <button class="btn" onclick="loadQuote(${index})" style="padding: 4px 8px; font-size: 12px;">Load / View</button>
+                        <button class="tab-btn" onclick="loadQuote(${index})" style="padding: 4px 8px; font-size: 12px; background:#007bff; color:white;">Load to Bill</button>
                         <button class="btn-danger" onclick="deleteQuote(${index})" style="padding: 4px 8px; font-size: 12px;">Delete</button>
                     </td>
                 </tr>
@@ -266,7 +298,7 @@
         });
     }
 
-    // Load Quote Back to Billing
+    // Load Saved Quotation Back to Billing Screen
     function loadQuote(index) {
         let q = quotations[index];
         document.getElementById('custName').value = q.customer;
@@ -281,6 +313,8 @@
                     <input type="text" class="input-field itemName" value="${item.name}" autocomplete="off" oninput="searchItems(this)" style="margin:0;">
                     <div class="search-results"></div>
                 </td>
+                <td><input type="text" class="input-field itemBarcode" value="${item.barcode}" style="margin:0;"></td>
+                <td><input type="text" class="input-field itemHsn" value="${item.hsn}" style="margin:0;"></td>
                 <td><input type="number" class="input-field itemPrice" value="${item.price}" oninput="calculateTotal()" style="margin:0;"></td>
                 <td><input type="number" class="input-field itemQty" value="${item.qty}" min="1" oninput="calculateTotal()" style="margin:0;"></td>
                 <td class="right itemTotal">${item.total}</td>
@@ -290,18 +324,48 @@
         });
 
         calculateTotal();
-        switchTab('billing');
-        alert(`Quotation ${q.id} loaded into billing screen!`);
+        switchTab('billing', { currentTarget: document.querySelector('.tab-btn') });
+        alert(`Quotation ${q.id} loaded successfully!`);
     }
 
     // Delete Quotation
     function deleteQuote(index) {
         quotations.splice(index, 1);
-        document.getElementById('quoteCount').innerText = quotations.length;
         renderQuotations();
     }
 
-    // Initialize with one blank row
+    // Render Inventory List
+    function renderInventory() {
+        let tbody = document.getElementById('inventoryTableBody');
+        tbody.innerHTML = '';
+        inventory.forEach(item => {
+            tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.barcode}</td><td>${item.hsn}</td><td>₹${item.price}</td></tr>`;
+        });
+    }
+
+    // Add New Product to Inventory
+    function addNewProduct() {
+        let name = document.getElementById('newProdName').value.trim();
+        let barcode = document.getElementById('newProdBarcode').value.trim();
+        let hsn = document.getElementById('newProdHsn').value.trim();
+        let price = parseFloat(document.getElementById('newProdPrice').value) || 0;
+
+        if(!name) {
+            alert("Please enter product name!");
+            return;
+        }
+
+        inventory.push({ name, barcode, hsn, price });
+        document.getElementById('newProdName').value = '';
+        document.getElementById('newProdBarcode').value = '';
+        document.getElementById('newProdHsn').value = '';
+        document.getElementById('newProdPrice').value = '';
+        
+        renderInventory();
+        alert("Product added to inventory successfully!");
+    }
+
+    // Initialize first empty row on load
     window.onload = function() {
         addItemRow();
     };
