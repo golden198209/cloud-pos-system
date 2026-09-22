@@ -28,6 +28,9 @@
         .tab-btn.active { background: #007bff; color: white; }
 
         /* Custom Dropdown Styling */
+        .custom-dropdown-container {
+            position: relative;
+        }
         .custom-dropdown-list {
             position: absolute;
             top: 100%;
@@ -35,21 +38,26 @@
             right: 0;
             background: #fff;
             border: 1px solid #ccc;
-            max-height: 150px;
+            max-height: 180px;
             overflow-y: auto;
-            z-index: 1000;
+            z-index: 9999;
             display: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         .custom-dropdown-item {
-            padding: 8px 12px;
+            padding: 10px 12px;
             cursor: pointer;
             border-bottom: 1px solid #eee;
             font-size: 13px;
             text-align: left;
+            background-color: #fff;
         }
         .custom-dropdown-item:hover {
-            background-color: #f1f1f1;
+            background-color: #007bff;
+            color: white;
+        }
+        .custom-dropdown-item:hover small {
+            color: #f1f1f1 !important;
         }
         .low-stock { background-color: #ffcccc !important; }
     </style>
@@ -361,7 +369,7 @@
     }
 
     window.addEventListener('click', function(e) {
-        if (!e.target.classList.contains('row-name')) {
+        if (!e.target.closest('.custom-dropdown-container')) {
             document.querySelectorAll('.custom-dropdown-list').forEach(el => el.style.display = 'none');
         }
     });
@@ -480,9 +488,11 @@
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${rowCount}</td>
-            <td class="left" style="position:relative;">
-                <input type="text" class="input-field row-name" value="${prod.name || ''}" placeholder="Type item name..." autocomplete="off">
-                <div class="custom-dropdown-list"></div>
+            <td class="left">
+                <div class="custom-dropdown-container">
+                    <input type="text" class="input-field row-name" value="${prod.name || ''}" placeholder="Type item name..." autocomplete="off" style="margin-bottom:0;">
+                    <div class="custom-dropdown-list"></div>
+                </div>
             </td>
             <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
@@ -512,11 +522,11 @@
     }
 
     function filterCustomDropdown(inputElem) {
-        let query = inputElem.value.toLowerCase();
+        let query = inputElem.value.toLowerCase().trim();
         let dropdown = inputElem.nextElementSibling;
         dropdown.innerHTML = '';
 
-        let filtered = inventory.filter(p => p.name.toLowerCase().includes(query));
+        let filtered = inventory.filter(p => p.name.toLowerCase().includes(query) || (p.barcode && p.barcode.includes(query)));
         if(filtered.length === 0) {
             dropdown.style.display = 'none';
             return;
@@ -527,7 +537,7 @@
             itemDiv.className = 'custom-dropdown-item';
             itemDiv.innerHTML = `<strong>${prod.name}</strong> <br><small style="color:#555;">Stock: ${prod.stock} | Price: ₹${prod.price}</small>`;
             
-            itemDiv.addEventListener('pointerdown', function(e) {
+            itemDiv.addEventListener('mousedown', function(e) {
                 e.preventDefault();
                 inputElem.value = prod.name;
                 let tr = inputElem.closest('tr');
