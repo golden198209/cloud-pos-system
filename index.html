@@ -89,7 +89,7 @@
 
         <!-- BILLING PANEL -->
         <div id="billingPanel" class="panel active">
-            <h3>New Invoice</h3>
+            <h3>New Invoice / Quotation</h3>
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                 <select id="activeFirmSelect" class="input-field" onchange="onFirmChange()"></select>
                 <select id="invoiceCustDropdown" class="input-field" onchange="onCustomerSelected()"></select>
@@ -115,7 +115,7 @@
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Item Name</th>
+                        <th>Item Name (Type to Search)</th>
                         <th>Barcode</th>
                         <th>HSN</th>
                         <th>Qty</th>
@@ -217,7 +217,7 @@
 
         <!-- QUOTATIONS PANEL -->
         <div id="quotationsPanel" class="panel">
-            <h3>Quotations / Estimates</h3>
+            <h3>Quotations / Estimates List</h3>
             <table>
                 <thead><tr><th>Firm</th><th>Quotation #</th><th>Date</th><th>Customer</th><th>Total</th><th>Action</th></tr></thead>
                 <tbody id="quotationTableBody"></tbody>
@@ -464,7 +464,7 @@
         if(companies[idx]) {
             let firm = companies[idx];
             document.getElementById('lblCompanyName').innerText = firm.name;
-            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone}<br>GSTIN:${firm.gstin}`;
+            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone}<br>GSTIN: ${firm.gstin}`;
         }
     }
 
@@ -472,7 +472,7 @@
         let idx = document.getElementById('invoiceCustDropdown').value;
         if(idx !== "") {
             let cust = customers[idx];
-            let text = `${cust.name}\n${cust.address}\nPhone:${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin \vert{}\vert{} 'Unregistered'}\nState:${cust.state || '01-Jammu & Kashmir'}`;
+            let text = `${cust.name}\n${cust.address}\nPhone: ${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin || 'Unregistered'}\nState: ${cust.state || '01-Jammu & Kashmir'}`;
             document.getElementById('manualCustDetails').value = text;
         }
     }
@@ -545,7 +545,7 @@
         filtered.forEach(prod => {
             let itemDiv = document.createElement('div');
             itemDiv.className = 'custom-dropdown-item';
-            itemDiv.innerHTML = `<strong>${prod.name}</strong> <br><small style="color:#555;">Stock: ${prod.stock} \vert{} Price: ₹${prod.price}</small>`;
+            itemDiv.innerHTML = `<strong>${prod.name}</strong> <br><small style="color:#555;">Stock: ${prod.stock} | Price: ₹${prod.price}</small>`;
             
             itemDiv.addEventListener('mousedown', function(e) {
                 e.preventDefault();
@@ -680,13 +680,17 @@
 
         quotations.push({ id: qNum, firm: firmName, date, customer: custName, custDetails, grandTotal, items });
         syncToCloud();
-        alert("Quotation saved successfully! You can view it in the 'Quotations' tab.");
+        alert("Quotation saved successfully! View it in the 'Quotations' tab.");
         resetInvoiceForm();
     }
 
     function renderQuotationTable() {
         let tbody = document.getElementById('quotationTableBody');
         tbody.innerHTML = '';
+        if(quotations.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No quotations saved yet.</td></tr>`;
+            return;
+        }
         quotations.forEach((q, idx) => {
             tbody.innerHTML += `
                 <tr>
@@ -712,7 +716,6 @@
         
         q.items.forEach(item => {
             addItemRowWithProduct({ name: item.name, barcode: item.barcode, hsn: item.hsn, price: item.price, gst: item.gst });
-            // update qty if needed
             let lastRow = tbody.lastElementChild;
             if(lastRow) {
                 lastRow.querySelector('.row-qty').value = item.qty;
@@ -723,7 +726,7 @@
         switchTab('billing', null);
         quotations.splice(idx, 1);
         syncToCloud();
-        alert("Quotation loaded into Billing screen! You can now save as Invoice.");
+        alert("Quotation loaded into Billing screen! You can now save it as an Invoice.");
     }
 
     function deleteQuotation(idx) {
@@ -748,13 +751,13 @@
         let invNo = document.getElementById('invNumber').value;
         let date = document.getElementById('invDate').value;
 
-        let receiptText = `================================\n      ${firm.name || 'POS RECEIPT'}\n  ${firm.address \vert{}\vert{} ''}\n  Ph:${firm.phone || ''} | GSTIN: ${firm.gstin \vert{}\vert{} ''}\n================================\nInv No:${invNo} | Date: ${date}\n--------------------------------\nBill To:\n${custDetails}\n--------------------------------\nItem          Qty   Price   Total\n--------------------------------\n`;
+        let receiptText = `================================\n      ${firm.name || 'POS RECEIPT'}\n  ${firm.address || ''}\n  Ph: ${firm.phone || ''} | GSTIN: ${firm.gstin || ''}\n================================\nInv No: ${invNo} | Date: ${date}\n--------------------------------\nBill To:\n${custDetails}\n--------------------------------\nItem          Qty   Price   Total\n--------------------------------\n`;
         document.querySelectorAll('#itemRows tr').forEach(tr => {
             let name = (tr.querySelector('.row-name').value || '').substring(0, 14).padEnd(14, ' ');
             let qty = (tr.querySelector('.row-qty').value || '').padStart(4, ' ');
             let price = (tr.querySelector('.row-price').value || '').padStart(7, ' ');
             let tot = (tr.querySelector('.row-total').innerText || '').padStart(7, ' ');
-            receiptText += `${name}${qty} ${price}${tot}\n`;
+            receiptText += `${name} ${qty} ${price} ${tot}\n`;
         });
         receiptText += `--------------------------------\nGRAND TOTAL: Rs. ${grandTotal}\n================================\n       Thank You For Visit!      \n================================\n`;
         document.getElementById('thermalContent').innerText = receiptText;
@@ -806,9 +809,10 @@
     function renderInventoryTable() {
         let tbody = document.getElementById('inventoryTableBody');
         tbody.innerHTML = '';
+        inventory.rows = inventory.length;
         inventory.forEach((prod, idx) => {
             let trClass = prod.stock <= 2 ? 'low-stock' : '';
-            tbody.innerHTML += `<tr class="${trClass}"><td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}\%</td><td>${prod.stock}</td><td><button class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td></tr>`;
+            tbody.innerHTML += `<tr class="${trClass}"><td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td></tr>`;
         });
     }
 
@@ -853,7 +857,6 @@
             totalSales += inv.grandTotal;
             totalReceived += inv.received;
             totalPending += inv.balance;
-            dayBookBody.html += ``; // fixed safety
             dayBookBody.innerHTML += `<tr><td>${inv.date}</td><td>${inv.invNumber}</td><td>${inv.customer}</td><td>${inv.grandTotal.toFixed(2)}</td><td>${inv.status}</td></tr>`;
         });
 
