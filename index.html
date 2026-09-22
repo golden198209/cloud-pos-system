@@ -370,19 +370,34 @@
             document.getElementById('invDate').valueAsDate = new Date();
         }
 
+        function buildProductOptionsHTML(selectedName) {
+            let options = '<option value="">-- Select Product --</option>';
+            inventory.forEach(prod => {
+                let sel = (prod.name === selectedName) ? ' selected' : '';
+                options += `<option value="${prod.name}"${sel}>${prod.name}</option>`;
+            });
+            return options;
+        }
+
+        function refreshAllProductDropdowns() {
+            // Keeps each row's currently chosen product selected while
+            // refreshing the list of options to match the latest inventory.
+            document.querySelectorAll('#itemRows tr').forEach(tr => {
+                let select = tr.querySelector('.row-name');
+                if (!select) return;
+                let currentValue = select.value;
+                select.innerHTML = buildProductOptionsHTML(currentValue);
+            });
+        }
+
         function addItemRow() {
             let tbody = document.getElementById('itemRows');
             let tr = document.createElement('tr');
 
-            let options = '<option value="">-- Select Product --</option>';
-            inventory.forEach(prod => {
-                options += `<option value="${prod.name}">${prod.name}</option>`;
-            });
-
             tr.innerHTML = `
                 <td>
                     <select class="row-name" onchange="selectInventoryProduct(this)">
-                        ${options}
+                        ${buildProductOptionsHTML('')}
                     </select>
                 </td>
                 <td><input type="text" class="row-hsn" placeholder="HSN"></td>
@@ -691,6 +706,13 @@
             });
             syncToCloud();
             renderInventoryTable();
+            refreshAllProductDropdowns();
+            document.getElementById('prodName').value = '';
+            document.getElementById('prodBarcode').value = '';
+            document.getElementById('prodHsn').value = '';
+            document.getElementById('prodPrice').value = '';
+            document.getElementById('prodGst').value = '18';
+            document.getElementById('prodStock').value = '';
             alert("Product saved successfully!");
         }
 
@@ -698,6 +720,7 @@
             inventory.splice(idx, 1);
             syncToCloud();
             renderInventoryTable();
+            refreshAllProductDropdowns();
         }
 
         function renderHistoryTable() {
