@@ -1,15 +1,4 @@
-{
-  "hosting": {
-    "public": ".",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**",
-      "**/*.exe",
-      "**/*.dll"
-    ]
-  }
-}<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -225,6 +214,9 @@
 <body>
 
 <div class="container">
+    <!-- Global Datalist for Auto-Suggest Inventory Items -->
+    <datalist id="inventoryList"></datalist>
+
     <!-- Navigation Tabs -->
     <div class="tab-buttons no-print">
         <button class="tab-btn active" onclick="switchTab('invoice', event)">Create Invoice</button>
@@ -316,7 +308,7 @@ State: 01-Jammu & Kashmir</textarea>
                 <thead>
                     <tr>
                         <th style="width: 4%;">#</th>
-                        <th style="width: 24%;">Item Name</th>
+                        <th style="width: 24%;">Item Name (Type to auto-suggest)</th>
                         <th style="width: 10%;">Barcode</th>
                         <th style="width: 10%;">HSN/SAC</th>
                         <th style="width: 7%;">Qty</th>
@@ -407,21 +399,7 @@ State: 01-Jammu & Kashmir</textarea>
 
             <!-- Action Buttons -->
             <div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;" class="no-print">
-               <!-- Action Buttons -->
-<div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;" class="no-print">
-<!-- Action Buttons -->
-<div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;" class="no-print">
-    <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 1; padding: 10px;">Save & Print A4</button>
-    <button class="btn-warning" onclick="printQuotation()" style="flex: 1; padding: 10px; background-color: #f0ad4e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📄 Print Quotation</button>
-    <button class="btn-info" onclick="toggleQuotationMode()" style="flex: 1; padding: 10px; background-color: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📝 New Quotation Mode</button>
-</div>
-    <button class="btn-warning" onclick="printQuotation()" style="flex: 1; padding: 10px; background-color: #f0ad4e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📄 Print Quotation</button>
-    <button class="btn-info" onclick="toggleQuotationMode()" style="flex: 1; padding: 10px; background-color: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📝 New Quotation Mode</button>
-</div> 1;">Save & Print A4</button <div style="display: flex; gap: 10px; margin-top: 10px;">
-   
-    <button class="btn-warning" onclick="printQuotation()" style="flex: 1; padding: 10px; background-color: #f0ad4e; color: white; border: none; border-radius: 4px; cursor: pointer;">📄 Print Quotation</button>
-                  
-</div>
+                <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 1;">Save & Print A4</button>
                 <button class="btn-info" onclick="openThermalReceipt()" style="flex: 1;">🖨️ Print POS</button>
                 <button class="btn-info" onclick="downloadOrSharePDF()" style="flex: 1;">📥 PDF Download</button>
                 <button class="btn-whatsapp" onclick="shareOnWhatsApp()" style="flex: 1;">📱 WhatsApp</button>
@@ -584,6 +562,7 @@ State: 01-Jammu & Kashmir</textarea>
         document.getElementById('invDate').valueAsDate = new Date();
         populateFirmDropdowns();
         populateCustomerDropdown();
+        updateInventoryDatalist();
         onFirmChange();
         renderCompanyTable();
         renderCustomerTable();
@@ -655,6 +634,7 @@ State: 01-Jammu & Kashmir</textarea>
                 if(data.invoices) invoices = data.invoices;
                 populateFirmDropdowns();
                 populateCustomerDropdown();
+                updateInventoryDatalist();
                 renderInventoryTable();
                 onFirmChange();
             }
@@ -674,7 +654,19 @@ State: 01-Jammu & Kashmir</textarea>
         }).catch(e => {});
     }
 
-    // Camera Barcode Scanner Integration with Duplicate Prevention (Debounce)
+    // Update Datalist options for auto-suggest
+    function updateInventoryDatalist() {
+        let datalist = document.getElementById('inventoryList');
+        if(!datalist) return;
+        datalist.innerHTML = '';
+        inventory.forEach(prod => {
+            let opt = document.createElement('option');
+            opt.value = prod.name;
+            opt.innerText = `Stock: ${prod.stock} | Price: ₹${prod.price}`;
+            datalist.appendChild(opt);
+        });
+    }
+
     let activeScannerTarget = 'global';
     let lastScannedCode = '';
     let lastScanTime = 0;
@@ -805,7 +797,7 @@ State: 01-Jammu & Kashmir</textarea>
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${rowCount}</td>
-            <td class="left"><input type="text" class="input-field row-name" value="${prod.name}" style="margin-bottom:0;"></td>
+            <td class="left"><input type="text" class="input-field row-name" value="${prod.name}" list="inventoryList" onchange="onRowProductSelected(this)" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
             <td><input type="number" class="input-field row-qty" value="1" min="1" oninput="calculateTotals()" style="margin-bottom:0;"></td>
@@ -826,6 +818,21 @@ State: 01-Jammu & Kashmir</textarea>
         `;
         tbody.appendChild(tr);
         calculateTotals();
+    }
+
+    // Auto-fill row details when product is selected from dropdown
+    function onRowProductSelected(inputElem) {
+        let val = inputElem.value.trim();
+        let prod = inventory.find(p => p.name.toLowerCase() === val.toLowerCase());
+        if(prod) {
+            let tr = inputElem.closest('tr');
+            tr.querySelector('.row-barcode').value = prod.barcode || '';
+            tr.querySelector('.row-hsn').value = prod.hsn || '';
+            tr.querySelector('.row-price').value = prod.price || 0;
+            let gstSelect = tr.querySelector('.row-gst');
+            if(gstSelect) gstSelect.value = prod.gst || 18;
+            calculateTotals();
+        }
     }
 
     function addItemRow() {
@@ -884,7 +891,6 @@ State: 01-Jammu & Kashmir</textarea>
         balElem.innerText = balance.toFixed(2);
         balElem.style.color = balance > 0 ? '#b30000' : 'green';
 
-        // Render Tax Summary Rows
         let taxBody = document.getElementById('taxSummaryRows');
         taxBody.innerHTML = '';
         for(let hsn in taxMap) {
@@ -1003,7 +1009,7 @@ State: 01-Jammu & Kashmir</textarea>
         receiptText += `--------------------------------\n`;
         receiptText += `Bill To:\n${custDetails}\n`;
         receiptText += `--------------------------------\n`;
-        receiptText += `Item           Qty   Price   Total\n`;
+        receiptText += `Item            Qty   Price   Total\n`;
         receiptText += `--------------------------------\n`;
 
         document.querySelectorAll('#itemRows tr').forEach(tr => {
@@ -1017,7 +1023,7 @@ State: 01-Jammu & Kashmir</textarea>
         receiptText += `--------------------------------\n`;
         receiptText += `GRAND TOTAL: Rs. ${grandTotal}\n`;
         receiptText += `================================\n`;
-        receiptText += `        Thank You For Visit!      \n`;
+        receiptText += `       Thank You For Visit!     \n`;
         receiptText += `================================\n`;
 
         document.getElementById('thermalContent').innerText = receiptText;
@@ -1044,7 +1050,6 @@ State: 01-Jammu & Kashmir</textarea>
         window.location.href = `mailto:?subject=${subject}&body=${body}`;
     }
 
-    // Management Modules & Tables Render Functions
     function renderCompanyTable() {
         let tbody = document.getElementById('companyTableBody');
         tbody.innerHTML = '';
@@ -1120,6 +1125,7 @@ State: 01-Jammu & Kashmir</textarea>
             tr.innerHTML = `<td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
+        updateInventoryDatalist();
     }
 
     function saveProduct() {
@@ -1135,6 +1141,7 @@ State: 01-Jammu & Kashmir</textarea>
         });
         syncToCloud();
         renderInventoryTable();
+        updateInventoryDatalist();
         alert("Product saved successfully!");
     }
 
@@ -1142,6 +1149,7 @@ State: 01-Jammu & Kashmir</textarea>
         inventory.splice(idx, 1);
         syncToCloud();
         renderInventoryTable();
+        updateInventoryDatalist();
     }
 
     function renderHistoryTable() {
@@ -1187,7 +1195,6 @@ State: 01-Jammu & Kashmir</textarea>
         let totalSales = 0;
         let totalReceived = 0;
         let totalPending = 0;
-        let hsnSummary = {};
         let dayBookBody = document.getElementById('dayBookTableBody');
         dayBookBody.innerHTML = '';
 
@@ -1205,7 +1212,6 @@ State: 01-Jammu & Kashmir</textarea>
         document.getElementById('repTotalReceived').innerText = `₹${totalReceived.toFixed(2)}`;
         document.getElementById('repTotalPending').innerText = `₹${totalPending.toFixed(2)}`;
 
-        // Aggregate GSTR-1 HSN Summary
         let gstrBody = document.getElementById('gstr1TableBody');
         gstrBody.innerHTML = '';
         let dummyTaxable = totalSales / 1.18;
@@ -1218,37 +1224,6 @@ State: 01-Jammu & Kashmir</textarea>
             gstrBody.appendChild(tr);
         }
     }
-  function createQuotation() {
-    alert("Quotation Mode: Ye bill abhi quotation ke roop mein save hoga!");
-    // Yahan aap chhein toh invoice heading ko badal kar 'QUOTATION' kar sakte hain
-    let titleElem = document.querySelector('.invoice-main-title');
-    if(titleElem) titleElem.innerText = "TAX QUOTATION / ESTIMATE";
-}
-function printQuotation() {
-    let titleElem = document.querySelector('.invoice-main-title');
-    let oldText = titleElem ? titleElem.innerText : "TAX INVOICE";
-    if(titleElem) titleElem.innerText = "TAX QUOTATION / ESTIMATE";
-    
-    window.print();
-    
-    setTimeout(() => {
-        if(titleElem) titleElem.innerText = oldText;
-    }, 1000);
-}
-  
-let isQuotationMode = false;
-function toggleQuotationMode() {
-    isQuotationMode = !isQuotationMode;
-    let titleElem = document.querySelector('.invoice-main-title') || document.querySelector('h2, h3');
-    
-    if (isQuotationMode) {
-        if(titleElem) titleElem.innerText = "TAX QUOTATION / ESTIMATE";
-        alert("Quotation Mode ON: Ab aap items add karke 'Print Quotation' dabayein!");
-    } else {
-        if(titleElem) titleElem.innerText = "Tax Invoice";
-        alert("Normal Billing Mode ON");
-    }
-}  
 </script>
 </body>
 </html>
