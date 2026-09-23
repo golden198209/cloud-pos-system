@@ -1225,17 +1225,20 @@ function printQuotation() {
         if(titleElem) titleElem.innerText = oldText;
     }, 1000);
 }
-  function printQuotation() {
+  
+let isQuotationMode = false;
+function toggleQuotationMode() {
+    isQuotationMode = !isQuotationMode;
     let titleElem = document.querySelector('.invoice-main-title') || document.querySelector('h2, h3');
-    let oldText = titleElem ? titleElem.innerText : "Tax Invoice";
-    if(titleElem) titleElem.innerText = "TAX QUOTATION / ESTIMATE";
     
-    window.print();
-    
-    setTimeout(() => {
-        if(titleElem) titleElem.innerText = oldText;
-    }, 1000);
-}
+    if (isQuotationMode) {
+        if(titleElem) titleElem.innerText = "TAX QUOTATION / ESTIMATE";
+        alert("Quotation Mode ON: Ab aap items add karke 'Print Quotation' dabayein!");
+    } else {
+        if(titleElem) titleElem.innerText = "Tax Invoice";
+        alert("Normal Billing Mode ON");
+    }
+}  
 </script>
 </body>
 </html>
