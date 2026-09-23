@@ -399,7 +399,30 @@ State: 01-Jammu & Kashmir</textarea>
 
             <!-- Action Buttons -->
             <div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;" class="no-print">
-                <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 1;">Save & Print A4 <button class="btn-warning" onclick="generateProfessionalQuotation()" style="flex: 1; padding: 10px; background-color: #f0ad4e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📄 Print Quotation</button>
+                <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 1;"><button class="btn-info" onclick="toggleQuotationForm()" style="flex: 1; padding: 10px; background-color: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📝 New Quotation Form</button>Save & Print A4 <button class="btn-warning" onclick="generateProfessionalQuotation()" style="flex: 1; padding: 10px; background-color: #f0ad4e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📄 Print Quotation</button>
+                    <div id="quotation-form-section" style="display: none; background: #f9f9f9; border: 2px dashed #f0ad4e; padding: 15px; margin-bottom: 15px; border-radius: 6px;">
+    <h3>📝 Create New Quotation</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 10px;">
+        <div>
+            <label><strong>Quotation Number:</strong></label><br>
+            <input type="text" id="q-number" value="QTN-2026-001" style="width: 100%; padding: 6px;">
+        </div>
+        <div>
+            <label><strong>Customer Name:</strong></label><br>
+            <input type="text" id="q-cust-name" placeholder="Enter Customer Name" style="width: 100%; padding: 6px;">
+        </div>
+        <div>
+            <label><strong>Customer Address:</strong></label><br>
+            <input type="text" id="q-cust-address" placeholder="Enter Address" style="width: 100%; padding: 6px;">
+        </div>
+        <div>
+            <label><strong>Validity / Due Date:</strong></label><br>
+            <input type="text" id="q-validity" value="15 Days Validity" style="width: 100%; padding: 6px;">
+        </div>
+    </div>
+    <button class="btn-success" onclick="saveQuotationData()" style="padding: 8px 15px; background: #5cb85c; color: white; border: none; border-radius: 4px; cursor: pointer;">Save Quotation Details</button>
+    <button class="btn-danger" onclick="toggleQuotationForm()" style="padding: 8px 15px; background: #d9534f; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>
+</div>
                 <button class="btn-info" onclick="openThermalReceipt()" style="flex: 1;">🖨️ Print POS</button>
                 <button class="btn-info" onclick="downloadOrSharePDF()" style="flex: 1;">📥 PDF Download</button>
                 <button class="btn-whatsapp" onclick="shareOnWhatsApp()" style="flex: 1;">📱 WhatsApp</button>
@@ -1344,6 +1367,143 @@ State: 01-Jammu & Kashmir</textarea>
         </html>
     `);
     quoteWindow.document.close();
+}
+function toggleQuotationForm() {
+    let formSection = document.getElementById('quotation-form-section');
+    if (formSection.style.display === 'none') {
+        formSection.style.display = 'block';
+    } else {
+        formSection.style.display = 'none';
+    }
+}
+
+function generateProfessionalQuotation() {
+    let custName = document.getElementById('q-cust-name') ? document.getElementById('q-cust-name').value : "Walk-in Customer";
+    let custAddress = document.getElementById('q-cust-address') ? document.getElementById('q-cust-address').value : "Srinagar, Jammu and Kashmir";
+    let qNumber = document.getElementById('q-number') ? document.getElementById('q-number').value : "QTN-2026-001";
+    let qValidity = document.getElementById('q-validity') ? document.getElementById('q-validity').value : "15 Days Validity";
+    
+    let quoteWindow = window.open('', '_blank');
+    quoteWindow.document.write(`
+        <html>
+        <head>
+            <title>Quotation / Estimate</title>
+            <style>
+                body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 0; padding: 20px; }
+                .box { border: 1px solid #000; width: 100%; max-width: 800px; margin: auto; }
+                .header-title { background: #f0ad4e; text-align: center; font-weight: bold; font-size: 16px; padding: 8px; border-bottom: 1px solid #000; letter-spacing: 1px; }
+                .company-info { text-align: center; padding: 10px; border-bottom: 1px solid #000; line-height: 1.4; }
+                .grid-section { display: flex; border-bottom: 1px solid #000; }
+                .billing-col { flex: 1; padding: 10px; border-right: 1px solid #000; }
+                .meta-col { flex: 1; padding: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 0; }
+                th, td { border: 1px solid #000; padding: 6px 8px; text-align: center; font-size: 11px; }
+                th { background-color: #f2f2f2; }
+                .text-left { text-align: left; }
+                .text-right { text-align: right; }
+                .total-row { font-weight: bold; background-color: #e6ffe6; }
+                .footer-box { border-top: 1px solid #000; padding: 8px; font-size: 11px; }
+                .terms-bank-grid { display: flex; border-top: 1px solid #000; }
+                .terms-col { flex: 1; padding: 8px; border-right: 1px solid #000; font-size: 10px; }
+                .sig-col { flex: 1; padding: 8px; text-align: right; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="box">
+                <div class="header-title">QUOTATION</div>
+                <div class="company-info">
+                    <strong>Golden Square & Co.</strong><br>
+                    3rd Floor Room 1 Furniture Building Near Veterinary Hospital Exchange Road Lal Chowk Estate Maisuma<br>
+                    <strong>Mobile:</strong> 7006688390 | <strong>Email:</strong> info@goldensquare.com<br>
+                    <strong>GSTIN:</strong> 01OFPS7711Q1ZB
+                </div>
+                
+                <div class="grid-section">
+                    <div class="billing-col">
+                        <strong>Billing Details</strong><br>
+                        <strong>Name:</strong> ${custName}<br>
+                        <strong>Address:</strong> ${custAddress}
+                    </div>
+                    <div class="meta-col">
+                        <strong>Quotation Number</strong> : ${qNumber}<br>
+                        <strong>Quotation Date</strong> : ${new Date().toLocaleDateString()}<br>
+                        <strong>Quotation Due Date</strong> : ${qValidity}<br>
+                        <strong>Place of Supply</strong> : 01 - J&K
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sr.</th>
+                            <th class="text-left">Item Description</th>
+                            <th>HSN/SAC</th>
+                            <th>Qty</th>
+                            <th>Unit</th>
+                            <th>List Price</th>
+                            <th>Disc.</th>
+                            <th>Tax %</th>
+                            <th class="text-right">Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td class="text-left">Custom Furniture / Interior Work</td>
+                            <td>9403</td>
+                            <td>1.00</td>
+                            <td>Pcs</td>
+                            <td>15,000.00</td>
+                            <td>0.00 (%)</td>
+                            <td>18%</td>
+                            <td class="text-right">15,000.00</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td colspan="8" class="text-right">Total</td>
+                            <td class="text-right">15,000.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div class="footer-box">
+                    <strong>Rs. Fifteen Thousand Only</strong>
+                </div>
+
+                <div class="terms-bank-grid">
+                    <div class="terms-col">
+                        <strong>Bank Details:</strong><br>
+                        Bank Name: Jammu And Kashmir Bank Limited, Amira Kadal<br>
+                        A/C No: 0002010100008509<br>
+                        IFSC: JAKAOSQUARE<br>
+                        Branch: Amira Kadal Srinagar
+                    </div>
+                    <div class="terms-col">
+                        <strong>Terms and Conditions:</strong><br>
+                        1. Goods once sold will not be taken back.<br>
+                        2. Interest @ 18% p.a. will be charged if payment not made within time.<br>
+                        3. Subject to Srinagar Jurisdiction.
+                    </div>
+                    <div class="sig-col">
+                        <div>For Golden Square & Co.</div>
+                        <br><br>
+                        <div>Authorized Signatory</div>
+                    </div>
+                </div>
+            </div>
+            <script>
+                window.onload = function() { window.print(); }
+            </script>
+        </body>
+        </html>
+    `);
+    quoteWindow.document.close();
+}
+
+function saveQuotationData() {
+    alert("Quotation details saved successfully! Now you can click 'Print Quotation'.");
+    toggleQuotationForm();
 }
 </script>
 </body>
