@@ -13,8 +13,8 @@
         .btn-warning { background: #ffc107; color: #333; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .btn-primary { background: #007bff; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         
-        /* Auth Screens */
-        .auth-box { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        /* Auth Login Box */
+        .auth-box { max-width: 400px; margin: 80px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #007bff; }
         
         .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
         .tab-btn { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; background: #e9ecef; border-radius: 4px; font-weight: bold; }
@@ -51,24 +51,24 @@
 </head>
 <body>
 
-    <!-- AUTHENTICATION / LOGIN SECTION -->
+    <!-- VENDOR LOGIN SCREEN -->
     <div id="authContainer" class="auth-box">
-        <h2 id="authTitle" style="text-align: center; margin-top: 0;">Admin Login</h2>
+        <h2 style="text-align: center; margin-top: 0; color: #333;">Vendor Portal Login</h2>
+        <p style="text-align: center; font-size: 13px; color: #666; margin-bottom: 20px;">Golden Star Furniture & Interior</p>
         
-        <!-- Login Form -->
-        <div id="loginForm">
-            <input type="text" id="loginUser" class="input-field" placeholder="Username (Optional)">
-            <input type="password" id="loginPass" class="input-field" placeholder="Password (Type: 1234)">
-            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="handleLogin()">Login</button>
-            <p style="text-align: center; margin-top: 15px; font-size: 12px; color: #666;">Default Password is: <b>1234</b></p>
+        <div>
+            <label style="font-size: 12px; font-weight: bold; color: #555;">Password</label>
+            <input type="password" id="loginPass" class="input-field" placeholder="Enter password (default: 1234)" style="margin-top: 5px;">
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="handleLogin()">Secure Login</button>
+            <p style="text-align: center; margin-top: 15px; font-size: 12px; color: #888;">Default Access Password: <b>1234</b></p>
         </div>
     </div>
 
-    <!-- MAIN APP DASHBOARD -->
+    <!-- MAIN APP DASHBOARD (Hidden until login) -->
     <div id="appContainer" class="container" style="display: none;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
-            <h2 style="margin: 0;">Golden Star Furniture & Interior</h2>
-            <button class="btn-danger" onclick="handleLogout()">Logout</button>
+            <h2 style="margin: 0;">Golden Star Furniture & Interior - Billing System</h2>
+            <button class="btn-danger" onclick="handleLogout()">Lock / Logout</button>
         </div>
         
         <!-- NAVIGATION TABS -->
@@ -160,6 +160,7 @@
     </div>
 
 <script>
+    // LocalStorage initialization for app data
     let inventory = JSON.parse(localStorage.getItem('gs_inventory')) || [
         { name: "Wooden Center Table", barcode: "101", hsn: "9403", price: 4500 },
         { name: "Mango Wood Chair", barcode: "102", hsn: "9401", price: 1800 },
@@ -170,21 +171,35 @@
 
     let quotations = JSON.parse(localStorage.getItem('gs_quotations')) || [];
 
+    // Check if session was already logged in during this browser tab session
+    window.onload = function() {
+        if(sessionStorage.getItem('gs_logged_in') === 'true') {
+            openDashboard();
+        }
+    };
+
     function handleLogin() {
         let p = document.getElementById('loginPass').value.trim();
-        
-        // Fixed password check so it never fails
+        // Secure password validation check
         if(p === '1234') {
-            document.getElementById('authContainer').style.display = 'none';
-            document.getElementById('appContainer').style.display = 'block';
-            updateQuoteCount();
-            addItemRow();
+            sessionStorage.setItem('gs_logged_in', 'true');
+            openDashboard();
         } else {
-            alert("Incorrect password! Please enter '1234'.");
+            alert("Invalid password! Please check and enter '1234'.");
+        }
+    }
+
+    function openDashboard() {
+        document.getElementById('authContainer').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'block';
+        updateQuoteCount();
+        if(document.getElementById('invoiceRows').children.length === 0) {
+            addItemRow();
         }
     }
 
     function handleLogout() {
+        sessionStorage.removeItem('gs_logged_in');
         document.getElementById('appContainer').style.display = 'none';
         document.getElementById('authContainer').style.display = 'block';
         document.getElementById('loginPass').value = '';
@@ -402,14 +417,14 @@
         let name = document.getElementById('newProdName').value.trim();
         let barcode = document.getElementById('newProdBarcode').value.trim();
         let hsn = document.getElementById('newProdHsn').value.trim();
-        let price = parseFloat(document.getElementById('newProdPrice').value) === NaN ? 0 : parseFloat(document.getElementById('newProdPrice').value);
+        let price = parseFloat(document.getElementById('newProdPrice').value) || 0;
 
         if(!name) {
             alert("Please enter product name!");
             return;
         }
 
-        inventory.push({ name, barcode, hsn, price: price || 0 });
+        inventory.push({ name, barcode, hsn, price });
         localStorage.setItem('gs_inventory', JSON.stringify(inventory));
         
         document.getElementById('newProdName').value = '';
