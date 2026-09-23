@@ -408,8 +408,9 @@ State: 01-Jammu & Kashmir</textarea>
             <!-- Action Buttons -->
             <div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;" class="no-print">
                 <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 1;">Save & Print A4</butaton <button <div style="display: flex; gap: 10px; margin-top: 10px;">
-    <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 1; padding: 10px;">Save & Print A4</button>
+    <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 1; padding: 10px;"> <button class="btn-warning" onclick="printQuotation()" style="background-color: #f0ad4e; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin: 5px;">📄 Print Quotation</button> Save & Print A4</button>
     <button class="btn-warning" onclick="printQuotation()" style="flex: 1; padding: 10px; background-color: #f0ad4e; color: white; border: none; border-radius: 4px; cursor: pointer;">📄 Print Quotation</button>
+                  
 </div>
                 <button class="btn-info" onclick="openThermalReceipt()" style="flex: 1;">🖨️ Print POS</button>
                 <button class="btn-info" onclick="downloadOrSharePDF()" style="flex: 1;">📥 PDF Download</button>
@@ -1216,6 +1217,17 @@ State: 01-Jammu & Kashmir</textarea>
 function printQuotation() {
     let titleElem = document.querySelector('.invoice-main-title');
     let oldText = titleElem ? titleElem.innerText : "TAX INVOICE";
+    if(titleElem) titleElem.innerText = "TAX QUOTATION / ESTIMATE";
+    
+    window.print();
+    
+    setTimeout(() => {
+        if(titleElem) titleElem.innerText = oldText;
+    }, 1000);
+}
+  function printQuotation() {
+    let titleElem = document.querySelector('.invoice-main-title') || document.querySelector('h2, h3');
+    let oldText = titleElem ? titleElem.innerText : "Tax Invoice";
     if(titleElem) titleElem.innerText = "TAX QUOTATION / ESTIMATE";
     
     window.print();
