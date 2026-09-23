@@ -1275,6 +1275,7 @@ State: 01-Jammu & Kashmir</textarea>
                 .terms-col { flex: 1; padding: 8px; border-right: 1px solid #000; font-size: 10px; }
                 .sig-col { flex: 1; padding: 8px; text-align: right; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; font-weight: bold; }
         <script>
+<script>
 // 1. Quotation Form ko kholne ya band karne ke liye
 function toggleQuotationForm() {
     let formSection = document.getElementById('quotation-form-section');
@@ -1287,11 +1288,13 @@ function toggleQuotationForm() {
     }
 }
 
+// 2. Quotation Details Save karne ke liye
 function saveQuotationData() {
     alert("Quotation details saved successfully! Now you can click 'Print Quotation'.");
     toggleQuotationForm();
 }
 
+// 3. Professional Quotation Print karne ke liye
 function generateProfessionalQuotation() {
     let custName = document.getElementById('q-cust-name') ? document.getElementById('q-cust-name').value : "Walk-in Customer";
     let custAddress = document.getElementById('q-cust-address') ? document.getElementById('q-cust-address').value : "Srinagar, Jammu and Kashmir";
@@ -1339,3 +1342,6 @@ function generateProfessionalQuotation() {
     quoteWindow.document.close();
 }
 </script>
+</script>
+</body>
+</html>
