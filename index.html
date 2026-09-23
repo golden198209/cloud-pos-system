@@ -3,1385 +3,493 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BillBook - Multi-User Cloud POS System</title>
-    <!-- QuaggaJS for Camera Barcode Scanning -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-    <!-- Firebase App, Auth & Firestore SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    
+    <title>Golden Star Furniture - POS & Billing System</title>
     <style>
-        body <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BillBook POS</title>
-    <!-- Aapki koi aur CSS ya styles yahan ho toh rehne dein -->
-</head>
-<body>
-
-    <!-- 1. LOGIN SCREEN (Jab tak login nahi hoga, yeh dikhegi) -->
-    <div id="login-screen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f6fa; position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;">
-        <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center;">
-            <h2>POS Login</h2>
-            <input type="email" id="login-email" placeholder="Email" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
-            <input type="password" id="login-password" placeholder="Password" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
-            <button onclick="handleLogin()" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Login</button>
-        </div>
-    </div>
-
-    <!-- 2. MAIN POS APP WRAPPER (Login hone ke baad yeh khulega) -->
-    <div id="main-pos-app" style="display: none;">
-
-        <!-- ========================================== -->
-        <!-- YAHAN APKA PURANA POS KA SARA CODE RAHEGA -->
-        <!-- ========================================== -->
-        <div style="padding: 20px;">
-            <h1>Welcome to my POS Application</h1>
-            <!-- Aapka purana POS design aur elements yahan hain -->
-        </div>
-
-    </div>
-
-    <!-- 3. FIREBASE CONFIGURATION & SDKs -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
-    <script>
-        // Aapki Asli Firebase Config
-        const firebaseConfig = {
-            apiKey: "AIzaSyDlHR_MyuEIu9mIs-4_Mmk8NRUsLGQslw0",
-            authDomain: "my-pos-app-54ef4.firebaseapp.com",
-            projectId: "my-pos-app-54ef4",
-            storageBucket: "my-pos-app-54ef4.firebasestorage.app",
-            messagingSenderId: "974088050332",
-            appId: "1:974088050332:web:69dfd694fb6024cf197f59",
-            measurementId: "G-9GENNN74FE"
-        };
-
-        // Firebase Initialize
-        firebase.initializeApp(firebaseConfig);
-
-        // Firebase Auth State Check (Login Gate Logic)
-        firebase.auth().onAuthStateChanged((user) => {
-            if (user) {
-                // User logged in hai -> Login screen hide, POS show
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('main-pos-app').style.display = 'block';
-                console.log("Logged in user UID:", user.uid);
-            } else {
-                // User logged out hai -> Login screen show, POS hide
-                document.getElementById('login-screen').style.display = 'flex';
-                document.getElementById('main-pos-app').style.display = 'none';
-            }
-        });
-
-        // Login Function
-        function handleLogin() {
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            
-            firebase.auth().signInWithEmailAndPassword(email, password)
-                .catch((error) => {
-                    alert("Login Error: " + error.message);
-                });
-        }
-    </script>
-</body>
-</html><!-- Login Screen (Pehle yeh dikhegi) -->
-<div id="login-screen" style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f6fa; position: fixed; top: 0; left: 0; width: 100%; z-index: 9999;">
-    <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center;">
-        <h2>POS Login</h2>
-        <input type="email" id="login-email" placeholder="Email" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
-        <input type="password" id="login-password" placeholder="Password" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
-        <button onclick="handleLogin()" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Login</button>
-    </div>
-</div> <div id="main-pos-app" style="display: none;">{
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f2f5;
-            color: #000;
-        }
-        .container {
-            max-width: 950px;
-            margin: auto;
-        }
-        /* Auth Panel Styles */
-        #authPanel {
-            max-width: 400px;
-            margin: 80px auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        #authPanel h2 { margin-bottom: 20px; color: #2c3e50; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 15px; background: #f4f7f6; color: #333; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .input-field { width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn { background: #28a745; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .btn-danger { background: #dc3545; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
+        .btn-warning { background: #ffc107; color: #333; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .btn-primary { background: #007bff; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         
-        .tab-buttons {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .tab-btn {
-            padding: 8px 12px;
-            background-color: #ddd;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        .tab-btn.active {
-            background-color: #2c3e50;
-            color: white;
-        }
-        .panel {
-            display: none;
-            background: #fff;
-            padding: 20px;
-            border-radius: 6px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .panel.active {
-            display: block;
-        }
-        .invoice-box {
-            background-color: #fff;
-            padding: 25px;
-            border: 1px solid #333;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
-        }
-        .invoice-main-title {
-            text-align: center;
-            font-size: 22px;
-            font-weight: bold;
-            text-transform: uppercase;
-            border-bottom: 2px solid #333;
-            padding-bottom: 5px;
-            margin-bottom: 10px;
-        }
-        .header-table, .details-table, .items-table, .tax-summary-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .company-title {
-            font-size: 20px;
-            font-weight: bold;
-            color: #000;
-            text-transform: uppercase;
-        }
-        .sub-text {
-            font-size: 12px;
-            color: #333;
-            line-height: 1.4;
-        }
-        .box-section {
-            border: 1px solid #333;
-            padding: 10px;
-            margin-top: 10px;
-            font-size: 12px;
-            background: #fafafa;
-        }
-        .split-table {
-            width: 100%;
-            border: 1px solid #333;
-            margin-top: 10px;
-            border-collapse: collapse;
-        }
-        .split-table td {
-            width: 50%;
-            border: 1px solid #333;
-            padding: 8px;
-            vertical-align: top;
-            font-size: 12px;
-        }
-        .items-table {
-            margin-top: 10px;
-        }
-        .items-table th, .items-table td {
-            border: 1px solid #333;
-            padding: 6px 8px;
-            text-align: center;
-            font-size: 11px;
-            position: relative;
-        }
-        .items-table th {
-            background-color: #eaeaea;
-            font-weight: bold;
-        }
-        .items-table td.left { text-align: left; }
-        .items-table td.right { text-align: right; }
+        /* Auth Screens */
+        .auth-box { max-width: 400px; margin: 50px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         
-        /* Custom Dropdown List */
-        .custom-dropdown-list {
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; background: #e9ecef; border-radius: 4px; font-weight: bold; }
+        .tab-btn.active { background: #007bff; color: white; border-color: #007bff; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+        th { background-color: #f8f9fa; }
+        .right { text-align: right; }
+        
+        /* Dropdown Search Styles */
+        .search-box-container { position: relative; }
+        .search-results {
             position: absolute;
             top: 100%;
             left: 0;
             right: 0;
-            background: #fff;
+            background: white;
             border: 1px solid #007bff;
-            max-height: 180px;
+            max-height: 150px;
             overflow-y: auto;
-            z-index: 9999;
+            z-index: 1000;
             display: none;
-            text-align: left;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        .custom-dropdown-item {
-            padding: 8px 10px;
-            font-size: 11px;
-            border-bottom: 1px solid #eee;
+        .search-item {
+            padding: 8px 12px;
             cursor: pointer;
-            background-color: #fff;
-        }
-        .custom-dropdown-item:hover {
-            background-color: #007bff;
-            color: #fff;
-        }
-
-        .tax-summary-table {
-            margin-top: 10px;
-        }
-        .tax-summary-table th, .tax-summary-table td {
-            border: 1px solid #333;
-            padding: 5px;
-            text-align: center;
-            font-size: 11px;
-        }
-        .tax-summary-table th {
-            background-color: #f2f2f2;
-        }
-        
-        .totals-box-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: -1px;
-        }
-        .totals-box-table td {
-            border: 1px solid #333;
-            padding: 5px 8px;
-            font-size: 12px;
-        }
-        .input-field, select, textarea {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 5px;
-            font-size: 12px;
-            margin-bottom: 5px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-        }
-        .btn-success { background-color: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;}
-        .btn-info { background-color: #17a2b8; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;}
-        .btn-whatsapp { background-color: #25d366; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-email { background-color: #ea4335; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-danger { background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;}
-        .btn-warning { background-color: #ffc107; color: #000; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-secondary { background-color: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;}
-        
-        .settings-bar {
-            background: #e9ecef;
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            display: flex;
-            gap: 15px;
-            align-items: center;
+            border-bottom: 1px solid #eee;
             font-size: 13px;
-            flex-wrap: wrap;
         }
-        .stat-card {
-            background: #fff;
-            border: 1px solid #ccc;
-            padding: 15px;
-            border-radius: 5px;
-            text-align: center;
-            flex: 1;
-            min-width: 180px;
-        }
-        .stat-card h4 { margin: 0 0 5px 0; color: #555; font-size: 13px; }
-        .stat-card div { font-size: 18px; font-weight: bold; color: #2c3e50; }
-        .low-stock { background-color: #ffd2d2 !important; color: #900; font-weight: bold; }
-        
-        #scannerModal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
-            justify-content: center; align-items: center;
-            z-index: 2000;
-            flex-direction: column;
-        }
-        #interactive.viewport {
-            width: 100%;
-            max-width: 400px;
-            height: 300px;
-            position: relative;
-        }
-        #interactive.viewport canvas, #interactive.viewport video {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0; left: 0;
-        }
-
-        @media print {
-            body { background-color: #fff; padding: 0; }
-            .container, .invoice-box { box-shadow: none; border: none; padding: 0; max-width: 100%; }
-            .tab-buttons, .no-print, .settings-bar { display: none; }
-            .input-field, select, textarea { border: none; background: transparent; appearance: none; resize: none; }
-            .custom-dropdown-list { display: none !important; }
-        }
+        .search-item:hover { background: #007bff; color: white; }
     </style>
 </head>
 <body>
 
-<!-- AUTHENTICATION PANEL (LOGIN / SIGNUP) -->
-<div id="authPanel">
-    <h2>🏪 BillBook POS Login</h2>
-    <p style="font-size: 12px; color: #666; margin-bottom: 20px;">Manage your business securely in the cloud</p>
-    <input type="email" id="authEmail" class="input-field" placeholder="Enter your business email">
-    <input type="password" id="authPassword" class="input-field" placeholder="Enter password">
-    <button class="btn-success" onclick="handleLogin()" style="width:100%; margin-bottom: 8px;">Login to POS</button>
-    <button class="btn-info" onclick="handleSignup()" style="width:100%;">Create New Business Account</button>
-</div>
-
-<!-- MAIN POS APPLICATION CONTAINER (Hidden until logged in) -->
-<div class="container" id="mainAppContainer" style="display: none;">
-    
-    <!-- User Bar & Logout -->
-    <div style="display: flex; justify-content: space-between; align-items: center; background: #2c3e50; color: white; padding: 8px 15px; border-radius: 4px; margin-bottom: 10px;" class="no-print">
-        <span id="loggedInUserEmail" style="font-size: 12px;">Logged in: user@email.com</span>
-        <button class="btn-danger" onclick="handleLogout()" style="padding: 4px 10px; font-size: 11px;">Logout</button>
-    </div>
-
-    <!-- Navigation Tabs -->
-    <div class="tab-buttons no-print">
-        <button class="tab-btn active" onclick="switchTab('invoice', event)">Create Invoice</button>
-        <button class="tab-btn" onclick="switchTab('history', event)">Invoice History</button>
-        <button class="tab-btn" onclick="switchTab('ledger', event)">Pending Payments (Udhaar)</button>
-        <button class="tab-btn" onclick="switchTab('reports', event)">📊 Reports & GSTR-1</button>
-        <button class="tab-btn" onclick="switchTab('business', event)">Manage Firms</button>
-        <button class="tab-btn" onclick="switchTab('customers', event)">Customers & Ledger</button>
-        <button class="tab-btn" onclick="switchTab('inventory', event)">Stock & Barcode</button>
-    </div>
-
-    <!-- SETTINGS & CLOUD BAR -->
-    <div class="settings-bar no-print">
-        <strong>Price Mode:</strong>
-        <label><input type="radio" name="priceMode" value="exclusive" checked onchange="calculateTotals()"> Without GST</label>
-        <label><input type="radio" name="priceMode" value="inclusive" onchange="calculateTotals()"> With GST</label>
+    <!-- AUTHENTICATION / LOGIN SECTION -->
+    <div id="authContainer" class="auth-box">
+        <h2 id="authTitle" style="text-align: center; margin-top: 0;">Admin Login</h2>
         
-        <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="globalBarcodeScan" class="input-field" placeholder="🔍 Scan Barcode / Search..." onkeypress="handleGlobalBarcode(event)" style="margin-bottom: 0; width: 200px; font-weight: bold;">
-            <button class="btn-warning" onclick="startCameraScanner()" style="padding: 5px 10px; font-size: 11px;">📷 Scan Camera</button>
+        <!-- Login Form -->
+        <div id="loginForm">
+            <input type="text" id="loginUser" class="input-field" placeholder="Username (Default: admin)">
+            <input type="password" id="loginPass" class="input-field" placeholder="Password (Default: 1234)">
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="handleLogin()">Login</button>
+            <p style="text-align: center; margin-top: 15px; font-size: 13px;">
+                <a href="#" onclick="showSection('forgot')">Forgot Password?</a>
+            </p>
         </div>
-        
-        <div style="margin-left: auto;">
-            <span id="syncStatus" style="font-size: 11px; color: green; font-weight: bold;">☁️ Cloud Synced</span>
+
+        <!-- Forgot Password Form -->
+        <div id="forgotForm" style="display: none;">
+            <p style="font-size: 13px; color: #666;">Enter your recovery pet name / PIN to reset password:</p>
+            <input type="text" id="recoveryKey" class="input-field" placeholder="Recovery Answer (Default: golden)">
+            <input type="password" id="newPass" class="input-field" placeholder="Enter New Password">
+            <button class="btn btn-warning" style="width: 100%; margin-top: 10px;" onclick="handleResetPassword()">Reset Password</button>
+            <p style="text-align: center; margin-top: 15px; font-size: 13px;">
+                <a href="#" onclick="showSection('login')">Back to Login</a>
+            </p>
         </div>
     </div>
 
-    <!-- 1. INVOICE PANEL -->
-    <div id="invoicePanel" class="panel active">
-        <div class="invoice-box">
-            <!-- Firm & Customer Selector Bar -->
-            <div class="box-section no-print" style="margin-bottom: 10px; background: #f9f9f9; display: flex; gap: 15px; align-items: center;">
-                <div style="flex: 1; display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
-                    <label style="white-space: nowrap; margin-bottom: 0;"><strong>Select Billing Firm:</strong></label>
-                    <select id="activeFirmSelect" class="input-field" onchange="onFirmChange()" style="font-weight: bold; margin-bottom: 0;"></select>
-                </div>
-                <div style="flex: 1; display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
-                    <label style="white-space: nowrap; margin-bottom: 0;"><strong>Bill To:</strong></label>
-                    <select id="invoiceCustDropdown" class="input-field" onchange="onCustomerSelected()" style="font-weight: bold; margin-bottom: 0;"></select>
-                </div>
+    <!-- MAIN APP DASHBOARD (Hidden by default until login) -->
+    <div id="appContainer" class="container" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+            <h2 style="margin: 0;">Golden Star Furniture & Interior</h2>
+            <button class="btn-danger" onclick="handleLogout()">Logout</button>
+        </div>
+        
+        <!-- NAVIGATION TABS -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('billing', event)">Create Invoice</button>
+            <button class="tab-btn" onclick="switchTab('quotations', event)">Quotations / Estimates (<span id="quoteCount">0</span>)</button>
+            <button class="tab-btn" onclick="switchTab('inventory', event)">Inventory & Stock</button>
+        </div>
+
+        <!-- 1. BILLING PANEL -->
+        <div id="billingPanel" class="panel">
+            <h3>New Invoice / Quotation Entry</h3>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center;">
+                <input type="text" id="custName" class="input-field" placeholder="Customer Name" style="margin:0;">
+                <input type="text" id="custPhone" class="input-field" placeholder="Customer Phone" style="margin:0;">
+                <label style="font-size: 14px; white-space: nowrap;"><input type="checkbox" id="gstToggle" onchange="calculateTotal()"> Add 18% GST</label>
             </div>
 
-            <div class="invoice-main-title">Tax Invoice</div>
-
-            <!-- Company & Invoice Details Header -->
-            <table class="header-table">
-                <tr>
-                    <td style="width: 55%; vertical-align: top;">
-                        <div class="company-title" id="lblCompanyName">Golden Star Furniture</div>
-                        <div class="sub-text" id="lblCompanyDetails" style="margin-top: 4px;"></div>
-                    </td>
-                    <td style="width: 45%; vertical-align: top; text-align: right;">
-                        <div class="sub-text" style="text-align: left;">
-                            <strong>Invoice:</strong> <input type="text" id="invNumber" class="input-field" value="1" style="width: 120px; display:inline-block;"><br>
-                            <strong>Date:</strong> <input type="date" class="input-field" id="invDate" style="width: 130px; display:inline-block;"><br>
-                            <strong>Place of Supply:</strong> <input type="text" class="input-field" id="placeOfSupply" value="01-Jammu & Kashmir" style="width: 140px; display:inline-block;">
-                        </div>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Bill To & Customer Details Split Box -->
-            <table class="split-table">
-                <tr>
-                    <td>
-                        <div style="margin-bottom: 4px;"><strong>Bill To (Customer Details):</strong></div>
-                        <textarea id="manualCustDetails" class="input-field" rows="4" placeholder="Enter Customer Name, Address, GSTIN, State etc." style="margin-top: 4px; font-family: Arial, sans-serif;">Cash Customer</textarea>
-                    </td>
-                    <td>
-                        <strong>Notes / Remarks:</strong>
-                        <textarea id="invoiceRemarks" class="input-field" rows="4" placeholder="Optional notes or dispatch details..." style="margin-top: 4px; font-family: Arial, sans-serif;"></textarea>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Items Table -->
-            <table class="items-table">
+            <table>
                 <thead>
                     <tr>
-                        <th style="width: 4%;">#</th>
-                        <th style="width: 24%;">Item Name (Click or Type)</th>
-                        <th style="width: 10%;">Barcode</th>
-                        <th style="width: 10%;">HSN/SAC</th>
-                        <th style="width: 7%;">Qty</th>
-                        <th style="width: 7%;">Unit</th>
-                        <th style="width: 10%;">Price (₹)</th>
-                        <th style="width: 8%;">GST Rate</th>
-                        <th style="width: 10%;">GST (₹)</th>
-                        <th style="width: 12%;">Amount(₹)</th>
-                        <th class="no-print" style="width: 4%;">Act</th>
+                        <th width="35%">Item Name (Type to search)</th>
+                        <th>Barcode</th>
+                        <th>HSN</th>
+                        <th>Price (₹)</th>
+                        <th>Qty</th>
+                        <th class="right">Total (₹)</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
-                <tbody id="itemRows"></tbody>
+                <tbody id="invoiceRows"></tbody>
             </table>
-            <button class="btn-success no-print" onclick="addItemRow()" style="margin-top: 5px; padding: 4px 10px; font-size: 12px;">+ Add Item</button>
+            
+            <button class="btn" onclick="addItemRow()" style="margin-top: 10px;">+ Add Item Row</button>
 
-            <!-- Tax Summary & Totals Section -->
-            <table style="width: 100%; margin-top: 10px; border-collapse: collapse;">
-                <tr>
-                    <td style="width: 62%; vertical-align: top; padding-right: 5px;">
-                        <div style="font-size: 11px; font-weight: bold; margin-bottom: 2px;">Tax Summary:</div>
-                        <table class="tax-summary-table">
-                            <thead>
-                                <tr>
-                                    <th rowspan="2" style="vertical-align: middle;">HSN/ SAC</th>
-                                    <th rowspan="2" style="vertical-align: middle;">Taxable Amount (₹)</th>
-                                    <th colspan="2">CGST</th>
-                                    <th colspan="2">SGST</th>
-                                    <th rowspan="2" style="vertical-align: middle;">Total Tax(₹)</th>
-                                </tr>
-                                <tr>
-                                    <th>Rate (%)</th>
-                                    <th>Amt (₹)</th>
-                                    <th>Rate (%)</th>
-                                    <th>Amt (₹)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="taxSummaryRows"></tbody>
-                        </table>
-                    </td>
-                    <td style="width: 38%; vertical-align: top; padding-left: 5px;">
-                        <table class="totals-box-table">
-                            <tr>
-                                <td>Sub Total :</td>
-                                <td style="text-align: right;" id="subTotal">0.00</td>
-                            </tr>
-                            <tr>
-                                <td>Total :</td>
-                                <td style="text-align: right; font-weight: bold;" id="grandTotal">0.00</td>
-                            </tr>
-                            <tr>
-                                <td colspan="2" style="font-size: 11px;">
-                                    <strong>Invoice Amount In Words:</strong><br>
-                                    <span id="amountInWords" style="font-style: italic;">Zero Rupees Only</span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Received :</td>
-                                <td style="text-align: right;"><input type="number" id="amtReceived" class="input-field" value="0" oninput="calculateTotals()" style="width: 80px; text-align: right; display:inline-block; margin-bottom:0;"></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Balance :</strong></td>
-                                <td style="text-align: right; font-weight: bold; color: #b30000;" id="balanceAmount">0.00</td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Terms and Conditions -->
-            <div class="box-section" style="margin-top: 10px; background:#fff;">
-                <strong>Terms And Conditions:</strong><br>
-                <span class="sub-text">Thank you for doing business with us. Goods once sold will not be taken back.</span>
+            <div style="margin-top: 20px; text-align: right; font-size: 16px;">
+                <div>Subtotal: ₹<span id="subTotal">0.00</span></div>
+                <div id="gstRow" style="display: none;">GST (18%): ₹<span id="gstAmount">0.00</span></div>
+                <div style="font-size: 20px; margin-top: 5px;"><strong>Grand Total: ₹<span id="grandTotal">0.00</span></strong></div>
             </div>
 
-            <!-- Bank Details and Signatory Split Box -->
-            <table class="split-table">
-                <tr>
-                    <td>
-                        <strong>Bank Details:</strong>
-                        <div id="lblBankDetails" class="sub-text" style="margin-top: 4px;"></div>
-                    </td>
-                    <td style="text-align: right; vertical-align: bottom;">
-                        <div id="lblSignCompanyName" style="font-size: 11px; font-weight: bold; margin-bottom: 35px;">For Firm:</div>
-                        <div style="border-top: 1px solid #333; display: inline-block; padding-top: 2px; font-size: 11px; width: 150px; text-align: center;">Authorized Signatory</div>
-                    </td>
-                </tr>
+            <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn" onclick="saveAndPrintInvoice()">Save & Print Invoice</button>
+                <button class="btn-warning" onclick="saveAsQuotation()">Save as Quotation</button>
+            </div>
+        </div>
+
+        <!-- 2. QUOTATIONS PANEL -->
+        <div id="quotationsPanel" class="panel" style="display: none;">
+            <h3>Saved Quotations List</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Quote ID</th>
+                        <th>Customer Name</th>
+                        <th>Total Amount</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="quoteTableBody">
+                    <tr><td colspan="4" style="text-align: center;">No quotations saved yet.</td></tr>
+                </tbody>
             </table>
+        </div>
 
-            <!-- Action Buttons -->
-            <div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;" class="no-print">
-                <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex: 1;">Save & Print A4</button>
-                <button class="btn-info" onclick="openThermalReceipt()" style="flex: 1;">🖨️ Print POS</button>
-                <button class="btn-info" onclick="downloadOrSharePDF()" style="flex: 1;">📥 PDF Download</button>
-                <button class="btn-whatsapp" onclick="shareOnWhatsApp()" style="flex: 1;">📱 WhatsApp</button>
-                <button class="btn-email" onclick="shareViaEmail()" style="flex: 0.8;">✉️ Email</button>
-                <button class="btn-danger" onclick="resetInvoiceForm()" style="flex: 0.5;">Clear</button>
+        <!-- 3. INVENTORY PANEL -->
+        <div id="inventoryPanel" class="panel" style="display: none;">
+            <h3>Inventory Management</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                <input type="text" id="newProdName" class="input-field" placeholder="Product Name" style="margin:0;">
+                <input type="text" id="newProdBarcode" class="input-field" placeholder="Barcode" style="margin:0;">
+                <input type="text" id="newProdHsn" class="input-field" placeholder="HSN" style="margin:0;">
+                <input type="number" id="newProdPrice" class="input-field" placeholder="Price (₹)" style="margin:0;">
+                <button class="btn" onclick="addNewProduct()" style="white-space: nowrap;">Add Product</button>
             </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item Name</th>
+                        <th>Barcode</th>
+                        <th>HSN</th>
+                        <th>Price (₹)</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+            </table>
         </div>
     </div>
-
-    <!-- 2. HISTORY PANEL -->
-    <div id="historyPanel" class="panel">
-        <h3>Invoice History</h3>
-        <table class="items-table">
-            <thead>
-                <tr><th>Firm</th><th>Invoice No.</th><th>Date</th><th>Customer</th><th>Status</th><th>Total (₹)</th><th>Action</th></tr>
-            </thead>
-            <tbody id="historyTableBody"></tbody>
-        </table>
-    </div>
-
-    <!-- 3. LEDGER PANEL -->
-    <div id="ledgerPanel" class="panel">
-        <h3>Pending Payments (Kisse Paise Lene Hain)</h3>
-        <table class="items-table">
-            <thead>
-                <tr><th>Customer Name / Details</th><th>Invoice No.</th><th>Balance Amount (₹)</th><th>Action</th></tr>
-            </thead>
-            <tbody id="ledgerTableBody"></tbody>
-        </table>
-    </div>
-
-    <!-- 4. REPORTS PANEL -->
-    <div id="reportsPanel" class="panel">
-        <h3>📊 Business Reports & GSTR-1 Tax Summary</h3>
-        <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-            <div class="stat-card"><h4>Total Sales Revenue</h4><div id="repTotalSales">₹0.00</div></div>
-            <div class="stat-card"><h4>Total Amount Received</h4><div id="repTotalReceived" style="color: green;">₹0.00</div></div>
-            <div class="stat-card"><h4>Total Pending (Udhaar)</h4><div id="repTotalPending" style="color: red;">₹0.00</div></div>
-        </div>
-        <h4 style="border-top: 1px solid #ccc; padding-top: 10px;">GSTR-1 HSN-Wise Summary Report</h4>
-        <table class="items-table">
-            <thead><tr><th>HSN / SAC</th><th>Total Taxable Value (₹)</th><th>CGST Amount (₹)</th><th>SGST Amount (₹)</th><th>Total Tax Amount (₹)</th></tr></thead>
-            <tbody id="gstr1TableBody"></tbody>
-        </table>
-        <h4 style="margin-top:20px;">Day Book</h4>
-        <table class="items-table">
-            <thead><tr><th>Date</th><th>Invoice No.</th><th>Customer Name</th><th>Total Bill (₹)</th><th>Status</th></tr></thead>
-            <tbody id="dayBookTableBody"></tbody>
-        </table>
-    </div>
-
-    <!-- 5. BUSINESS PROFILES PANEL -->
-    <div id="businessPanel" class="panel">
-        <h3>Manage Firms</h3>
-        <div class="box-section">
-            <input type="text" id="busName" class="input-field" placeholder="Firm Name">
-            <input type="text" id="busPrefix" class="input-field" placeholder="Prefix">
-            <textarea id="busAddress" class="input-field" placeholder="Address"></textarea>
-            <input type="text" id="busPhone" class="input-field" placeholder="Phone">
-            <input type="text" id="busGstin" class="input-field" placeholder="GSTIN">
-            <button class="btn-success" onclick="saveBusinessProfile()" style="margin-top: 10px; width:100%;">Save Firm</button>
-        </div>
-        <table class="items-table" style="margin-top:15px;">
-            <thead><tr><th>Firm Name</th><th>GSTIN</th><th>Action</th></tr></thead>
-            <tbody id="companyTableBody"></tbody>
-        </table>
-    </div>
-
-    <!-- 6. CUSTOMERS PANEL -->
-    <div id="customersPanel" class="panel">
-        <h3>Customer Management</h3>
-        <div class="box-section">
-            <input type="text" id="newCustName" class="input-field" placeholder="Customer Name">
-            <textarea id="newCustAddress" class="input-field" placeholder="Address"></textarea>
-            <input type="text" id="newCustPhone" class="input-field" placeholder="Phone">
-            <input type="text" id="newCustGstin" class="input-field" placeholder="GSTIN">
-            <button class="btn-success" onclick="saveCustomer()">Save Customer</button>
-        </div>
-        <table class="items-table" style="margin-top: 15px;">
-            <thead><tr><th>Customer Name</th><th>Phone</th><th>GSTIN / Address</th><th>Ledger</th><th>Action</th></tr></thead>
-            <tbody id="customerTableBody"></tbody>
-        </table>
-    </div>
-
-    <!-- 7. INVENTORY PANEL -->
-    <div id="inventoryPanel" class="panel">
-        <h3>Stock & Barcode Management</h3>
-        <div class="box-section">
-            <input type="text" id="prodName" class="input-field" placeholder="Product Name">
-            <div style="display:flex; gap:5px;">
-                <input type="text" id="prodBarcode" class="input-field" placeholder="Barcode Number" style="margin-bottom:5px;">
-                <button class="btn-warning" onclick="startCameraScannerForInventory()" style="height:28px; font-size:11px;">📷 Scan</button>
-            </div>
-            <input type="text" id="prodHsn" class="input-field" placeholder="HSN/SAC">
-            <input type="number" id="prodPrice" class="input-field" placeholder="Price (₹)">
-            <select id="prodGst" class="input-field">
-                <option value="18">18% GST</option>
-                <option value="12">12% GST</option>
-                <option value="28">28% GST</option>
-                <option value="5">5% GST</option>
-                <option value="0">0% GST</option>
-            </select>
-            <input type="number" id="prodStock" class="input-field" placeholder="Stock Qty">
-            <button class="btn-success" onclick="saveProduct()">Save Product & Barcode</button>
-        </div>
-        <table class="items-table" style="margin-top: 15px;">
-            <thead><tr><th>Product</th><th>Barcode</th><th>HSN</th><th>Price</th><th>GST</th><th>Stock</th><th>Action</th></tr></thead>
-            <tbody id="inventoryTableBody"></tbody>
-        </table>
-    </div>
-</div>
-
-<!-- CAMERA SCANNER MODAL VIEW -->
-<div id="scannerModal">
-    <div style="background:white; padding:15px; border-radius:8px; text-align:center; width:340px;">
-        <h4 style="margin-top:0;">Scan Barcode via Camera</h4>
-        <div id="interactive" class="viewport"></div>
-        <button class="btn-danger" onclick="stopCameraScanner()" style="margin-top:15px; width:100%;">Close Camera</button>
-    </div>
-</div>
-
-<!-- THERMAL RECEIPT MODAL PREVIEW -->
-<div id="thermalReceiptModal" class="no-print" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;">
-    <div style="width:300px; background:#fff; padding:15px; font-family:'Courier New',Courier,monospace; font-size:12px;">
-        <div id="thermalContent" style="white-space: pre-line;"></div>
-        <div style="margin-top: 15px; display: flex; gap: 5px;">
-            <button class="btn-success" onclick="window.print()" style="flex:1; font-size:11px;">Print Slip</button>
-            <button class="btn-danger" onclick="document.getElementById('thermalReceiptModal').style.display='none'" style="flex:1; font-size:11px;">Close</button>
-        </div>
-    </div>
-</div>
 
 <script>
-    // FIREBASE INITIALIZATION CONFIG
-    // NOTE: Apni Firebase config yahan daal dein agar pehle se nahi dali hai
-   const firebaseConfig = {
-        apiKey: "AIzaSyDlHR_MyuEIu9mIs-4_Mmk8NRUsLGQslw0",
-        authDomain: "my-pos-app-54ef4.firebaseapp.com",
-        projectId: "my-pos-app-54ef4",
-        storageBucket: "my-pos-app-54ef4.firebasestorage.app",
-        messagingSenderId: "974088050332",
-        appId: "1:974088050332:web:69dfd694fb6024cf197f59",
-        measurementId: "G-9GENNN74FE"
-    };
+    // LocalStorage initialization
+    let inventory = JSON.parse(localStorage.getItem('gs_inventory')) || [
+        { name: "Wooden Center Table", barcode: "101", hsn: "9403", price: 4500 },
+        { name: "Mango Wood Chair", barcode: "102", hsn: "9401", price: 1800 },
+        { name: "Antique Bookshelf", barcode: "103", hsn: "9403", price: 6200 },
+        { name: "Wicker Storage Basket", barcode: "104", hsn: "4602", price: 950 },
+        { name: "Wooden Chess Game Set", barcode: "105", hsn: "9504", price: 1200 }
+    ];
 
-    if(!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
+    let quotations = JSON.parse(localStorage.getItem('gs_quotations')) || [];
+    
+    // Auth Credentials default storage
+    if(!localStorage.getItem('gs_pass')) {
+        localStorage.setItem('gs_pass', '1234');
+        localStorage.setItem('gs_recovery', 'golden');
     }
-    const auth = firebase.auth();
-    const db = firebase.firestore();
 
-    let currentUserUid = null;
-
-    let companies = [];
-    let customers = [];
-    let inventory = [];
-    let invoices = [];
-
-    // AUTHENTICATION LISTENERS & CONTROLLERS
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-            currentUserUid = user.uid;
-            document.getElementById('loggedInUserEmail').innerText = `Logged in: ${user.email}`;
-            document.getElementById('authPanel').style.display = 'none';
-            document.getElementById('mainAppContainer').style.display = 'block';
-            fetchUserDataFromCloud();
+    // Auth Functions
+    function showSection(sec) {
+        if(sec === 'forgot') {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('forgotForm').style.display = 'block';
+            document.getElementById('authTitle').innerText = 'Password Recovery';
         } else {
-            currentUserUid = null;
-            document.getElementById('authPanel').style.display = 'block';
-            document.getElementById('mainAppContainer').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('forgotForm').style.display = 'none';
+            document.getElementById('authTitle').innerText = 'Admin Login';
         }
-    });
-
-    function handleSignup() {
-        let email = document.getElementById('authEmail').value.trim();
-        let pass = document.getElementById('authPassword').value.trim();
-        if(!email || !pass) { alert("Please enter email and password"); return; }
-        
-        auth.createUserWithEmailAndPassword(email, pass)
-        .then((res) => {
-            // Create default initial profile for new user
-            companies = [{ name: "My Business", prefix: "MB", address: "Main Bazaar", phone: "9876543210", gstin: "Unregistered" }];
-            customers = [{ name: "Cash Customer", address: "Local", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" }];
-            inventory = [{ name: "Sample Item", barcode: "1001", hsn: "9403", price: 1000, gst: 18, stock: 10 }];
-            invoices = [];
-            syncToCloud();
-            alert("Account created & logged in successfully!");
-        })
-        .catch((err) => { alert("Signup Error: " + err.message); });
     }
 
     function handleLogin() {
-        let email = document.getElementById('authEmail').value.trim();
-        let pass = document.getElementById('authPassword').value.trim();
-        if(!email || !pass) { alert("Please enter email and password"); return; }
+        let u = document.getElementById('loginUser').value.trim();
+        let p = document.getElementById('loginPass').value.trim();
+        let savedPass = localStorage.getItem('gs_pass') || '1234';
 
-        auth.signInWithEmailAndPassword(email, pass)
-        .then((res) => {
-            // Logged in successfully
-        })
-        .catch((err) => { alert("Login Failed: " + err.message); });
+        if((u === 'admin' || u === '') && p === savedPass) {
+            document.getElementById('authContainer').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+            updateQuoteCount();
+            addItemRow();
+        } else {
+            alert("Invalid username or password! Default password is '1234'.");
+        }
+    }
+
+    function handleResetPassword() {
+        let ans = document.getElementById('recoveryKey').value.trim().toLowerCase();
+        let newP = document.getElementById('newPass').value.trim();
+        let savedAns = localStorage.getItem('gs_recovery') || 'golden';
+
+        if(ans === savedAns && newP) {
+            localStorage.setItem('gs_pass', newP);
+            alert("Password updated successfully! Please login with your new password.");
+            showSection('login');
+        } else {
+            alert("Incorrect recovery answer or empty password!");
+        }
     }
 
     function handleLogout() {
-        auth.signOut().then(() => {
-            window.location.reload();
-        });
+        document.getElementById('appContainer').style.display = 'none';
+        document.getElementById('authContainer').style.display = 'block';
+        document.getElementById('loginPass').value = '';
     }
 
-    // CLOUD SYNC WITH USER ISOLATION (users/{uid}/store_data/config)
-    async function fetchUserDataFromCloud() {
-        if(!currentUserUid) return;
-        try {
-            let docRef = db.collection('users').doc(currentUserUid).collection('store_data').doc('config');
-            let snap = await docRef.get();
-            if(snap.exists) {
-                let data = snap.data();
-                companies = data.companies || [];
-                customers = data.customers || [];
-                inventory = data.inventory || [];
-                invoices = data.invoices || [];
-            } else {
-                // Default setup if first time
-                companies = [{ name: "My Business", prefix: "MB", address: "Main Bazaar", phone: "9876543210", gstin: "Unregistered" }];
-                customers = [{ name: "Cash Customer", address: "Local", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" }];
-                inventory = [{ name: "Sample Item", barcode: "1001", hsn: "9403", price: 1000, gst: 18, stock: 10 }];
-                invoices = [];
-                syncToCloud();
-            }
-            // Initialize UI elements
-            document.getElementById('invDate').valueAsDate = new Date();
-            populateFirmDropdowns();
-            populateCustomerDropdown();
-            onFirmChange();
-            renderCompanyTable();
-            renderCustomerTable();
-            renderInventoryTable();
-            addItemRow();
-            setNextInvoiceNumber();
-            updateReports();
-        } catch(e) {
-            console.log("Error fetching user data:", e);
-        }
-    }
-
-    function syncToCloud() {
-        if(!currentUserUid) return;
-        db.collection('users').doc(currentUserUid).collection('store_data').doc('config').set({
-            companies, customers, inventory, invoices
-        }).catch(e => console.log("Sync error:", e));
-    }
-
-    // Close custom dropdowns when clicking anywhere outside
-    window.addEventListener('click', function(e) {
-        if (!e.target.classList.contains('row-name')) {
-            document.querySelectorAll('.custom-dropdown-list').forEach(el => el.style.display = 'none');
-        }
-    });
-
+    // Switch Tabs Logic
     function switchTab(tabID, evt) {
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(tabID + 'Panel').classList.add('active');
+        
+        document.getElementById(tabID + 'Panel').style.display = 'block';
         if(evt) evt.currentTarget.classList.add('active');
-        if(tabID === 'reports') updateReports();
-        if(tabID === 'history') renderHistoryTable();
-        if(tabID === 'ledger') renderLedgerTable();
+
+        if(tabID === 'quotations') renderQuotations();
+        if(tabID === 'inventory') renderInventory();
     }
 
-    let activeScannerTarget = 'global';
-    let lastScannedCode = '';
-    let lastScanTime = 0;
-
-    function startCameraScanner(target = 'global') {
-        activeScannerTarget = target;
-        document.getElementById('scannerModal').style.display = 'flex';
-        
-        Quagga.init({
-            inputStream: {
-                name: "Live",
-                type: "LiveStream",
-                target: document.querySelector('#interactive'),
-                constraints: { facingMode: "environment" },
-            },
-            decoder: {
-                readers: ["ean_reader", "ean_8_reader", "code_128_reader", "upc_reader", "upc_e_reader"]
-            }
-        }, function(err) {
-            if (err) {
-                alert("Camera start nahi ho saka!");
-                stopCameraScanner();
-                return;
-            }
-            Quagga.start();
-        });
-
-        Quagga.onDetected(onBarcodeScannedFromCamera);
-    }
-
-    function startCameraScannerForInventory() {
-        startCameraScanner('inventory');
-    }
-
-    function stopCameraScanner() {
-        try { Quagga.stop(); } catch(e) {}
-        document.getElementById('scannerModal').style.display = 'none';
-    }
-
-    function onBarcodeScannedFromCamera(result) {
-        let code = result.codeResult.code;
-        let currentTime = new Date().getTime();
-
-        if (code === lastScannedCode && (currentTime - lastScanTime < 2000)) {
-            return; 
-        }
-        
-        lastScannedCode = code;
-        lastScanTime = currentTime;
-        stopCameraScanner();
-
-        if(activeScannerTarget === 'global') {
-            document.getElementById('globalBarcodeScan').value = code;
-            handleGlobalBarcode({ key: 'Enter', preventDefault: () => {} });
-        } else if(activeScannerTarget === 'inventory') {
-            document.getElementById('prodBarcode').value = code;
-        }
-    }
-
-    function setNextInvoiceNumber() {
-        if(invoices.length > 0) {
-            let lastInv = invoices[invoices.length - 1];
-            let nextNum = (parseInt(lastInv.invNumber) || invoices.length) + 1;
-            document.getElementById('invNumber').value = nextNum;
-        }
-    }
-
-    function populateFirmDropdowns() {
-        let sel = document.getElementById('activeFirmSelect');
-        sel.innerHTML = '';
-        companies.forEach((c, idx) => {
-            let opt = document.createElement('option');
-            opt.value = idx;
-            opt.innerText = c.name;
-            sel.appendChild(opt);
-        });
-    }
-
-    function populateCustomerDropdown() {
-        let sel = document.getElementById('invoiceCustDropdown');
-        sel.innerHTML = '<option value="">-- Select Customer --</option>';
-        customers.forEach((cust, idx) => {
-            let opt = document.createElement('option');
-            opt.value = idx;
-            opt.innerText = cust.name;
-            sel.appendChild(opt);
-        });
-    }
-
-    function onFirmChange() {
-        let idx = document.getElementById('activeFirmSelect').value;
-        if(companies[idx]) {
-            let firm = companies[idx];
-            document.getElementById('lblCompanyName').innerText = firm.name;
-            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone}<br>GSTIN: ${firm.gstin}`;
-            document.getElementById('lblBankDetails').innerHTML = `Bank Name: ${firm.bankName || 'N/A'}<br>A/C No: ${firm.accNo || 'N/A'}<br>IFSC: ${firm.ifsc || 'N/A'}`;
-            document.getElementById('lblSignCompanyName').innerText = `For ${firm.name} :`;
-        }
-    }
-
-    function onCustomerSelected() {
-        let idx = document.getElementById('invoiceCustDropdown').value;
-        if(idx !== "") {
-            let cust = customers[idx];
-            let text = `${cust.name}\n${cust.address}\nPhone: ${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin || 'Unregistered'}\nState: ${cust.state || '01-Jammu & Kashmir'}`;
-            document.getElementById('manualCustDetails').value = text;
-        }
-    }
-
-    function handleGlobalBarcode(e) {
-        if(e.key === 'Enter') {
-            e.preventDefault();
-            let code = document.getElementById('globalBarcodeScan').value.trim();
-            if(!code) return;
-            let prod = inventory.find(p => p.barcode === code || p.name.toLowerCase().includes(code.toLowerCase()));
-            if(prod) {
-                addItemRowWithProduct(prod);
-                document.getElementById('globalBarcodeScan').value = '';
-            } else {
-                alert("Product not found with barcode / search term!");
-            }
-        }
-    }
-
-    function addItemRowWithProduct(prod) {
-        let tbody = document.getElementById('itemRows');
-        let rowCount = tbody.rows.length + 1;
+    // Add Item Row to Billing
+    function addItemRow() {
+        let tbody = document.getElementById('invoiceRows');
         let tr = document.createElement('tr');
+        
         tr.innerHTML = `
-            <td>${rowCount}</td>
-            <td class="left" style="position:relative;">
-                <input type="text" class="input-field row-name" value="${prod.name}" placeholder="Type item name..." autocomplete="off">
-                <div class="custom-dropdown-list"></div>
+            <td class="search-box-container">
+                <input type="text" class="input-field itemName" placeholder="Type item name..." autocomplete="off" oninput="searchItems(this)" style="margin:0;">
+                <div class="search-results"></div>
             </td>
-            <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
-            <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
-            <td><input type="number" class="input-field row-qty" value="1" min="1" oninput="calculateTotals()" style="margin-bottom:0;"></td>
-            <td><input type="text" class="input-field row-unit" value="Nos" style="margin-bottom:0;"></td>
-            <td><input type="number" class="input-field row-price" value="${prod.price}" step="0.01" oninput="calculateTotals()" style="margin-bottom:0;"></td>
-            <td>
-                <select class="input-field row-gst" onchange="calculateTotals()" style="margin-bottom:0;">
-                    <option value="18" ${prod.gst==18?'selected':''}>18%</option>
-                    <option value="12" ${prod.gst==12?'selected':''}>12%</option>
-                    <option value="28" ${prod.gst==28?'selected':''}>28%</option>
-                    <option value="5" ${prod.gst==5?'selected':''}>5%</option>
-                    <option value="0" ${prod.gst==0?'selected':''}>0%</option>
-                </select>
-            </td>
-            <td class="row-gst-amt right">0.00</td>
-            <td class="row-total right">0.00</td>
-            <td class="no-print"><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotals();">X</button></td>
+            <td><input type="text" class="input-field itemBarcode" placeholder="Barcode" style="margin:0;"></td>
+            <td><input type="text" class="input-field itemHsn" placeholder="HSN" style="margin:0;"></td>
+            <td><input type="number" class="input-field itemPrice" value="0" oninput="calculateTotal()" style="margin:0;"></td>
+            <td><input type="number" class="input-field itemQty" value="1" min="1" oninput="calculateTotal()" style="margin:0;"></td>
+            <td class="right itemTotal">0.00</td>
+            <td><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotal();">X</button></td>
         `;
         tbody.appendChild(tr);
-        
-        let nameInput = tr.querySelector('.row-name');
-        nameInput.addEventListener('input', function() { filterCustomDropdown(this); });
-        nameInput.addEventListener('focus', function() { filterCustomDropdown(this); });
-
-        calculateTotals();
+        calculateTotal();
     }
 
-    function filterCustomDropdown(inputElem) {
-        let query = inputElem.value.toLowerCase();
-        let dropdown = inputElem.nextElementSibling;
-        dropdown.innerHTML = '';
+    // Search Inventory for Dropdown
+    function searchItems(input) {
+        let query = input.value.toLowerCase().trim();
+        let resultsDiv = input.nextElementSibling;
+        resultsDiv.innerHTML = '';
 
-        let filtered = inventory.filter(p => p.name.toLowerCase().includes(query));
-        if(filtered.length === 0) {
-            dropdown.style.display = 'none';
+        if(query === '') {
+            resultsDiv.style.display = 'none';
             return;
         }
 
-        filtered.forEach(prod => {
-            let itemDiv = document.createElement('div');
-            itemDiv.className = 'custom-dropdown-item';
-            itemDiv.innerHTML = `<strong>${prod.name}</strong> <br><small style="color:#555;">Stock: ${prod.stock} | Price: ₹${prod.price}</small>`;
+        let filtered = inventory.filter(i => i.name.toLowerCase().includes(query) || (i.barcode && i.barcode.includes(query)));
+        if(filtered.length === 0) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        filtered.forEach(item => {
+            let div = document.createElement('div');
+            div.className = 'search-item';
+            div.innerHTML = `<strong>${item.name}</strong> - ₹${item.price}`;
             
-            itemDiv.addEventListener('pointerdown', function(e) {
-                e.preventDefault();
-                inputElem.value = prod.name;
-                let tr = inputElem.closest('tr');
-                tr.querySelector('.row-barcode').value = prod.barcode || '';
-                tr.querySelector('.row-hsn').value = prod.hsn || '';
-                tr.querySelector('.row-price').value = prod.price || 0;
-                let gstSelect = tr.querySelector('.row-gst');
-                if(gstSelect) gstSelect.value = prod.gst || 18;
-                dropdown.style.display = 'none';
-                calculateTotals();
-            });
-            dropdown.appendChild(itemDiv);
+            div.onclick = function() {
+                input.value = item.name;
+                let tr = input.closest('tr');
+                tr.querySelector('.itemBarcode').value = item.barcode || '';
+                tr.querySelector('.itemHsn').value = item.hsn || '';
+                tr.querySelector('.itemPrice').value = item.price || 0;
+                resultsDiv.style.display = 'none';
+                calculateTotal();
+            };
+            resultsDiv.appendChild(div);
         });
-
-        dropdown.style.display = 'block';
+        resultsDiv.style.display = 'block';
     }
 
-    function addItemRow() {
-        addItemRowWithProduct({ name: '', barcode: '', hsn: '', price: 0, gst: 18 });
-    }
+    // Close Dropdown on Outside Click
+    window.onclick = function(e) {
+        if(!e.target.closest('.search-box-container')) {
+            document.querySelectorAll('.search-results').forEach(el => el.style.display = 'none');
+        }
+    };
 
-    function calculateTotals() {
-        let priceMode = document.querySelector('input[name="priceMode"]:checked').value;
-        let rows = document.querySelectorAll('#itemRows tr');
-        let subTotal = 0;
-        let grandTotal = 0;
-        let taxMap = {};
+    // Calculate Totals with GST option
+    function calculateTotal() {
+        let rows = document.querySelectorAll('#invoiceRows tr');
+        let subtotal = 0;
 
         rows.forEach(tr => {
-            let qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
-            let enteredPrice = parseFloat(tr.querySelector('.row-price').value) || 0;
-            let gstRate = parseFloat(tr.querySelector('.row-gst').value) || 0;
-            let hsn = tr.querySelector('.row-hsn').value.trim() || 'GENERAL';
-
-            let taxable = 0;
-            let gstAmt = 0;
-            let totalLine = 0;
-
-            if(priceMode === 'inclusive') {
-                totalLine = enteredPrice * qty;
-                taxable = totalLine / (1 + (gstRate / 100));
-                gstAmt = totalLine - taxable;
-            } else {
-                taxable = enteredPrice * qty;
-                gstAmt = taxable * (gstRate / 100);
-                totalLine = taxable + gstAmt;
-            }
-
-            subTotal += taxable;
-            grandTotal += totalLine;
-
-            tr.querySelector('.row-gst-amt').innerText = gstAmt.toFixed(2);
-            tr.querySelector('.row-total').innerText = totalLine.toFixed(2);
-
-            if(!taxMap[hsn]) {
-                taxMap[hsn] = { taxable: 0, cgstRate: gstRate / 2, cgstAmt: 0, sgstRate: gstRate / 2, sgstAmt: 0, totalTax: 0 };
-            }
-            taxMap[hsn].taxable += taxable;
-            taxMap[hsn].cgstAmt += gstAmt / 2;
-            taxMap[hsn].sgstAmt += gstAmt / 2;
-            taxMap[hsn].totalTax += gstAmt;
+            let price = parseFloat(tr.querySelector('.itemPrice').value) || 0;
+            let qty = parseFloat(tr.querySelector('.itemQty').value) || 0;
+            let total = price * qty;
+            tr.querySelector('.itemTotal').innerText = total.toFixed(2);
+            subtotal += total;
         });
 
-        document.getElementById('subTotal').innerText = subTotal.toFixed(2);
-        document.getElementById('grandTotal').innerText = grandTotal.toFixed(2);
-        document.getElementById('amountInWords').innerText = convertNumberToWords(Math.round(grandTotal));
-
-        let received = parseFloat(document.getElementById('amtReceived').value) || 0;
-        let balance = grandTotal - received;
-        let balElem = document.getElementById('balanceAmount');
-        balElem.innerText = balance.toFixed(2);
-        balElem.style.color = balance > 0 ? '#b30000' : 'green';
-
-        let taxBody = document.getElementById('taxSummaryRows');
-        taxBody.innerHTML = '';
-        for(let hsn in taxMap) {
-            let t = taxMap[hsn];
-            let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${hsn}</td>
-                <td class="right">${t.taxable.toFixed(2)}</td>
-                <td>${t.cgstRate}%</td>
-                <td class="right">${t.cgstAmt.toFixed(2)}</td>
-                <td>${t.sgstRate}%</td>
-                <td class="right">${t.sgstAmt.toFixed(2)}</td>
-                <td class="right">${t.totalTax.toFixed(2)}</td>
-            `;
-            taxBody.appendChild(tr);
+        document.getElementById('subTotal').innerText = subtotal.toFixed(2);
+        
+        let hasGst = document.getElementById('gstToggle').checked;
+        let gstAmt = 0;
+        if(hasGst) {
+            document.getElementById('gstRow').style.display = 'block';
+            gstAmt = subtotal * 0.18;
+            document.getElementById('gstAmount').innerText = gstAmt.toFixed(2);
+        } else {
+            document.getElementById('gstRow').style.display = 'none';
         }
+
+        let grandTotal = subtotal + gstAmt;
+        document.getElementById('grandTotal').innerText = grandTotal.toFixed(2);
     }
 
-    function convertNumberToWords(amount) {
-        if(amount === 0) return "Zero Rupees Only";
-        let words = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
-        let tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    // Save Current Bill as Quotation
+    function saveAsQuotation() {
+        let custName = document.getElementById('custName').value.trim() || "Cash Customer";
+        let grandTotal = document.getElementById('grandTotal').innerText;
+        let rows = document.querySelectorAll('#invoiceRows tr');
 
-        function getWord(n) {
-            if(n < 20) return words[n];
-            return tens[Math.floor(n/10)] + (n%10 ? ' ' + words[n%10] : '');
+        if(rows.length === 0) {
+            alert("Please add at least one item!");
+            return;
         }
 
-        let num = Math.floor(amount);
-        let str = '';
-        if(num >= 10000000) {
-            str += getWord(Math.floor(num / 10000000)) + ' Crore ';
-            num %= 10000000;
+        let items = [];
+        rows.forEach(tr => {
+            items.push({
+                name: tr.querySelector('.itemName').value,
+                barcode: tr.querySelector('.itemBarcode').value,
+                hsn: tr.querySelector('.itemHsn').value,
+                price: tr.querySelector('.itemPrice').value,
+                qty: tr.querySelector('.itemQty').value,
+                total: tr.querySelector('.itemTotal').innerText
+            });
+        });
+
+        let quoteId = 'QT-' + Math.floor(1000 + Math.random() * 9000);
+        quotations.push({ id: quoteId, customer: custName, total: grandTotal, items: items });
+        
+        localStorage.setItem('gs_quotations', JSON.stringify(quotations));
+        updateQuoteCount();
+        alert("Quotation saved successfully!");
+        
+        // Reset Form
+        document.getElementById('invoiceRows').innerHTML = '';
+        document.getElementById('custName').value = '';
+        document.getElementById('custPhone').value = '';
+        calculateTotal();
+        addItemRow();
+    }
+
+    function updateQuoteCount() {
+        document.getElementById('quoteCount').innerText = quotations.length;
+    }
+
+    // Render Saved Quotations
+    function renderQuotations() {
+        let tbody = document.getElementById('quoteTableBody');
+        tbody.innerHTML = '';
+
+        if(quotations.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center;">No quotations saved yet.</td></tr>`;
+            return;
         }
-        if(num >= 100000) {
-            str += getWord(Math.floor(num / 100000)) + ' Lakh ';
-            num %= 100000;
+
+        quotations.forEach((q, index) => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${q.id}</strong></td>
+                    <td>${q.customer}</td>
+                    <td>₹${q.total}</td>
+                    <td>
+                        <button class="tab-btn" onclick="loadQuote(${index})" style="padding: 4px 8px; font-size: 12px; background:#007bff; color:white;">Convert to Bill</button>
+                        <button class="btn-danger" onclick="deleteQuote(${index})" style="padding: 4px 8px; font-size: 12px;">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // Load Quotation Back to Billing Screen
+    function loadQuote(index) {
+        let q = quotations[index];
+        document.getElementById('custName').value = q.customer;
+        
+        let tbody = document.getElementById('invoiceRows');
+        tbody.innerHTML = '';
+
+        q.items.forEach(item => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="search-box-container">
+                    <input type="text" class="input-field itemName" value="${item.name}" autocomplete="off" oninput="searchItems(this)" style="margin:0;">
+                    <div class="search-results"></div>
+                </td>
+                <td><input type="text" class="input-field itemBarcode" value="${item.barcode}" style="margin:0;"></td>
+                <td><input type="text" class="input-field itemHsn" value="${item.hsn}" style="margin:0;"></td>
+                <td><input type="number" class="input-field itemPrice" value="${item.price}" oninput="calculateTotal()" style="margin:0;"></td>
+                <td><input type="number" class="input-field itemQty" value="${item.qty}" min="1" oninput="calculateTotal()" style="margin:0;"></td>
+                <td class="right itemTotal">${item.total}</td>
+                <td><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotal();">X</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        calculateTotal();
+        switchTab('billing', { currentTarget: document.querySelector('.tab-btn') });
+        alert(`Quotation ${q.id} loaded into billing for final invoice generation!`);
+    }
+
+    // Delete Quotation
+    function deleteQuote(index) {
+        quotations.splice(index, 1);
+        localStorage.setItem('gs_quotations', JSON.stringify(quotations));
+        updateQuoteCount();
+        renderQuotations();
+    }
+
+    // Render Inventory List
+    function renderInventory() {
+        let tbody = document.getElementById('inventoryTableBody');
+        tbody.innerHTML = '';
+        inventory.forEach(item => {
+            tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.barcode}</td><td>${item.hsn}</td><td>₹${item.price}</td></tr>`;
+        });
+    }
+
+    // Add New Product to Inventory
+    function addNewProduct() {
+        let name = document.getElementById('newProdName').value.trim();
+        let barcode = document.getElementById('newProdBarcode').value.trim();
+        let hsn = document.getElementById('newProdHsn').value.trim();
+        let price = parseFloat(document.getElementById('newProdPrice').value) || 0;
+
+        if(!name) {
+            alert("Please enter product name!");
+            return;
         }
-        if(num >= 1000) {
-            str += getWord(Math.floor(num / 1000)) + ' Thousand ';
-            num %= 1000;
-        }
-        if(num >= 100) {
-            str += getWord(Math.floor(num / 100)) + ' Hundred ';
-            num %= 100;
-        }
-        if(num > 0) {
-            str += getWord(num) + ' ';
-        }
-        return str.trim() + ' Rupees Only';
+
+        inventory.push({ name, barcode, hsn, price });
+        localStorage.setItem('gs_inventory', JSON.stringify(inventory));
+        
+        document.getElementById('newProdName').value = '';
+        document.getElementById('newProdBarcode').value = '';
+        document.getElementById('newProdHsn').value = '';
+        document.getElementById('newProdPrice').value = '';
+        
+        renderInventory();
+        alert("Product added to inventory successfully!");
     }
 
     function saveAndPrintInvoice() {
-        let invNo = document.getElementById('invNumber').value;
-        let firmIdx = document.getElementById('activeFirmSelect').value;
-        let firmName = companies[firmIdx] ? companies[firmIdx].name : "Firm";
-        let custDetails = document.getElementById('manualCustDetails').value;
-        let custName = custDetails.split('\n')[0] || "Cash Customer";
-        let grandTotal = parseFloat(document.getElementById('grandTotal').innerText) || 0;
-        let received = parseFloat(document.getElementById('amtReceived').value) || 0;
-        let balance = parseFloat(document.getElementById('balanceAmount').innerText) || 0;
-        let date = document.getElementById('invDate').value;
-
-        let items = [];
-        document.querySelectorAll('#itemRows tr').forEach(tr => {
-            items.push({
-                name: tr.querySelector('.row-name').value,
-                qty: tr.querySelector('.row-qty').value,
-                price: tr.querySelector('.row-price').value,
-                total: tr.querySelector('.row-total').innerText
-            });
-        });
-
-        let invoiceRecord = {
-            firm: firmName,
-            invNumber: invNo,
-            date: date,
-            customer: custName,
-            custDetails: custDetails,
-            grandTotal: grandTotal,
-            received: received,
-            balance: balance,
-            items: items,
-            status: balance <= 0 ? 'Paid' : 'Pending'
-        };
-
-        invoices.push(invoiceRecord);
-        syncToCloud();
+        let cust = document.getElementById('custName').value.trim();
+        if(!cust) {
+            alert("Please enter customer name!");
+            return;
+        }
         window.print();
-        setNextInvoiceNumber();
-        resetInvoiceForm();
-    }
-
-    function resetInvoiceForm() {
-        document.getElementById('itemRows').innerHTML = '';
-        addItemRow();
-        document.getElementById('amtReceived').value = 0;
-        calculateTotals();
-        setNextInvoiceNumber();
-    }
-
-    function openThermalReceipt() {
-        let firmIdx = document.getElementById('activeFirmSelect').value;
-        let firm = companies[firmIdx] || {};
-        let custDetails = document.getElementById('manualCustDetails').value;
-        let grandTotal = document.getElementById('grandTotal').innerText;
-        let invNo = document.getElementById('invNumber').value;
-        let date = document.getElementById('invDate').value;
-
-        let receiptText = `================================\n`;
-        receiptText += `      ${firm.name || 'POS RECEIPT'}\n`;
-        receiptText += `  ${firm.address || ''}\n`;
-        receiptText += `  Ph: ${firm.phone || ''} | GSTIN: ${firm.gstin || ''}\n`;
-        receiptText += `================================\n`;
-        receiptText += `Inv No: ${invNo} | Date: ${date}\n`;
-        receiptText += `--------------------------------\n`;
-        receiptText += `Bill To:\n${custDetails}\n`;
-        receiptText += `--------------------------------\n`;
-        receiptText += `Item            Qty   Price   Total\n`;
-        receiptText += `--------------------------------\n`;
-
-        document.querySelectorAll('#itemRows tr').forEach(tr => {
-            let name = (tr.querySelector('.row-name').value || '').substring(0, 14).padEnd(14, ' ');
-            let qty = (tr.querySelector('.row-qty').value || '').padStart(4, ' ');
-            let price = (tr.querySelector('.row-price').value || '').padStart(7, ' ');
-            let tot = (tr.querySelector('.row-total').innerText || '').padStart(7, ' ');
-            receiptText += `${name} ${qty} ${price} ${tot}\n`;
-        });
-
-        receiptText += `--------------------------------\n`;
-        receiptText += `GRAND TOTAL: Rs. ${grandTotal}\n`;
-        receiptText += `================================\n`;
-        receiptText += `       Thank You For Visit!     \n`;
-        receiptText += `================================\n`;
-
-        document.getElementById('thermalContent').innerText = receiptText;
-        document.getElementById('thermalReceiptModal').style.display = 'flex';
-    }
-
-    function downloadOrSharePDF() { window.print(); }
-
-    function shareOnWhatsApp() {
-        let custDetails = document.getElementById('manualCustDetails').value;
-        let grandTotal = document.getElementById('grandTotal').innerText;
-        let invNo = document.getElementById('invNumber').value;
-        let msg = encodeURIComponent(`Hello, here is your Tax Invoice #${invNo} amounting to Rs. ${grandTotal}.\n\nCustomer Details:\n${custDetails}\n\nThank you for doing business with us!`);
-        window.open(`https://wa.me/?text=${msg}`, '_blank');
-    }
-
-    function shareViaEmail() {
-        let invNo = document.getElementById('invNumber').value;
-        let grandTotal = document.getElementById('grandTotal').innerText;
-        let subject = encodeURIComponent(`Tax Invoice #${invNo}`);
-        let body = encodeURIComponent(`Please find your invoice total amounting to Rs. ${grandTotal}.`);
-        window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    }
-
-    function renderCompanyTable() {
-        let tbody = document.getElementById('companyTableBody');
-        tbody.innerHTML = '';
-        companies.forEach((c, idx) => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${c.name}</td><td>${c.gstin}</td><td><button class="btn-danger" onclick="deleteCompany(${idx})">Delete</button></td>`;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function saveBusinessProfile() {
-        let name = document.getElementById('busName').value.trim();
-        if(!name) { alert("Enter Firm Name"); return; }
-        companies.push({
-            name: name,
-            prefix: document.getElementById('busPrefix').value.trim(),
-            address: document.getElementById('busAddress').value.trim(),
-            phone: document.getElementById('busPhone').value.trim(),
-            gstin: document.getElementById('busGstin').value.trim()
-        });
-        syncToCloud();
-        renderCompanyTable();
-        populateFirmDropdowns();
-        alert("Firm saved successfully!");
-    }
-
-    function deleteCompany(idx) {
-        companies.splice(idx, 1);
-        syncToCloud();
-        renderCompanyTable();
-        populateFirmDropdowns();
-    }
-
-    function renderCustomerTable() {
-        let tbody = document.getElementById('customerTableBody');
-        tbody.innerHTML = '';
-        customers.forEach((cust, idx) => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${cust.name}</td><td>${cust.phone}</td><td>${cust.gstin}<br>${cust.address}</td><td>0.00</td><td><button class="btn-danger" onclick="deleteCustomer(${idx})">Delete</button></td>`;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function saveCustomer() {
-        let name = document.getElementById('newCustName').value.trim();
-        if(!name) { alert("Enter Customer Name"); return; }
-        customers.push({
-            name: name,
-            address: document.getElementById('newCustAddress').value.trim(),
-            phone: document.getElementById('newCustPhone').value.trim(),
-            gstin: document.getElementById('newCustGstin').value.trim(),
-            state: "01-Jammu & Kashmir"
-        });
-        syncToCloud();
-        renderCustomerTable();
-        populateCustomerDropdown();
-        alert("Customer saved successfully!");
-    }
-
-    function deleteCustomer(idx) {
-        customers.splice(idx, 1);
-        syncToCloud();
-        renderCustomerTable();
-        populateCustomerDropdown();
-    }
-
-    function renderInventoryTable() {
-        let tbody = document.getElementById('inventoryTableBody');
-        tbody.innerHTML = '';
-        inventory.forEach((prod, idx) => {
-            let tr = document.createElement('tr');
-            if(prod.stock <= 2) tr.classList.add('low-stock');
-            tr.innerHTML = `<td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td>`;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function saveProduct() {
-        let name = document.getElementById('prodName').value.trim();
-        if(!name) { alert("Enter Product Name"); return; }
-        inventory.push({
-            name: name,
-            barcode: document.getElementById('prodBarcode').value.trim(),
-            hsn: document.getElementById('prodHsn').value.trim(),
-            price: parseFloat(document.getElementById('prodPrice').value) || 0,
-            gst: parseFloat(document.getElementById('prodGst').value) || 18,
-            stock: parseInt(document.getElementById('prodStock').value) || 0
-        });
-        syncToCloud();
-        renderInventoryTable();
-        alert("Product saved successfully!");
-    }
-
-    function deleteProduct(idx) {
-        inventory.splice(idx, 1);
-        syncToCloud();
-        renderInventoryTable();
-    }
-
-    function renderHistoryTable() {
-        let tbody = document.getElementById('historyTableBody');
-        tbody.innerHTML = '';
-        invoices.forEach((inv, idx) => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${inv.firm}</td><td>${inv.invNumber}</td><td>${inv.date}</td><td>${inv.customer}</td><td>${inv.status}</td><td>${inv.grandTotal.toFixed(2)}</td><td><button class="btn-danger" onclick="deleteInvoice(${idx})">Delete</button></td>`;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function deleteInvoice(idx) {
-        invoices.splice(idx, 1);
-        syncToCloud();
-        renderHistoryTable();
-        updateReports();
-    }
-
-    function renderLedgerTable() {
-        let tbody = document.getElementById('ledgerTableBody');
-        tbody.innerHTML = '';
-        invoices.filter(i => i.balance > 0).forEach((inv, idx) => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${inv.customer}<br><small>${inv.custDetails}</small></td><td>${inv.invNumber}</td><td style="color:red; font-weight:bold;">${inv.balance.toFixed(2)}</td><td><button class="btn-success" onclick="markInvoicePaid('${inv.invNumber}')">Mark Paid</button></td>`;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function markInvoicePaid(invNo) {
-        let inv = invoices.find(i => i.invNumber === invNo);
-        if(inv) {
-            inv.received = inv.grandTotal;
-            inv.balance = 0;
-            inv.status = 'Paid';
-            syncToCloud();
-            renderLedgerTable();
-            updateReports();
-        }
-    }
-
-    function updateReports() {
-        let totalSales = 0;
-        let totalReceived = 0;
-        let totalPending = 0;
-        let dayBookBody = document.getElementById('dayBookTableBody');
-        dayBookBody.innerHTML = '';
-
-        invoices.forEach(inv => {
-            totalSales += inv.grandTotal;
-            totalReceived += inv.received;
-            totalPending += inv.balance;
-
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${inv.date}</td><td>${inv.invNumber}</td><td>${inv.customer}</td><td>${inv.grandTotal.toFixed(2)}</td><td>${inv.status}</td>`;
-            dayBookBody.appendChild(tr);
-        });
-
-        document.getElementById('repTotalSales').innerText = `₹${totalSales.toFixed(2)}`;
-        document.getElementById('repTotalReceived').innerText = `₹${totalReceived.toFixed(2)}`;
-        document.getElementById('repTotalPending').innerText = `₹${totalPending.toFixed(2)}`;
-
-        let gstrBody = document.getElementById('gstr1TableBody');
-        gstrBody.innerHTML = '';
-        let dummyTaxable = totalSales / 1.18;
-        let dummyCgst = (totalSales - dummyTaxable) / 2;
-        let dummySgst = dummyCgst;
-        
-        if(invoices.length > 0) {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `<td>9403</td><td>${dummyTaxable.toFixed(2)}</td><td>${dummyCgst.toFixed(2)}</td><td>${dummySgst.toFixed(2)}</td><td>${(dummyCgst+dummySgst).toFixed(2)}</td>`;
-            gstrBody.appendChild(tr);
-        }
     }
 </script>
-</div></body>
+
+</body>
 </html>
