@@ -1368,15 +1368,26 @@ State: 01-Jammu & Kashmir</textarea>
     `);
     quoteWindow.document.close();
 }
+<script>
+// 1. Quotation Form ko kholne ya band karne ke liye
 function toggleQuotationForm() {
     let formSection = document.getElementById('quotation-form-section');
-    if (formSection.style.display === 'none') {
-        formSection.style.display = 'block';
-    } else {
-        formSection.style.display = 'none';
+    if (formSection) {
+        if (formSection.style.display === 'none' || formSection.style.display === '') {
+            formSection.style.display = 'block';
+        } else {
+            formSection.style.display = 'none';
+        }
     }
 }
 
+// 2. Quotation Details Save karne ke liye
+function saveQuotationData() {
+    alert("Quotation details saved successfully! Now you can click 'Print Quotation'.");
+    toggleQuotationForm();
+}
+
+// 3. Professional Quotation Print karne ke liye
 function generateProfessionalQuotation() {
     let custName = document.getElementById('q-cust-name') ? document.getElementById('q-cust-name').value : "Walk-in Customer";
     let custAddress = document.getElementById('q-cust-address') ? document.getElementById('q-cust-address').value : "Srinagar, Jammu and Kashmir";
@@ -1500,11 +1511,4 @@ function generateProfessionalQuotation() {
     `);
     quoteWindow.document.close();
 }
-
-function saveQuotationData() {
-    alert("Quotation details saved successfully! Now you can click 'Print Quotation'.");
-    toggleQuotationForm();
-}
 </script>
-</body>
-</html>
