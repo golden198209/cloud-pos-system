@@ -399,6 +399,7 @@
         setNextInvoiceNumber();
         updateReports();
         renderHistoryTable();
+        renderQuotationTable();
 
         // Bind all event listeners safely
         setupEventListeners();
@@ -525,6 +526,7 @@
                 updateInventoryDatalist();
                 renderInventoryTable();
                 renderHistoryTable();
+                renderQuotationTable();
                 onFirmChange();
             }
         } catch(e) {}
@@ -690,14 +692,14 @@
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${rowCount}</td>
-            <td class="left"><input type="text" class="input-field row-name" value="${prod.name}" list="inventoryList" style="margin-bottom:0;"></td>
+            <td class="left"><input type="text" class="input-field row-name" value="${prod.name || ''}" list="inventoryList" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
-            <td><input type="number" class="input-field row-qty" value="1" min="1" style="margin-bottom:0;"></td>
-            <td><input type="number" class="input-field row-price" value="${prod.price}" step="0.01" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-qty" value="${prod.qty || 1}" min="1" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-price" value="${prod.price || 0}" step="0.01" style="margin-bottom:0;"></td>
             <td>
                 <select class="input-field row-gst" style="margin-bottom:0;">
-                    <option value="18" ${prod.gst==18?'selected':''}>18%</option>
+                    <option value="18" ${(prod.gst==18 || !prod.gst)?'selected':''}>18%</option>
                     <option value="12" ${prod.gst==12?'selected':''}>12%</option>
                     <option value="28" ${prod.gst==28?'selected':''}>28%</option>
                     <option value="5" ${prod.gst==5?'selected':''}>5%</option>
@@ -739,7 +741,7 @@
     }
 
     function addItemRow() {
-        addItemRowWithProduct({ name: '', barcode: '', hsn: '', price: 0, gst: 18 });
+        addItemRowWithProduct({ name: '', barcode: '', hsn: '', price: 0, gst: 18, qty: 1 });
     }
 
     function calculateTotals() {
@@ -862,8 +864,11 @@
         document.querySelectorAll('#itemRows tr').forEach(tr => {
             items.push({
                 name: tr.querySelector('.row-name').value,
+                barcode: tr.querySelector('.row-barcode').value,
+                hsn: tr.querySelector('.row-hsn').value,
                 qty: tr.querySelector('.row-qty').value,
                 price: tr.querySelector('.row-price').value,
+                gst: tr.querySelector('.row-gst').value,
                 total: tr.querySelector('.row-total').innerText
             });
         });
@@ -933,7 +938,8 @@
         tbody.innerHTML = '';
         quotations.forEach((q, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${q.firm}</td><td>${q.quotNumber}</td><td>${q.date}</td><td>${q.customer}</td><td>${q.grandTotal.toFixed(2)}</td><td><button type="button" class="btn-success load-quot-btn">Load to Bill</button> <button type="button" class="btn-danger del-quot-btn">Delete</button></td>`;
+            let qTotal = (typeof q.grandTotal === 'number') ? q.grandTotal : 0;
+            tr.innerHTML = `<td>${q.firm || ''}</td><td>${q.quotNumber || ''}</td><td>${q.date || ''}</td><td>${q.customer || ''}</td><td>${qTotal.toFixed(2)}</td><td><button type="button" class="btn-success load-quot-btn">Load to Bill</button> <button type="button" class="btn-danger del-quot-btn">Delete</button></td>`;
             
             tr.querySelector('.load-quot-btn').addEventListener('click', () => loadQuotationToInvoice(idx));
             tr.querySelector('.del-quot-btn').addEventListener('click', () => deleteQuotation(idx));
@@ -944,22 +950,23 @@
     function loadQuotationToInvoice(idx) {
         let q = quotations[idx];
         if(!q) return;
-        document.getElementById('manualCustDetails').value = q.custDetails;
+        document.getElementById('manualCustDetails').value = q.custDetails || '';
         let tbody = document.getElementById('itemRows');
         tbody.innerHTML = '';
-        q.items.forEach(item => {
-            addItemRowWithProduct({
-                name: item.name,
-                barcode: item.barcode,
-                hsn: item.hsn,
-                price: item.price,
-                gst: item.gst
+        if(q.items && q.items.length > 0) {
+            q.items.forEach(item => {
+                addItemRowWithProduct({
+                    name: item.name,
+                    barcode: item.barcode,
+                    hsn: item.hsn,
+                    price: parseFloat(item.price) || 0,
+                    gst: parseFloat(item.gst) || 18,
+                    qty: parseFloat(item.qty) || 1
+                });
             });
-            let lastRow = tbody.lastElementChild;
-            if(lastRow) {
-                lastRow.querySelector('.row-qty').value = item.qty;
-            }
-        });
+        } else {
+            addItemRow();
+        }
         calculateTotals();
         switchTab('invoice', { currentTarget: document.querySelector('.nav-tabs button') });
         alert("Quotation loaded into New Bill screen!");
@@ -1192,12 +1199,16 @@
         dayBookBody.innerHTML = '';
 
         invoices.forEach(inv => {
-            totalSales += inv.grandTotal;
-            totalReceived += inv.received;
-            totalPending += inv.balance;
+            let gTotal = (typeof inv.grandTotal === 'number') ? inv.grandTotal : 0;
+            let rec = (typeof inv.received === 'number') ? inv.received : 0;
+            let bal = (typeof inv.balance === 'number') ? inv.balance : 0;
+
+            totalSales += gTotal;
+            totalReceived += rec;
+            totalPending += bal;
 
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${inv.date}</td><td>${inv.invNumber}</td><td>${inv.customer}</td><td>${inv.grandTotal.toFixed(2)}</td><td>${inv.status}</td>`;
+            tr.innerHTML = `<td>${inv.date || ''}</td><td>${inv.invNumber || ''}</td><td>${inv.customer || ''}</td><td>${gTotal.toFixed(2)}</td><td>${inv.status || ''}</td>`;
             dayBookBody.appendChild(tr);
         });
 
