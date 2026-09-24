@@ -335,7 +335,7 @@
     </div>
 </div>
 
-<!-- FORMAL QUOTATION PRINT MODAL (Waisa hi jaisa PDF mein hai) -->
+<!-- FORMAL QUOTATION PRINT MODAL -->
 <div id="quotationPrintModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:3000;">
     <div style="width:750px; background:#fff; padding:30px; border-radius:8px; max-height:95vh; overflow-y:auto; box-shadow:0 4px 15px rgba(0,0,0,0.3);">
         
@@ -349,7 +349,7 @@
 
         <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:15px;">
             <div style="width:55%;">
-                <b style="color:#0056b3;">BILL TO / SHIP TO:</b><br>
+                <b style="color:#0056b3;">CUSTOMER DETAILS:</b><br>
                 <div id="qPrintCustDetails" style="white-space: pre-line; font-size:12px; color:#333; margin-top:3px; background:#f9f9f9; padding:8px; border-radius:4px; border:1px solid #eee;"></div>
             </div>
             <div style="width:40%; text-align:right; background:#f9f9f9; padding:8px; border-radius:4px; border:1px solid #eee;">
@@ -361,13 +361,13 @@
 
         <table class="items-table" style="width:100%; border-collapse:collapse; margin-top:10px;">
             <thead>
-                <tr style="background:#0056b3; color:white;">
-                    <th style="padding:8px; color:white;">S.NO.</th>
-                    <th class="left" style="padding:8px; color:white;">ITEMS</th>
-                    <th style="padding:8px; color:white;">QTY.</th>
-                    <th style="padding:8px; color:white;">RATE (₹)</th>
-                    <th style="padding:8px; color:white;">TAX</th>
-                    <th style="padding:8px; color:white;">AMOUNT (₹)</th>
+                <tr style="background:#f8f9fa; color:#333;">
+                    <th style="padding:8px; border:1px solid #ddd;">S.NO.</th>
+                    <th class="left" style="padding:8px; border:1px solid #ddd;">ITEMS</th>
+                    <th style="padding:8px; border:1px solid #ddd;">QTY.</th>
+                    <th style="padding:8px; border:1px solid #ddd;">RATE (₹)</th>
+                    <th style="padding:8px; border:1px solid #ddd;">TAX</th>
+                    <th style="padding:8px; border:1px solid #ddd;">AMOUNT (₹)</th>
                 </tr>
             </thead>
             <tbody id="qPrintItemsBody"></tbody>
@@ -378,12 +378,12 @@
             <div style="width:55%;">
                 <table class="items-table" style="font-size:10px; margin:0;">
                     <thead>
-                        <tr style="background:#eee;">
-                            <th>HSN/SAC</th>
-                            <th>Taxable Value</th>
-                            <th>CGST</th>
-                            <th>SGST</th>
-                            <th>Total Tax</th>
+                        <tr style="background:#f8f9fa; color:#333;">
+                            <th style="border:1px solid #ddd;">HSN/SAC</th>
+                            <th style="border:1px solid #ddd;">Taxable Value</th>
+                            <th style="border:1px solid #ddd;">CGST</th>
+                            <th style="border:1px solid #ddd;">SGST</th>
+                            <th style="border:1px solid #ddd;">Total Tax</th>
                         </tr>
                     </thead>
                     <tbody id="qPrintTaxSummary"></tbody>
@@ -538,7 +538,6 @@
             document.getElementById('thermalReceiptModal').style.display = 'none';
         });
 
-        // Quotation Modal Print & Close Buttons
         document.getElementById('printQModalBtn').addEventListener('click', () => window.print());
         document.getElementById('closeQModalBtn').addEventListener('click', () => {
             document.getElementById('quotationPrintModal').style.display = 'none';
@@ -1047,7 +1046,15 @@
 
         document.getElementById('qPrintFirmName').innerText = q.firm || '';
         document.getElementById('qPrintFirmDetails').innerHTML = `Address: ${firmObj.address || ''}<br>Phone: ${firmObj.phone || ''} | GSTIN: ${firmObj.gstin || ''}`;
-        document.getElementById('qPrintCustDetails').innerText = q.custDetails || q.customer;
+        
+        // Agar customer details khali hai ya sirf 'Cash Customer' hai toh saaf tarike se dikhayein
+        let cDetails = q.custDetails ? q.custDetails.trim() : "";
+        if(!cDetails || cDetails.toLowerCase() === 'cash customer') {
+            document.getElementById('qPrintCustDetails').innerHTML = `<b>Cash Customer</b>`;
+        } else {
+            document.getElementById('qPrintCustDetails').innerText = cDetails;
+        }
+
         document.getElementById('qPrintNum').innerText = q.quotNumber;
         document.getElementById('qPrintDate').innerText = q.date;
         document.getElementById('qPrintSignFirm').innerText = `For ${q.firm || 'Firm'} :`;
@@ -1079,12 +1086,12 @@
 
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="padding:8px;">${i + 1}</td>
-                    <td class="left" style="padding:8px;">${item.name || ''}</td>
-                    <td style="padding:8px;">${qty} PCS</td>
-                    <td style="padding:8px;">${price.toFixed(2)}</td>
-                    <td style="padding:8px;">${taxVal.toFixed(2)} (${gstRate}%)</td>
-                    <td class="right" style="padding:8px;">${totalAmt.toFixed(2)}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${i + 1}</td>
+                    <td class="left" style="padding:8px; border:1px solid #ddd;">${item.name || ''}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${qty} PCS</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${price.toFixed(2)}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${taxVal.toFixed(2)} (${gstRate}%)</td>
+                    <td class="right" style="padding:8px; border:1px solid #ddd;">${totalAmt.toFixed(2)}</td>
                 `;
                 itemsBody.appendChild(tr);
             });
@@ -1098,11 +1105,11 @@
             let sgst = t.taxAmt / 2;
             let tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${hsn}</td>
-                <td>${t.taxable.toFixed(2)}</td>
-                <td>9%: ${cgst.toFixed(2)}</td>
-                <td>9%: ${sgst.toFixed(2)}</td>
-                <td>${t.taxAmt.toFixed(2)}</td>
+                <td style="border:1px solid #ddd;">${hsn}</td>
+                <td style="border:1px solid #ddd;">${t.taxable.toFixed(2)}</td>
+                <td style="border:1px solid #ddd;">9%: ${cgst.toFixed(2)}</td>
+                <td style="border:1px solid #ddd;">9%: ${sgst.toFixed(2)}</td>
+                <td style="border:1px solid #ddd;">${t.taxAmt.toFixed(2)}</td>
             `;
             taxSummaryBody.appendChild(tr);
         }
