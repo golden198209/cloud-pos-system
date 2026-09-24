@@ -30,6 +30,7 @@
         #scannerModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 2000; }
         .viewport canvas { width: 100%; height: auto; }
         .low-stock { background-color: #ffe6e6 !important; }
+        .stat-card { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 5px; flex: 1; min-width: 150px; text-align: center; }
         @media print {
             .no-print { display: none !important; }
             body { background: white; padding: 0; }
@@ -397,6 +398,7 @@
         addItemRow();
         setNextInvoiceNumber();
         updateReports();
+        renderHistoryTable();
 
         let savedCfg = localStorage.getItem('gs_fb_config');
         if(savedCfg) {
@@ -465,20 +467,20 @@
                 populateCustomerDropdown();
                 updateInventoryDatalist();
                 renderInventoryTable();
+                renderHistoryTable();
                 onFirmChange();
             }
         } catch(e) {}
     }
 
     function syncToCloud() {
-        if(!useCloud || !db) {
-            localStorage.setItem('gs_companies', JSON.stringify(companies));
-            localStorage.setItem('gs_customers', JSON.stringify(customers));
-            localStorage.setItem('gs_inventory', JSON.stringify(inventory));
-            localStorage.setItem('gs_invoices', JSON.stringify(invoices));
-            localStorage.setItem('gs_quotations', JSON.stringify(quotations));
-            return;
-        }
+        localStorage.setItem('gs_companies', JSON.stringify(companies));
+        localStorage.setItem('gs_customers', JSON.stringify(customers));
+        localStorage.setItem('gs_inventory', JSON.stringify(inventory));
+        localStorage.setItem('gs_invoices', JSON.stringify(invoices));
+        localStorage.setItem('gs_quotations', JSON.stringify(quotations));
+
+        if(!useCloud || !db) return;
         db.collection('pos_data').doc('store').set({
             companies, customers, inventory, invoices, quotations
         }).catch(e => {});
@@ -560,6 +562,8 @@
             let lastInv = invoices[invoices.length - 1];
             let nextNum = (parseInt(lastInv.invNumber) || invoices.length) + 1;
             document.getElementById('invNumber').value = nextNum;
+        } else {
+            document.getElementById('invNumber').value = 1;
         }
     }
 
@@ -809,6 +813,8 @@
 
         invoices.push(invoiceRecord);
         syncToCloud();
+        
+        renderHistoryTable();
         window.print();
         setNextInvoiceNumber();
         resetInvoiceForm();
