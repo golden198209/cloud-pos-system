@@ -35,6 +35,7 @@
             .no-print { display: none !important; }
             body { background: white; padding: 0; }
             .panel { box-shadow: none; padding: 0; }
+            #printableQuotationArea { display: block !important; }
         }
     </style>
 </head>
@@ -333,6 +334,54 @@
     </div>
 </div>
 
+<!-- FORMAL QUOTATION PRINT MODAL -->
+<div id="quotationPrintModal" class="no-print" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:3000;">
+    <div style="width:650px; background:#fff; padding:25px; border-radius:8px; max-height:90vh; overflow-y:auto; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
+        <div id="printableQuotationArea" style="background:#fff; padding:15px; font-family:Arial, sans-serif;">
+            <h2 style="text-align:center; margin-bottom:2px; color:#333;">QUOTATION / ESTIMATE</h2>
+            <h3 id="qPrintFirmName" style="text-align:center; margin-top:0; margin-bottom:5px; color:#007bff;"></h3>
+            <p id="qPrintFirmDetails" style="text-align:center; font-size:12px; margin-top:0; color:#555;"></p>
+            <hr style="border:0; border-top:1px solid #ddd;">
+            <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:10px;">
+                <div>
+                    <b>Quotation For:</b><br>
+                    <div id="qPrintCustDetails" style="white-space: pre-line; font-size:12px; color:#333; margin-top:3px;"></div>
+                </div>
+                <div style="text-align:right;">
+                    <b>Quotation No:</b> <span id="qPrintNum"></span><br>
+                    <b>Date:</b> <span id="qPrintDate"></span>
+                </div>
+            </div>
+            <table class="items-table" style="width:100%; border-collapse:collapse; margin-top:10px;">
+                <thead>
+                    <tr style="background:#f8f9fa;">
+                        <th>#</th>
+                        <th class="left">Item Name</th>
+                        <th>HSN/SAC</th>
+                        <th>Qty</th>
+                        <th>Price (₹)</th>
+                        <th>GST (%)</th>
+                        <th>Total (₹)</th>
+                    </tr>
+                </thead>
+                <tbody id="qPrintItemsBody"></tbody>
+            </table>
+            <div style="display:flex; justify-content:flex-end; margin-top:15px;">
+                <div style="width:250px; font-size:14px;">
+                    <table style="width:100%;">
+                        <tr><td><b>Grand Total:</b></td><td style="text-align:right;"><b id="qPrintGrandTotal" style="color:#007bff; font-size:16px;"></b></td></tr>
+                    </table>
+                </div>
+            </div>
+            <p style="margin-top:20px; font-size:11px; color:#777;">* This is a computer-generated quotation and valid for 15 days from the date of issue.</p>
+        </div>
+        <div style="margin-top: 20px; display: flex; gap: 10px;" class="no-print">
+            <button type="button" id="printQModalBtn" class="btn-success" style="flex:1;">🖨️ Print Quotation</button>
+            <button type="button" id="closeQModalBtn" class="btn-danger" style="flex:1;">Close</button>
+        </div>
+    </div>
+</div>
+
 <datalist id="inventoryList"></datalist>
 
 <script>
@@ -401,7 +450,6 @@
         renderHistoryTable();
         renderQuotationTable();
 
-        // Bind all event listeners safely
         setupEventListeners();
 
         let savedCfg = localStorage.getItem('gs_fb_config');
@@ -415,39 +463,28 @@
     };
 
     function setupEventListeners() {
-        // Nav tabs
         document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
             btn.addEventListener('click', (e) => switchTab(btn.getAttribute('data-tab'), e));
         });
 
-        // Cloud config toggle & save
         document.getElementById('cloudConfigToggleBtn').addEventListener('click', toggleCloudConfig);
         document.getElementById('saveFirebaseConfigBtn').addEventListener('click', saveFirebaseConfig);
 
-        // Firm select change & inputs
         document.getElementById('activeFirmSelect').addEventListener('change', onFirmChange);
         document.getElementById('globalBarcodeScan').addEventListener('keypress', handleGlobalBarcode);
 
-        // Camera scanners
         document.getElementById('startCamScannerBtn').addEventListener('click', () => startCameraScanner('global'));
         document.getElementById('startInvCamScannerBtn').addEventListener('click', startCameraScannerForInventory);
         document.getElementById('closeScannerModalBtn').addEventListener('click', stopCameraScanner);
 
-        // Price mode radios
         document.querySelectorAll('input[name="priceMode"]').forEach(radio => {
             radio.addEventListener('change', calculateTotals);
         });
 
-        // Customer selection dropdown
         document.getElementById('invoiceCustDropdown').addEventListener('change', onCustomerSelected);
-
-        // Add item row button
         document.getElementById('addItemRowBtn').addEventListener('click', addItemRow);
-
-        // Amount received input
         document.getElementById('amtReceived').addEventListener('input', calculateTotals);
 
-        // Action buttons
         document.getElementById('saveAndPrintBtn').addEventListener('click', saveAndPrintInvoice);
         document.getElementById('openThermalBtn').addEventListener('click', openThermalReceipt);
         document.getElementById('saveQuotationBtn').addEventListener('click', saveQuotation);
@@ -456,13 +493,17 @@
         document.getElementById('shareEmailBtn').addEventListener('click', shareViaEmail);
         document.getElementById('clearFormBtn').addEventListener('click', resetInvoiceForm);
 
-        // Thermal receipt modal buttons
         document.getElementById('printThermalSlipBtn').addEventListener('click', () => window.print());
         document.getElementById('closeThermalModalBtn').addEventListener('click', () => {
             document.getElementById('thermalReceiptModal').style.display = 'none';
         });
 
-        // Business, Customer, Product save buttons
+        // Quotation Modal Print & Close Buttons
+        document.getElementById('printQModalBtn').addEventListener('click', () => window.print());
+        document.getElementById('closeQModalBtn').addEventListener('click', () => {
+            document.getElementById('quotationPrintModal').style.display = 'none';
+        });
+
         document.getElementById('saveBusinessBtn').addEventListener('click', saveBusinessProfile);
         document.getElementById('saveCustomerBtn').addEventListener('click', saveCustomer);
         document.getElementById('saveProductBtn').addEventListener('click', saveProduct);
@@ -939,12 +980,59 @@
         quotations.forEach((q, idx) => {
             let tr = document.createElement('tr');
             let qTotal = (typeof q.grandTotal === 'number') ? q.grandTotal : 0;
-            tr.innerHTML = `<td>${q.firm || ''}</td><td>${q.quotNumber || ''}</td><td>${q.date || ''}</td><td>${q.customer || ''}</td><td>${qTotal.toFixed(2)}</td><td><button type="button" class="btn-success load-quot-btn">Load to Bill</button> <button type="button" class="btn-danger del-quot-btn">Delete</button></td>`;
+            tr.innerHTML = `
+                <td>${q.firm || ''}</td>
+                <td>${q.quotNumber || ''}</td>
+                <td>${q.date || ''}</td>
+                <td>${q.customer || ''}</td>
+                <td>${qTotal.toFixed(2)}</td>
+                <td>
+                    <button type="button" class="btn-warning print-quot-btn" style="padding:4px 8px; font-size:11px;">🖨️ Print</button>
+                    <button type="button" class="btn-success load-quot-btn" style="padding:4px 8px; font-size:11px;">Load</button> 
+                    <button type="button" class="btn-danger del-quot-btn" style="padding:4px 8px; font-size:11px;">Delete</button>
+                </td>`;
             
+            tr.querySelector('.print-quot-btn').addEventListener('click', () => printQuotationPreview(idx));
             tr.querySelector('.load-quot-btn').addEventListener('click', () => loadQuotationToInvoice(idx));
             tr.querySelector('.del-quot-btn').addEventListener('click', () => deleteQuotation(idx));
             tbody.appendChild(tr);
         });
+    }
+
+    function printQuotationPreview(idx) {
+        let q = quotations[idx];
+        if(!q) return;
+
+        // Find firm info
+        let firmObj = companies.find(c => c.name === q.firm) || companies[0];
+
+        document.getElementById('qPrintFirmName').innerText = q.firm || '';
+        document.getElementById('qPrintFirmDetails').innerHTML = `Address: ${firmObj.address || ''}<br>Phone: ${firmObj.phone || ''} | GSTIN: ${firmObj.gstin || ''}`;
+        document.getElementById('qPrintCustDetails').innerText = q.custDetails || q.customer;
+        document.getElementById('qPrintNum').innerText = q.quotNumber;
+        document.getElementById('qPrintDate').innerText = q.date;
+
+        let itemsBody = document.getElementById('qPrintItemsBody');
+        itemsBody.innerHTML = '';
+        if(q.items && q.items.length > 0) {
+            q.items.forEach((item, i) => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td class="left">${item.name || ''}</td>
+                    <td>${item.hsn || ''}</td>
+                    <td>${item.qty || 1}</td>
+                    <td>${parseFloat(item.price || 0).toFixed(2)}</td>
+                    <td>${item.gst || 18}%</td>
+                    <td class="right">${parseFloat(item.total || 0).toFixed(2)}</td>
+                `;
+                itemsBody.appendChild(tr);
+            });
+        }
+        document.getElementById('qPrintGrandTotal').innerText = "₹" + (parseFloat(q.grandTotal) || 0).toFixed(2);
+
+        // Open modal
+        document.getElementById('quotationPrintModal').style.display = 'flex';
     }
 
     function loadQuotationToInvoice(idx) {
