@@ -10,7 +10,7 @@
     <!-- QuaggaJS for Barcode Scanning -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f4f6f9; color: #333; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background: #f4f6f9; color: #333; }
         .header { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; }
         .nav-tabs { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
         .tab-btn { padding: 8px 12px; background: #e0e0e0; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; }
@@ -335,57 +335,57 @@
     </div>
 </div>
 
-<!-- FORMAL COLORED QUOTATION PRINT MODAL (Jaise PDF format hai[cite: 2]) -->
+<!-- STYLISH & COLOURFUL QUOTATION PRINT MODAL (PDF Theme match[cite: 2]) -->
 <div id="quotationPrintModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:3000;">
-    <div style="width:800px; background:#fff; padding:30px; border-radius:8px; max-height:95vh; overflow-y:auto; box-shadow:0 4px 15px rgba(0,0,0,0.3); font-family:Arial, sans-serif;">
+    <div style="width:820px; background:#fff; padding:35px; border-radius:10px; max-height:95vh; overflow-y:auto; box-shadow:0 8px 25px rgba(0,0,0,0.3); font-family:'Segoe UI', Arial, sans-serif; border-top: 6px solid #1a365d;">
         
-        <!-- Header Section -->
-        <div style="border-bottom: 2px solid #2c3e50; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-start;">
+        <!-- Header Banner -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px;">
             <div>
-                <h1 style="margin:0; font-size:24px; color:#2c3e50; letter-spacing:1px;">QUOTATION</h1>
-                <h3 id="qPrintFirmName" style="margin:5px 0 2px 0; color:#0056b3; font-size:18px;"></h3>
-                <p id="qPrintFirmDetails" style="font-size:11px; color:#555; margin:0; line-height:1.4;"></p>
+                <h1 style="margin:0; font-size:26px; color:#1a365d; letter-spacing:1px; font-weight:800;">QUOTATION</h1>
+                <h3 id="qPrintFirmName" style="margin:6px 0 3px 0; color:#2b6cb0; font-size:18px; font-weight:700;"></h3>
+                <p id="qPrintFirmDetails" style="font-size:11px; color:#4a5568; margin:0; line-height:1.5;"></p>
             </div>
-            <div style="text-align: right; font-size: 12px; color: #333;">
-                <b>Quotation No:</b> <span id="qPrintNum" style="color: #0056b3; font-weight: bold;"></span><br>
-                <b>Quotation Date:</b> <span id="qPrintDate"></span><br>
-                <b>Expiry Date:</b> <span id="qPrintExpiryDate"></span>
-            </div>
-        </div>
-
-        <!-- Bill To / Ship To Section -->
-        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:20px; background:#f8f9fa; padding:12px; border-radius:6px; border:1px solid #e9ecef;">
-            <div style="width:48%;">
-                <b style="color:#0056b3; font-size:13px; border-bottom:1px solid #ddd; display:block; margin-bottom:5px; padding-bottom:3px;">BILL TO</b>
-                <div id="qPrintBillTo" style="white-space: pre-line; font-size:12px; color:#333; line-height:1.4;"></div>
-            </div>
-            <div style="width:48%;">
-                <b style="color:#0056b3; font-size:13px; border-bottom:1px solid #ddd; display:block; margin-bottom:5px; padding-bottom:3px;">SHIP TO</b>
-                <div id="qPrintShipTo" style="white-space: pre-line; font-size:12px; color:#333; line-height:1.4;"></div>
+            <div style="text-align: right; font-size: 12px; background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <div style="margin-bottom: 3px;"><b>Quotation No:</b> <span id="qPrintNum" style="color: #2b6cb0; font-weight: bold;"></span></div>
+                <div style="margin-bottom: 3px;"><b>Quotation Date:</b> <span id="qPrintDate"></span></div>
+                <div><b>Expiry Date:</b> <span id="qPrintExpiryDate"></span></div>
             </div>
         </div>
 
-        <!-- Items Table -->
+        <!-- Bill To / Ship To Colored Boxes -->
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:20px; gap:15px;">
+            <div style="width:48%; background:#f8fafc; padding:12px; border-radius:6px; border:1px solid #cbd5e0; border-left: 4px solid #3182ce;">
+                <b style="color:#2c5282; font-size:13px; display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;">Bill To</b>
+                <div id="qPrintBillTo" style="white-space: pre-line; font-size:12px; color:#2d3748; line-height:1.5;"></div>
+            </div>
+            <div style="width:48%; background:#f8fafc; padding:12px; border-radius:6px; border:1px solid #cbd5e0; border-left: 4px solid #3182ce;">
+                <b style="color:#2c5282; font-size:13px; display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;">Ship To</b>
+                <div id="qPrintShipTo" style="white-space: pre-line; font-size:12px; color:#2d3748; line-height:1.5;"></div>
+            </div>
+        </div>
+
+        <!-- Stylish Items Table -->
         <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:12px;">
             <thead>
-                <tr style="background:#2c3e50; color:white;">
-                    <th style="padding:8px; border:1px solid #2c3e50; text-align:center; width:40px;">S.NO.</th>
-                    <th style="padding:8px; border:1px solid #2c3e50; text-align:left;">ITEMS</th>
-                    <th style="padding:8px; border:1px solid #2c3e50; text-align:center; width:70px;">QTY.</th>
-                    <th style="padding:8px; border:1px solid #2c3e50; text-align:right; width:100px;">RATE (₹)</th>
-                    <th style="padding:8px; border:1px solid #2c3e50; text-align:center; width:110px;">TAX</th>
-                    <th style="padding:8px; border:1px solid #2c3e50; text-align:right; width:110px;">AMOUNT (₹)</th>
+                <tr style="background:#1a365d; color:white;">
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:center; width:45px;">S.NO.</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:left;">ITEMS</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:center; width:75px;">QTY.</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:right; width:100px;">RATE (₹)</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:center; width:120px;">TAX</th>
+                    <th style="padding:10px; border:1px solid #1a365d; text-align:right; width:110px;">AMOUNT (₹)</th>
                 </tr>
             </thead>
             <tbody id="qPrintItemsBody"></tbody>
         </table>
 
-        <!-- Totals Row -->
-        <div style="display:flex; justify-content:flex-end; background:#f1f3f5; padding:8px 12px; border:1px solid #ddd; border-top:none; font-weight:bold; font-size:13px;">
-            <div style="width:60%; display:flex; justify-content:space-between;">
+        <!-- Grand Total Footer Row -->
+        <div style="display:flex; justify-content:flex-end; background:#edf2f7; padding:10px 15px; border:1px solid #cbd5e0; border-top:none; font-weight:bold; font-size:13px; color:#1a365d;">
+            <div style="width:60%; display:flex; justify-content:space-between; align-items:center;">
                 <span>TOTAL:</span>
                 <span id="qPrintTableTotalQty" style="text-align:center; width:50px;"></span>
-                <span id="qPrintTableTotalAmt" style="text-align:right; width:110px; color:#0056b3;"></span>
+                <span id="qPrintTableTotalAmt" style="text-align:right; width:110px; font-size:15px; color:#2b6cb0;"></span>
             </div>
         </div>
 
@@ -393,49 +393,49 @@
         <div style="margin-top:20px;">
             <table style="width:100%; border-collapse:collapse; font-size:11px;">
                 <thead>
-                    <tr style="background:#e9ecef; color:#333;">
-                        <th style="padding:6px; border:1px solid #ddd;">HSN/SAC</th>
-                        <th style="padding:6px; border:1px solid #ddd; text-align:right;">Taxable Value</th>
-                        <th style="padding:6px; border:1px solid #ddd; text-align:center;" colspan="2">CGST</th>
-                        <th style="padding:6px; border:1px solid #ddd; text-align:center;" colspan="2">SGST</th>
-                        <th style="padding:6px; border:1px solid #ddd; text-align:right;">Total Tax Amount</th>
+                    <tr style="background:#e2e8f0; color:#2d3748; font-weight:bold;">
+                        <th style="padding:7px; border:1px solid #cbd5e0;">HSN/SAC</th>
+                        <th style="padding:7px; border:1px solid #cbd5e0; text-align:right;">Taxable Value</th>
+                        <th style="padding:7px; border:1px solid #cbd5e0; text-align:center;" colspan="2">CGST</th>
+                        <th style="padding:7px; border:1px solid #cbd5e0; text-align:center;" colspan="2">SGST</th>
+                        <th style="padding:7px; border:1px solid #cbd5e0; text-align:right;">Total Tax Amount</th>
                     </tr>
-                    <tr style="background:#f8f9fa; color:#555; font-size:10px;">
-                        <th style="border:1px solid #ddd;"></th>
-                        <th style="border:1px solid #ddd;"></th>
-                        <th style="border:1px solid #ddd; text-align:center;">Rate</th>
-                        <th style="border:1px solid #ddd; text-align:right;">Amount</th>
-                        <th style="border:1px solid #ddd; text-align:center;">Rate</th>
-                        <th style="border:1px solid #ddd; text-align:right;">Amount</th>
-                        <th style="border:1px solid #ddd;"></th>
+                    <tr style="background:#f7fafc; color:#4a5568; font-size:10px;">
+                        <th style="border:1px solid #cbd5e0;"></th>
+                        <th style="border:1px solid #cbd5e0;"></th>
+                        <th style="border:1px solid #cbd5e0; text-align:center;">Rate</th>
+                        <th style="border:1px solid #cbd5e0; text-align:right;">Amount</th>
+                        <th style="border:1px solid #cbd5e0; text-align:center;">Rate</th>
+                        <th style="border:1px solid #cbd5e0; text-align:right;">Amount</th>
+                        <th style="border:1px solid #cbd5e0;"></th>
                     </tr>
                 </thead>
                 <tbody id="qPrintTaxSummary"></tbody>
             </table>
         </div>
 
-        <!-- Amount in Words -->
-        <div style="margin-top:15px; font-size:12px; background:#f8f9fa; padding:10px; border:1px solid #e9ecef; border-radius:4px;">
-            <b>Total Amount (in words):</b><br>
-            <span id="qPrintAmountWords" style="font-style:italic; font-weight:bold; color:#0056b3; font-size:13px;"></span>
+        <!-- Amount in Words Box -->
+        <div style="margin-top:15px; font-size:12px; background:#ebf8ff; padding:12px; border:1px solid #bee3f8; border-radius:6px; border-left: 4px solid #3182ce;">
+            <b style="color:#2b6cb0;">Total Amount (in words):</b><br>
+            <span id="qPrintAmountWords" style="font-style:italic; font-weight:bold; color:#2c5282; font-size:13px;"></span>
         </div>
 
         <!-- Bank Details & Signature Section -->
         <div style="margin-top:20px; display:flex; justify-content:space-between; align-items:flex-start; font-size:11px;">
-            <div style="width:50%; background:#f8f9fa; padding:10px; border-radius:4px; border:1px solid #e9ecef;">
-                <b style="color:#2c3e50;">Bank Details:</b><br>
-                <div id="qPrintBankDetails" style="margin-top:4px; line-height:1.4;"></div>
+            <div style="width:48%; background:#f7fafc; padding:12px; border-radius:6px; border:1px solid #e2e8f0;">
+                <b style="color:#1a365d; font-size:12px; display:block; margin-bottom:5px;">Bank Details:</b>
+                <div id="qPrintBankDetails" style="margin-top:4px; line-height:1.5; color:#4a5568;"></div>
             </div>
-            <div style="width:40%; text-align:right;">
-                <b id="qPrintSignFirmText" style="font-size:12px; color:#2c3e50;"></b>
-                <div style="height:45px;"></div>
-                <p style="border-top:1px solid #333; display:inline-block; padding-top:4px; font-size:11px; font-weight:bold; width:180px; text-align:center;">Authorised Signatory</p>
+            <div style="width:45%; text-align:right; padding-top: 10px;">
+                <b id="qPrintSignFirmText" style="font-size:12px; color:#1a365d; display:block; margin-bottom:40px;"></b>
+                <p style="border-top:1px solid #4a5568; display:inline-block; padding-top:5px; font-size:11px; font-weight:bold; width:200px; text-align:center; color:#2d3748;">Authorised Signatory</p>
             </div>
         </div>
 
-        <div style="margin-top: 25px; display: flex; gap: 10px;" class="no-print">
-            <button type="button" id="printQModalBtn" class="btn-success" style="flex:1;">🖨️ Print Quotation</button>
-            <button type="button" id="closeQModalBtn" class="btn-danger" style="flex:1;">Close</button>
+        <!-- Action Buttons -->
+        <div style="margin-top: 30px; display: flex; gap: 10px;" class="no-print">
+            <button type="button" id="printQModalBtn" class="btn-success" style="flex:1; padding:10px; font-size:14px;">🖨️ Print Quotation</button>
+            <button type="button" id="closeQModalBtn" class="btn-danger" style="flex:1; padding:10px; font-size:14px;">Close</button>
         </div>
     </div>
 </div>
@@ -1077,7 +1077,6 @@
         document.getElementById('qPrintNum').innerText = q.quotNumber;
         document.getElementById('qPrintDate').innerText = q.date;
         
-        // Expiry Date (7 days later)
         let qDateObj = new Date(q.date || Date.now());
         qDateObj.setDate(qDateObj.getDate() + 7);
         document.getElementById('qPrintExpiryDate').innerText = qDateObj.toISOString().split('T')[0];
@@ -1116,19 +1115,19 @@
 
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="padding:6px; border:1px solid #ddd; text-align:center;">${i + 1}</td>
-                    <td class="left" style="padding:6px; border:1px solid #ddd;">${item.name || ''}</td>
-                    <td style="padding:6px; border:1px solid #ddd; text-align:center;">${qty} PCS</td>
-                    <td style="padding:6px; border:1px solid #ddd; text-align:right;">${ taxableVal.toFixed(2) }</td>
-                    <td style="padding:6px; border:1px solid #ddd; text-align:center;">${taxVal.toFixed(2)} (${gstRate}%)</td>
-                    <td class="right" style="padding:6px; border:1px solid #ddd; text-align:right;">${totalAmt.toFixed(2)}</td>
+                    <td style="padding:8px; border:1px solid #cbd5e0; text-align:center;">${i + 1}</td>
+                    <td class="left" style="padding:8px; border:1px solid #cbd5e0; font-weight:600; color:#2d3748;">${item.name || ''}</td>
+                    <td style="padding:8px; border:1px solid #cbd5e0; text-align:center;">${qty} PCS</td>
+                    <td style="padding:8px; border:1px solid #cbd5e0; text-align:right;">${ taxableVal.toFixed(2) }</td>
+                    <td style="padding:8px; border:1px solid #cbd5e0; text-align:center;">${taxVal.toFixed(2)} (${gstRate}%)</td>
+                    <td class="right" style="padding:8px; border:1px solid #cbd5e0; text-align:right; font-weight:bold; color:#1a365d;">${totalAmt.toFixed(2)}</td>
                 `;
                 itemsBody.appendChild(tr);
             });
         }
 
         document.getElementById('qPrintTableTotalQty').innerText = totalItemsQty;
-        document.getElementById('qPrintTableTotalAmt').innerText = grandTotalVal.toFixed(2);
+        document.getElementById('qPrintTableTotalAmt').innerText = "₹" + grandTotalVal.toFixed(2);
 
         let taxSummaryBody = document.getElementById('qPrintTaxSummary');
         taxSummaryBody.innerHTML = '';
@@ -1138,18 +1137,17 @@
             let sgst = t.taxAmt / 2;
             let tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="padding:5px; border:1px solid #ddd;">${hsn}</td>
-                <td style="padding:5px; border:1px solid #ddd; text-align:right;">${t.taxable.toFixed(2)}</td>
-                <td style="padding:5px; border:1px solid #ddd; text-align:center;">9%</td>
-                <td style="padding:5px; border:1px solid #ddd; text-align:right;">${cgst.toFixed(2)}</td>
-                <td style="padding:5px; border:1px solid #ddd; text-align:center;">9%</td>
-                <td style="padding:5px; border:1px solid #ddd; text-align:right;">${sgst.toFixed(2)}</td>
-                <td style="padding:5px; border:1px solid #ddd; text-align:right;">${t.taxAmt.toFixed(2)}</td>
+                <td style="padding:6px; border:1px solid #cbd5e0;">${hsn}</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:right;">${t.taxable.toFixed(2)}</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:center;">9%</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:right;">${cgst.toFixed(2)}</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:center;">9%</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:right;">${sgst.toFixed(2)}</td>
+                <td style="padding:6px; border:1px solid #cbd5e0; text-align:right; font-weight:bold;">${t.taxAmt.toFixed(2)}</td>
             `;
             taxSummaryBody.appendChild(tr);
         }
 
-        document.getElementById('qPrintGrandTotal').innerText = "₹" + grandTotalVal.toFixed(2);
         document.getElementById('qPrintAmountWords').innerText = convertNumberToWords(Math.round(grandTotalVal));
 
         document.getElementById('quotationPrintModal').style.display = 'flex';
