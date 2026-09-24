@@ -186,15 +186,15 @@
 
             <!-- ACTION BUTTONS -->
             <div class="no-print" style="margin-top:15px; display:flex; gap:8px; flex-wrap:wrap;">
-                <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex:1;">Save & Print A4</button>
-                <button class="btn-warning" onclick="openThermalReceipt()" style="flex:1;">🖨️ Print POS</button>
-                <button class="btn-warning" onclick="saveQuotation()" style="flex:1; background:#17a2b8; color:white;">📋 Save Quotation</button>
-                <button class="btn-warning" onclick="downloadOrSharePDF()" style="flex:1; background:#6c757d; color:white;">📥 PDF Download</button>
+                <button type="button" class="btn-success" onclick="saveAndPrintInvoice()" style="flex:1;">Save & Print A4</button>
+                <button type="button" class="btn-warning" onclick="openThermalReceipt()" style="flex:1;">🖨️ Print POS</button>
+                <button type="button" class="btn-warning" onclick="saveQuotation()" style="flex:1; background:#17a2b8; color:white;">📋 Save Quotation</button>
+                <button type="button" class="btn-warning" onclick="downloadOrSharePDF()" style="flex:1; background:#6c757d; color:white;">📥 PDF Download</button>
             </div>
             <div class="no-print" style="margin-top:8px; display:flex; gap:8px;">
-                <button class="btn-success" onclick="shareOnWhatsApp()" style="background:#25D366; flex:1;">📱 WhatsApp</button>
-                <button class="btn-success" onclick="shareViaEmail()" style="background:#007bff; flex:1;">✉️ Email</button>
-                <button class="btn-danger" onclick="resetInvoiceForm()" style="flex:0.5;">Clear</button>
+                <button type="button" class="btn-success" onclick="shareOnWhatsApp()" style="background:#25D366; flex:1;">📱 WhatsApp</button>
+                <button type="button" class="btn-success" onclick="shareViaEmail()" style="background:#007bff; flex:1;">✉️ Email</button>
+                <button type="button" class="btn-danger" onclick="resetInvoiceForm()" style="flex:0.5;">Clear</button>
             </div>
         </div>
     </div>
@@ -262,7 +262,7 @@
         <textarea id="busAddress" class="input-field" placeholder="Address"></textarea>
         <input type="text" id="busPhone" class="input-field" placeholder="Phone">
         <input type="text" id="busGstin" class="input-field" placeholder="GSTIN">
-        <button class="btn-success" onclick="saveBusinessProfile()" style="margin-top: 10px; width:100%;">Save Firm</button>
+        <button type="button" class="btn-success" onclick="saveBusinessProfile()" style="margin-top: 10px; width:100%;">Save Firm</button>
     </div>
     <table class="items-table" style="margin-top:15px;">
         <thead><tr><th>Firm Name</th><th>GSTIN</th><th>Action</th></tr></thead>
@@ -278,7 +278,7 @@
         <textarea id="newCustAddress" class="input-field" placeholder="Address"></textarea>
         <input type="text" id="newCustPhone" class="input-field" placeholder="Phone">
         <input type="text" id="newCustGstin" class="input-field" placeholder="GSTIN">
-        <button class="btn-success" onclick="saveCustomer()">Save Customer</button>
+        <button type="button" class="btn-success" onclick="saveCustomer()">Save Customer</button>
     </div>
     <table class="items-table" style="margin-top: 15px;">
         <thead><tr><th>Customer Name</th><th>Phone</th><th>GSTIN / Address</th><th>Ledger</th><th>Action</th></tr></thead>
@@ -293,7 +293,7 @@
         <input type="text" id="prodName" class="input-field" placeholder="Product Name">
         <div style="display:flex; gap:5px;">
             <input type="text" id="prodBarcode" class="input-field" placeholder="Barcode Number" style="margin-bottom:5px;">
-            <button class="btn-warning" onclick="startCameraScannerForInventory()" style="height:28px; font-size:11px;">📷 Scan</button>
+            <button type="button" class="btn-warning" onclick="startCameraScannerForInventory()" style="height:28px; font-size:11px;">📷 Scan</button>
         </div>
         <input type="text" id="prodHsn" class="input-field" placeholder="HSN/SAC">
         <input type="number" id="prodPrice" class="input-field" placeholder="Price (₹)">
@@ -305,7 +305,7 @@
             <option value="0">0% GST</option>
         </select>
         <input type="number" id="prodStock" class="input-field" placeholder="Stock Qty">
-        <button class="btn-success" onclick="saveProduct()">Save Product & Barcode</button>
+        <button type="button" class="btn-success" onclick="saveProduct()">Save Product & Barcode</button>
     </div>
     <table class="items-table" style="margin-top: 15px;">
         <thead><tr><th>Product</th><th>Barcode</th><th>HSN</th><th>Price</th><th>GST</th><th>Stock</th><th>Action</th></tr></thead>
@@ -318,7 +318,7 @@
     <div style="background:white; padding:15px; border-radius:8px; text-align:center; width:340px;">
         <h4 style="margin-top:0;">Scan Barcode via Camera</h4>
         <div id="interactive" class="viewport"></div>
-        <button class="btn-danger" onclick="stopCameraScanner()" style="margin-top:15px; width:100%;">Close Camera</button>
+        <button type="button" class="btn-danger" onclick="stopCameraScanner()" style="margin-top:15px; width:100%;">Close Camera</button>
     </div>
 </div>
 
@@ -327,8 +327,8 @@
     <div style="width:300px; background:#fff; padding:15px; font-family:'Courier New',Courier,monospace; font-size:12px;">
         <div id="thermalContent" style="white-space: pre-line;"></div>
         <div style="margin-top: 15px; display: flex; gap: 5px;">
-            <button class="btn-success" onclick="window.print()" style="flex:1; font-size:11px;">Print Slip</button>
-            <button class="btn-danger" onclick="document.getElementById('thermalReceiptModal').style.display='none'" style="flex:1; font-size:11px;">Close</button>
+            <button type="button" class="btn-success" onclick="window.print()" style="flex:1; font-size:11px;">Print Slip</button>
+            <button type="button" class="btn-danger" onclick="document.getElementById('thermalReceiptModal').style.display='none'" style="flex:1; font-size:11px;">Close</button>
         </div>
     </div>
 </div>
@@ -649,7 +649,7 @@
             </td>
             <td class="row-gst-amt right">0.00</td>
             <td class="row-total right">0.00</td>
-            <td class="no-print"><button class="btn-danger" onclick="this.closest('tr').remove(); calculateTotals();">X</button></td>
+            <td class="no-print"><button type="button" class="btn-danger" onclick="this.closest('tr').remove(); calculateTotals();">X</button></td>
         `;
         tbody.appendChild(tr);
         calculateTotals();
@@ -864,7 +864,7 @@
         tbody.innerHTML = '';
         quotations.forEach((q, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${q.firm}</td><td>${q.quotNumber}</td><td>${q.date}</td><td>${q.customer}</td><td>${q.grandTotal.toFixed(2)}</td><td><button class="btn-success" onclick="loadQuotationToInvoice(${idx})">Load to Bill</button> <button class="btn-danger" onclick="deleteQuotation(${idx})">Delete</button></td>`;
+            tr.innerHTML = `<td>${q.firm}</td><td>${q.quotNumber}</td><td>${q.date}</td><td>${q.customer}</td><td>${q.grandTotal.toFixed(2)}</td><td><button type="button" class="btn-success" onclick="loadQuotationToInvoice(${idx})">Load to Bill</button> <button type="button" class="btn-danger" onclick="deleteQuotation(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     }
@@ -970,7 +970,7 @@
         tbody.innerHTML = '';
         companies.forEach((c, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${c.name}</td><td>${c.gstin}</td><td><button class="btn-danger" onclick="deleteCompany(${idx})">Delete</button></td>`;
+            tr.innerHTML = `<td>${c.name}</td><td>${c.gstin}</td><td><button type="button" class="btn-danger" onclick="deleteCompany(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     }
@@ -1003,7 +1003,7 @@
         tbody.innerHTML = '';
         customers.forEach((cust, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${cust.name}</td><td>${cust.phone}</td><td>${cust.gstin}<br>${cust.address}</td><td>0.00</td><td><button class="btn-danger" onclick="deleteCustomer(${idx})">Delete</button></td>`;
+            tr.innerHTML = `<td>${cust.name}</td><td>${cust.phone}</td><td>${cust.gstin}<br>${cust.address}</td><td>0.00</td><td><button type="button" class="btn-danger" onclick="deleteCustomer(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     }
@@ -1037,7 +1037,7 @@
         inventory.forEach((prod, idx) => {
             let tr = document.createElement('tr');
             if(prod.stock <= 2) tr.classList.add('low-stock');
-            tr.innerHTML = `<td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td>`;
+            tr.innerHTML = `<td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button type="button" class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
         updateInventoryDatalist();
@@ -1072,7 +1072,7 @@
         tbody.innerHTML = '';
         invoices.forEach((inv, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${inv.firm}</td><td>${inv.invNumber}</td><td>${inv.date}</td><td>${inv.customer}</td><td>${inv.status}</td><td>${inv.grandTotal.toFixed(2)}</td><td><button class="btn-danger" onclick="deleteInvoice(${idx})">Delete</button></td>`;
+            tr.innerHTML = `<td>${inv.firm}</td><td>${inv.invNumber}</td><td>${inv.date}</td><td>${inv.customer}</td><td>${inv.status}</td><td>${inv.grandTotal.toFixed(2)}</td><td><button type="button" class="btn-danger" onclick="deleteInvoice(${idx})">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     }
@@ -1089,7 +1089,7 @@
         tbody.innerHTML = '';
         invoices.filter(i => i.balance > 0).forEach((inv, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${inv.customer}<br><small>${inv.custDetails}</small></td><td>${inv.invNumber}</td><td style="color:red; font-weight:bold;">${inv.balance.toFixed(2)}</td><td><button class="btn-success" onclick="markInvoicePaid('${inv.invNumber}')">Mark Paid</button></td>`;
+            tr.innerHTML = `<td>${inv.customer}<br><small>${inv.custDetails}</small></td><td>${inv.invNumber}</td><td style="color:red; font-weight:bold;">${inv.balance.toFixed(2)}</td><td><button type="button" class="btn-success" onclick="markInvoicePaid('${inv.invNumber}')">Mark Paid</button></td>`;
             tbody.appendChild(tr);
         });
     }
