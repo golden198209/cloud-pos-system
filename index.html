@@ -335,21 +335,21 @@
     </div>
 </div>
 
-<!-- STYLISH & COLOURFUL QUOTATION PRINT MODAL (PDF Theme match[cite: 2]) -->
+<!-- STYLISH & COLOURFUL QUOTATION/INVOICE PRINT MODAL -->
 <div id="quotationPrintModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; z-index:3000;">
     <div style="width:820px; background:#fff; padding:35px; border-radius:10px; max-height:95vh; overflow-y:auto; box-shadow:0 8px 25px rgba(0,0,0,0.3); font-family:'Segoe UI', Arial, sans-serif; border-top: 6px solid #1a365d;">
         
         <!-- Header Banner -->
         <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px;">
             <div>
-                <h1 style="margin:0; font-size:26px; color:#1a365d; letter-spacing:1px; font-weight:800;">QUOTATION</h1>
+                <h1 id="qPrintDocTitle" style="margin:0; font-size:26px; color:#1a365d; letter-spacing:1px; font-weight:800;">QUOTATION</h1>
                 <h3 id="qPrintFirmName" style="margin:6px 0 3px 0; color:#2b6cb0; font-size:18px; font-weight:700;"></h3>
                 <p id="qPrintFirmDetails" style="font-size:11px; color:#4a5568; margin:0; line-height:1.5;"></p>
             </div>
             <div style="text-align: right; font-size: 12px; background: #f7fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <div style="margin-bottom: 3px;"><b>Quotation No:</b> <span id="qPrintNum" style="color: #2b6cb0; font-weight: bold;"></span></div>
-                <div style="margin-bottom: 3px;"><b>Quotation Date:</b> <span id="qPrintDate"></span></div>
-                <div><b>Expiry Date:</b> <span id="qPrintExpiryDate"></span></div>
+                <div style="margin-bottom: 3px;"><b id="qPrintNoLabel">Quotation No:</b> <span id="qPrintNum" style="color: #2b6cb0; font-weight: bold;"></span></div>
+                <div style="margin-bottom: 3px;"><b id="qPrintDateLabel">Quotation Date:</b> <span id="qPrintDate"></span></div>
+                <div id="qPrintExpiryContainer"><b>Expiry Date:</b> <span id="qPrintExpiryDate"></span></div>
             </div>
         </div>
 
@@ -434,7 +434,7 @@
 
         <!-- Action Buttons -->
         <div style="margin-top: 30px; display: flex; gap: 10px;" class="no-print">
-            <button type="button" id="printQModalBtn" class="btn-success" style="flex:1; padding:10px; font-size:14px;">🖨️ Print Quotation</button>
+            <button type="button" id="printQModalBtn" class="btn-success" style="flex:1; padding:10px; font-size:14px;">🖨️ Print Document</button>
             <button type="button" id="closeQModalBtn" class="btn-danger" style="flex:1; padding:10px; font-size:14px;">Close</button>
         </div>
     </div>
@@ -1049,23 +1049,47 @@
                     <button type="button" class="btn-danger del-quot-btn" style="padding:4px 8px; font-size:11px;">Delete</button>
                 </td>`;
             
-            tr.querySelector('.print-quot-btn').addEventListener('click', () => printQuotationPreview(idx));
+            tr.querySelector('.print-quot-btn').addEventListener('click', () => printDocumentModal(q, 'QUOTATION', q.quotNumber, q.date));
             tr.querySelector('.load-quot-btn').addEventListener('click', () => loadQuotationToInvoice(idx));
             tr.querySelector('.del-quot-btn').addEventListener('click', () => deleteQuotation(idx));
             tbody.appendChild(tr);
         });
     }
 
-    function printQuotationPreview(idx) {
-        let q = quotations[idx];
-        if(!q) return;
+    function renderHistoryTable() {
+        let tbody = document.getElementById('historyTableBody');
+        tbody.innerHTML = '';
+        invoices.forEach((inv, idx) => {
+            let tr = document.createElement('tr');
+            let totalVal = (typeof inv.grandTotal === 'number') ? inv.grandTotal : 0;
+            tr.innerHTML = `
+                <td>${inv.firm || ''}</td>
+                <td>${inv.invNumber || ''}</td>
+                <td>${inv.date || ''}</td>
+                <td>${inv.customer || ''}</td>
+                <td>${inv.status || ''}</td>
+                <td>${totalVal.toFixed(2)}</td>
+                <td>
+                    <button type="button" class="btn-warning print-inv-btn" style="padding:4px 8px; font-size:11px;">📄 View / Print</button>
+                    <button type="button" class="btn-danger del-inv-btn" style="padding:4px 8px; font-size:11px;">Delete</button>
+                </td>`;
+            
+            tr.querySelector('.print-inv-btn').addEventListener('click', () => printDocumentModal(inv, 'TAX INVOICE', inv.invNumber, inv.date));
+            tr.querySelector('.del-inv-btn').addEventListener('click', () => deleteInvoice(idx));
+            tbody.appendChild(tr);
+        });
+    }
 
-        let firmObj = companies.find(c => c.name === q.firm) || companies[0];
+    function printDocumentModal(dataObj, docType, docNo, docDate) {
+        if(!dataObj) return;
 
-        document.getElementById('qPrintFirmName').innerText = q.firm || '';
+        let firmObj = companies.find(c => c.name === dataObj.firm) || companies[0];
+
+        document.getElementById('qPrintDocTitle').innerText = docType;
+        document.getElementById('qPrintFirmName').innerText = dataObj.firm || '';
         document.getElementById('qPrintFirmDetails').innerHTML = `Address: ${firmObj.address || ''}<br>Phone: ${firmObj.phone || ''} | GSTIN: ${firmObj.gstin || ''} | PAN: DSYPB2229F`;
         
-        let cDetails = q.custDetails ? q.custDetails.trim() : "";
+        let cDetails = dataObj.custDetails ? dataObj.custDetails.trim() : "";
         if(!cDetails || cDetails.toLowerCase() === 'cash customer') {
             document.getElementById('qPrintBillTo').innerHTML = `<b>CASH SALE</b><br>Place of Supply: Jammu & Kashmir`;
             document.getElementById('qPrintShipTo').innerHTML = `<b>CASH SALE</b><br>Place of Supply: Jammu & Kashmir`;
@@ -1074,14 +1098,21 @@
             document.getElementById('qPrintShipTo').innerText = cDetails;
         }
 
-        document.getElementById('qPrintNum').innerText = q.quotNumber;
-        document.getElementById('qPrintDate').innerText = q.date;
+        document.getElementById('qPrintNoLabel').innerText = docType === 'QUOTATION' ? 'Quotation No:' : 'Invoice No:';
+        document.getElementById('qPrintDateLabel').innerText = docType === 'QUOTATION' ? 'Quotation Date:' : 'Invoice Date:';
+        document.getElementById('qPrintNum').innerText = docNo;
+        document.getElementById('qPrintDate').innerText = docDate;
         
-        let qDateObj = new Date(q.date || Date.now());
-        qDateObj.setDate(qDateObj.getDate() + 7);
-        document.getElementById('qPrintExpiryDate').innerText = qDateObj.toISOString().split('T')[0];
+        if(docType === 'QUOTATION') {
+            document.getElementById('qPrintExpiryContainer').style.display = 'block';
+            let qDateObj = new Date(docDate || Date.now());
+            qDateObj.setDate(qDateObj.getDate() + 7);
+            document.getElementById('qPrintExpiryDate').innerText = qDateObj.toISOString().split('T')[0];
+        } else {
+            document.getElementById('qPrintExpiryContainer').style.display = 'none';
+        }
 
-        document.getElementById('qPrintSignFirmText').innerText = `For ${q.firm || 'Firm'}`;
+        document.getElementById('qPrintSignFirmText').innerText = `For ${dataObj.firm || 'Firm'}`;
         document.getElementById('qPrintBankDetails').innerHTML = `Name: <b>${firmObj.bankName || 'Jammu and Kashmir Bank'}</b><br>IFSC Code: <b>${firmObj.ifsc || 'N/A'}</b><br>Account No: <b>${firmObj.accNo || 'N/A'}</b>`;
 
         let itemsBody = document.getElementById('qPrintItemsBody');
@@ -1092,8 +1123,8 @@
         let totalTaxableVal = 0;
         let grandTotalVal = 0;
 
-        if(q.items && q.items.length > 0) {
-            q.items.forEach((item, i) => {
+        if(dataObj.items && dataObj.items.length > 0) {
+            dataObj.items.forEach((item, i) => {
                 let qty = parseFloat(item.qty) || 1;
                 let price = parseFloat(item.price) || 0;
                 let gstRate = parseFloat(item.gst) || 18;
@@ -1151,6 +1182,12 @@
         document.getElementById('qPrintAmountWords').innerText = convertNumberToWords(Math.round(grandTotalVal));
 
         document.getElementById('quotationPrintModal').style.display = 'flex';
+    }
+
+    function printQuotationPreview(idx) {
+        let q = quotations[idx];
+        if(!q) return;
+        printDocumentModal(q, 'QUOTATION', q.quotNumber, q.date);
     }
 
     function loadQuotationToInvoice(idx) {
@@ -1353,18 +1390,6 @@
         syncToCloud();
         renderInventoryTable();
         updateInventoryDatalist();
-    }
-
-    function renderHistoryTable() {
-        let tbody = document.getElementById('historyTableBody');
-        tbody.innerHTML = '';
-        invoices.forEach((inv, idx) => {
-            let tr = document.createElement('tr');
-            let totalVal = (typeof inv.grandTotal === 'number') ? inv.grandTotal : 0;
-            tr.innerHTML = `<td>${inv.firm || ''}</td><td>${inv.invNumber || ''}</td><td>${inv.date || ''}</td><td>${inv.customer || ''}</td><td>${inv.status || ''}</td><td>${totalVal.toFixed(2)}</td><td><button type="button" class="btn-danger del-inv-btn">Delete</button></td>`;
-            tr.querySelector('.del-inv-btn').addEventListener('click', () => deleteInvoice(idx));
-            tbody.appendChild(tr);
-        });
     }
 
     function deleteInvoice(idx) {
