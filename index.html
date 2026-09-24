@@ -78,6 +78,15 @@
                 <label><b>Select Billing Firm:</b></label>
                 <select id="activeFirmSelect" class="input-field"></select>
                 
+                <!-- NEW: WhatsApp AI Smart Billing Box -->
+                <div style="background: #e6fffa; border: 1px solid #319795; padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+                    <label style="color: #234e52; font-size: 12px;"><b>💬 WhatsApp / AI se Bill Banao:</b></label>
+                    <div style="display:flex; gap:5px; margin-top:4px;">
+                        <input type="text" id="aiPromptInput" class="input-field" placeholder="Jaise: Ramesh ko 5 chair 2500 ki, GST 18%" style="margin-bottom:0;">
+                        <button type="button" id="processAiPromptBtn" class="btn-success" style="background:#319795; white-space:nowrap;">Generate</button>
+                    </div>
+                </div>
+
                 <div style="display:flex; gap:5px; margin-bottom:8px;">
                     <input type="text" id="globalBarcodeScan" class="input-field" placeholder="Scan Barcode / Search Product..." style="margin-bottom:0;">
                     <button id="startCamScannerBtn" class="btn-warning" style="height:35px;">📷 Scan Camera</button>
@@ -531,6 +540,12 @@
         document.getElementById('activeFirmSelect').addEventListener('change', onFirmChange);
         document.getElementById('globalBarcodeScan').addEventListener('keypress', handleGlobalBarcode);
 
+        // NEW: AI / WhatsApp Prompt Listener
+        document.getElementById('processAiPromptBtn').addEventListener('click', processAiBillingPrompt);
+        document.getElementById('aiPromptInput').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') processAiBillingPrompt();
+        });
+
         document.getElementById('startCamScannerBtn').addEventListener('click', () => startCameraScanner('global'));
         document.getElementById('startInvCamScannerBtn').addEventListener('click', startCameraScannerForInventory);
         document.getElementById('closeScannerModalBtn').addEventListener('click', stopCameraScanner);
@@ -564,6 +579,65 @@
         document.getElementById('saveBusinessBtn').addEventListener('click', saveBusinessProfile);
         document.getElementById('saveCustomerBtn').addEventListener('click', saveCustomer);
         document.getElementById('saveProductBtn').addEventListener('click', saveProduct);
+    }
+
+    // NEW: Smart AI / WhatsApp Prompt Parser Function
+    function processAiBillingPrompt() {
+        let text = document.getElementById('aiPromptInput').value.trim();
+        if(!text) {
+            alert("Kripya text likhein, jaise: Ramesh ko 5 chair 2500 ki, GST 18%");
+            return;
+        }
+
+        // Simple parsing logic
+        let parts = text.split(/ ko | ko | - /i);
+        let custName = parts.length > 1 ? parts[0].trim() : "Cash Customer";
+        let restText = parts.length > 1 ? parts[1] : text;
+
+        // Extract Qty, Price, GST
+        let qtyMatch = restText.match(/(\d+)\s*(chair|table|pcs|piece|item|almirah|bed)/i) || restText.match(/(\d+)\s/);
+        let qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+        let priceMatch = restText.match(/(\d+)\s*(ki|rs|rupee|₹)?/i);
+        let price = 0;
+        let numbers = restText.match(/\d+/g);
+        if(numbers) {
+            // filter out qty if found
+            let filteredNums = numbers.map(Number);
+            if(qtyMatch && filteredNums.includes(qty)) {
+                let idx = filteredNums.indexOf(qty);
+                filteredNums.splice(idx, 1);
+            }
+            if(filteredNums.length > 0) {
+                // last or largest sensible number is usually price (unless it's gst)
+                price = filteredNums.find(n => n !== 18 && n !== 12 && n !== 5 && n !== 28) || filteredNums[0];
+            }
+        }
+
+        let gstMatch = restText.match(/(?:gst\s*|@\s*)(\d+)/i);
+        let gstRate = gstMatch ? parseInt(gstMatch[1]) : 18;
+
+        // Item name cleaning
+        let itemName = restText.replace(/\d+/g, '').replace(/ki|rs|rupee|gst|%|pcs|piece/gi, '').trim();
+        if(!itemName) itemName = "General Item";
+
+        // Set Customer Details
+        document.getElementById('manualCustDetails').value = `${custName.toUpperCase()}\nJammu & Kashmir\nState: 01-Jammu & Kashmir`;
+
+        // Clear and add item row
+        let tbody = document.getElementById('itemRows');
+        tbody.innerHTML = '';
+        addItemRowWithProduct({
+            name: itemName,
+            barcode: '',
+            hsn: '9403',
+            price: price || 1000,
+            gst: gstRate,
+            qty: qty
+        });
+
+        document.getElementById('aiPromptInput').value = '';
+        alert(`Bill Generated for ${custName.toUpperCase()}: ${qty} x ${itemName} @ ₹${price} (${gstRate}% GST)`);
     }
 
     function switchTab(tabID, evt) {
