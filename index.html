@@ -46,7 +46,7 @@
         <span id="syncStatus" style="font-size:12px; color:gray;">💾 Local Mode</span>
     </div>
     <div>
-        <button class="tab-btn" onclick="toggleCloudConfig()" style="background:#17a2b8; color:white;">☁️ Firebase Sync</button>
+        <button id="cloudConfigToggleBtn" class="tab-btn" style="background:#17a2b8; color:white;">☁️ Firebase Sync</button>
     </div>
 </div>
 
@@ -54,18 +54,18 @@
 <div id="cloudConfigBox" class="no-print box-section" style="display:none;">
     <h4>Firebase Cloud Configuration (JSON)</h4>
     <textarea id="firebaseConfigInput" class="input-field" rows="4" placeholder="Paste Firebase config JSON here..."></textarea>
-    <button class="btn-success" onclick="saveFirebaseConfig()">Connect & Sync</button>
+    <button id="saveFirebaseConfigBtn" class="btn-success">Connect & Sync</button>
 </div>
 
 <div class="nav-tabs no-print">
-    <button class="tab-btn active" onclick="switchTab('invoice', event)">Create Invoice</button>
-    <button class="tab-btn" onclick="switchTab('history', event)">Invoice History</button>
-    <button class="tab-btn" onclick="switchTab('quotation', event)">Quotations</button>
-    <button class="tab-btn" onclick="switchTab('ledger', event)">Pending Payments (Udhaar)</button>
-    <button class="tab-btn" onclick="switchTab('reports', event)">📊 Reports & GSTR-1</button>
-    <button class="tab-btn" onclick="switchTab('business', event)">Manage Firms</button>
-    <button class="tab-btn" onclick="switchTab('customers', event)">Customers & Ledger</button>
-    <button class="tab-btn" onclick="switchTab('inventory', event)">Stock & Barcode</button>
+    <button class="tab-btn active" data-tab="invoice">Create Invoice</button>
+    <button class="tab-btn" data-tab="history">Invoice History</button>
+    <button class="tab-btn" data-tab="quotation">Quotations</button>
+    <button class="tab-btn" data-tab="ledger">Pending Payments (Udhaar)</button>
+    <button class="tab-btn" data-tab="reports">📊 Reports & GSTR-1</button>
+    <button class="tab-btn" data-tab="business">Manage Firms</button>
+    <button class="tab-btn" data-tab="customers">Customers & Ledger</button>
+    <button class="tab-btn" data-tab="inventory">Stock & Barcode</button>
 </div>
 
 <!-- 1. INVOICE PANEL -->
@@ -74,17 +74,17 @@
         <div style="flex: 2; min-width: 300px;">
             <div class="box-section no-print">
                 <label><b>Select Billing Firm:</b></label>
-                <select id="activeFirmSelect" class="input-field" onchange="onFirmChange()"></select>
+                <select id="activeFirmSelect" class="input-field"></select>
                 
                 <div style="display:flex; gap:5px; margin-bottom:8px;">
-                    <input type="text" id="globalBarcodeScan" class="input-field" placeholder="Scan Barcode / Search Product..." onkeypress="handleGlobalBarcode(event)" style="margin-bottom:0;">
-                    <button class="btn-warning" onclick="startCameraScanner('global')" style="height:35px;">📷 Scan Camera</button>
+                    <input type="text" id="globalBarcodeScan" class="input-field" placeholder="Scan Barcode / Search Product..." style="margin-bottom:0;">
+                    <button id="startCamScannerBtn" class="btn-warning" style="height:35px;">📷 Scan Camera</button>
                 </div>
                 
                 <div style="display:flex; gap:10px; align-items:center;">
                     <label><b>Price Mode:</b></label>
-                    <label><input type="radio" name="priceMode" value="exclusive" checked onchange="calculateTotals()"> Without GST</label>
-                    <label><input type="radio" name="priceMode" value="inclusive" onchange="calculateTotals()"> With GST</label>
+                    <label><input type="radio" name="priceMode" value="exclusive" checked> Without GST</label>
+                    <label><input type="radio" name="priceMode" value="inclusive"> With GST</label>
                 </div>
             </div>
 
@@ -97,7 +97,7 @@
                 <div style="display:flex; justify-content:space-between; font-size:13px;">
                     <div>
                         <b>Bill To (Customer Details):</b><br>
-                        <select id="invoiceCustDropdown" class="no-print input-field" onchange="onCustomerSelected()" style="margin-top:5px; width:200px;"></select>
+                        <select id="invoiceCustDropdown" class="no-print input-field" style="margin-top:5px; width:200px;"></select>
                         <textarea id="manualCustDetails" class="input-field" rows="3" style="width:250px; margin-top:5px; font-size:12px;" placeholder="Customer Details..."></textarea>
                     </div>
                     <div>
@@ -128,7 +128,7 @@
                     </thead>
                     <tbody id="itemRows"></tbody>
                 </table>
-                <button class="btn-success no-print" onclick="addItemRow()" style="margin-top:10px;">+ Add Item</button>
+                <button id="addItemRowBtn" class="btn-success no-print" style="margin-top:10px;">+ Add Item</button>
 
                 <!-- GST Tax Summary Table -->
                 <div style="margin-top:15px;">
@@ -165,7 +165,7 @@
                         <table style="width:100%; font-size:13px;">
                             <tr><td><b>Sub Total :</b></td><td id="subTotal">0.00</td></tr>
                             <tr><td><b>Total :</b></td><td><b id="grandTotal" style="font-size:15px;">0.00</b></td></tr>
-                            <tr class="no-print"><td><b>Received :</b></td><td><input type="number" id="amtReceived" value="0" oninput="calculateTotals()" style="width:100px; text-align:right;"></td></tr>
+                            <tr class="no-print"><td><b>Received :</b></td><td><input type="number" id="amtReceived" value="0" style="width:100px; text-align:right;"></td></tr>
                             <tr><td><b>Balance :</b></td><td><b id="balanceAmount" style="color:red;">0.00</b></td></tr>
                         </table>
                     </div>
@@ -186,15 +186,15 @@
 
             <!-- ACTION BUTTONS -->
             <div class="no-print" style="margin-top:15px; display:flex; gap:8px; flex-wrap:wrap;">
-                <button type="button" class="btn-success" onclick="saveAndPrintInvoice()" style="flex:1;">Save & Print A4</button>
-                <button type="button" class="btn-warning" onclick="openThermalReceipt()" style="flex:1;">🖨️ Print POS</button>
-                <button type="button" class="btn-warning" onclick="saveQuotation()" style="flex:1; background:#17a2b8; color:white;">📋 Save Quotation</button>
-                <button type="button" class="btn-warning" onclick="downloadOrSharePDF()" style="flex:1; background:#6c757d; color:white;">📥 PDF Download</button>
+                <button type="button" id="saveAndPrintBtn" class="btn-success" style="flex:1;">Save & Print A4</button>
+                <button type="button" id="openThermalBtn" class="btn-warning" style="flex:1;">🖨️ Print POS</button>
+                <button type="button" id="saveQuotationBtn" class="btn-warning" style="flex:1; background:#17a2b8; color:white;">📋 Save Quotation</button>
+                <button type="button" id="downloadPdfBtn" class="btn-warning" style="flex:1; background:#6c757d; color:white;">📥 PDF Download</button>
             </div>
             <div class="no-print" style="margin-top:8px; display:flex; gap:8px;">
-                <button type="button" class="btn-success" onclick="shareOnWhatsApp()" style="background:#25D366; flex:1;">📱 WhatsApp</button>
-                <button type="button" class="btn-success" onclick="shareViaEmail()" style="background:#007bff; flex:1;">✉️ Email</button>
-                <button type="button" class="btn-danger" onclick="resetInvoiceForm()" style="flex:0.5;">Clear</button>
+                <button type="button" id="shareWhatsappBtn" class="btn-success" style="background:#25D366; flex:1;">📱 WhatsApp</button>
+                <button type="button" id="shareEmailBtn" class="btn-success" style="background:#007bff; flex:1;">✉️ Email</button>
+                <button type="button" id="clearFormBtn" class="btn-danger" style="flex:0.5;">Clear</button>
             </div>
         </div>
     </div>
@@ -262,7 +262,7 @@
         <textarea id="busAddress" class="input-field" placeholder="Address"></textarea>
         <input type="text" id="busPhone" class="input-field" placeholder="Phone">
         <input type="text" id="busGstin" class="input-field" placeholder="GSTIN">
-        <button type="button" class="btn-success" onclick="saveBusinessProfile()" style="margin-top: 10px; width:100%;">Save Firm</button>
+        <button type="button" id="saveBusinessBtn" class="btn-success" style="margin-top: 10px; width:100%;">Save Firm</button>
     </div>
     <table class="items-table" style="margin-top:15px;">
         <thead><tr><th>Firm Name</th><th>GSTIN</th><th>Action</th></tr></thead>
@@ -278,7 +278,7 @@
         <textarea id="newCustAddress" class="input-field" placeholder="Address"></textarea>
         <input type="text" id="newCustPhone" class="input-field" placeholder="Phone">
         <input type="text" id="newCustGstin" class="input-field" placeholder="GSTIN">
-        <button type="button" class="btn-success" onclick="saveCustomer()">Save Customer</button>
+        <button type="button" id="saveCustomerBtn" class="btn-success">Save Customer</button>
     </div>
     <table class="items-table" style="margin-top: 15px;">
         <thead><tr><th>Customer Name</th><th>Phone</th><th>GSTIN / Address</th><th>Ledger</th><th>Action</th></tr></thead>
@@ -293,7 +293,7 @@
         <input type="text" id="prodName" class="input-field" placeholder="Product Name">
         <div style="display:flex; gap:5px;">
             <input type="text" id="prodBarcode" class="input-field" placeholder="Barcode Number" style="margin-bottom:5px;">
-            <button type="button" class="btn-warning" onclick="startCameraScannerForInventory()" style="height:28px; font-size:11px;">📷 Scan</button>
+            <button type="button" id="startInvCamScannerBtn" class="btn-warning" style="height:28px; font-size:11px;">📷 Scan</button>
         </div>
         <input type="text" id="prodHsn" class="input-field" placeholder="HSN/SAC">
         <input type="number" id="prodPrice" class="input-field" placeholder="Price (₹)">
@@ -305,7 +305,7 @@
             <option value="0">0% GST</option>
         </select>
         <input type="number" id="prodStock" class="input-field" placeholder="Stock Qty">
-        <button type="button" class="btn-success" onclick="saveProduct()">Save Product & Barcode</button>
+        <button type="button" id="saveProductBtn" class="btn-success">Save Product & Barcode</button>
     </div>
     <table class="items-table" style="margin-top: 15px;">
         <thead><tr><th>Product</th><th>Barcode</th><th>HSN</th><th>Price</th><th>GST</th><th>Stock</th><th>Action</th></tr></thead>
@@ -318,7 +318,7 @@
     <div style="background:white; padding:15px; border-radius:8px; text-align:center; width:340px;">
         <h4 style="margin-top:0;">Scan Barcode via Camera</h4>
         <div id="interactive" class="viewport"></div>
-        <button type="button" class="btn-danger" onclick="stopCameraScanner()" style="margin-top:15px; width:100%;">Close Camera</button>
+        <button type="button" id="closeScannerModalBtn" class="btn-danger" style="margin-top:15px; width:100%;">Close Camera</button>
     </div>
 </div>
 
@@ -327,8 +327,8 @@
     <div style="width:300px; background:#fff; padding:15px; font-family:'Courier New',Courier,monospace; font-size:12px;">
         <div id="thermalContent" style="white-space: pre-line;"></div>
         <div style="margin-top: 15px; display: flex; gap: 5px;">
-            <button type="button" class="btn-success" onclick="window.print()" style="flex:1; font-size:11px;">Print Slip</button>
-            <button type="button" class="btn-danger" onclick="document.getElementById('thermalReceiptModal').style.display='none'" style="flex:1; font-size:11px;">Close</button>
+            <button type="button" id="printThermalSlipBtn" class="btn-success" style="flex:1; font-size:11px;">Print Slip</button>
+            <button type="button" id="closeThermalModalBtn" class="btn-danger" style="flex:1; font-size:11px;">Close</button>
         </div>
     </div>
 </div>
@@ -400,6 +400,9 @@
         updateReports();
         renderHistoryTable();
 
+        // Bind all event listeners safely
+        setupEventListeners();
+
         let savedCfg = localStorage.getItem('gs_fb_config');
         if(savedCfg) {
             try {
@@ -410,11 +413,65 @@
         }
     };
 
+    function setupEventListeners() {
+        // Nav tabs
+        document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+            btn.addEventListener('click', (e) => switchTab(btn.getAttribute('data-tab'), e));
+        });
+
+        // Cloud config toggle & save
+        document.getElementById('cloudConfigToggleBtn').addEventListener('click', toggleCloudConfig);
+        document.getElementById('saveFirebaseConfigBtn').addEventListener('click', saveFirebaseConfig);
+
+        // Firm select change & inputs
+        document.getElementById('activeFirmSelect').addEventListener('change', onFirmChange);
+        document.getElementById('globalBarcodeScan').addEventListener('keypress', handleGlobalBarcode);
+
+        // Camera scanners
+        document.getElementById('startCamScannerBtn').addEventListener('click', () => startCameraScanner('global'));
+        document.getElementById('startInvCamScannerBtn').addEventListener('click', startCameraScannerForInventory);
+        document.getElementById('closeScannerModalBtn').addEventListener('click', stopCameraScanner);
+
+        // Price mode radios
+        document.querySelectorAll('input[name="priceMode"]').forEach(radio => {
+            radio.addEventListener('change', calculateTotals);
+        });
+
+        // Customer selection dropdown
+        document.getElementById('invoiceCustDropdown').addEventListener('change', onCustomerSelected);
+
+        // Add item row button
+        document.getElementById('addItemRowBtn').addEventListener('click', addItemRow);
+
+        // Amount received input
+        document.getElementById('amtReceived').addEventListener('input', calculateTotals);
+
+        // Action buttons
+        document.getElementById('saveAndPrintBtn').addEventListener('click', saveAndPrintInvoice);
+        document.getElementById('openThermalBtn').addEventListener('click', openThermalReceipt);
+        document.getElementById('saveQuotationBtn').addEventListener('click', saveQuotation);
+        document.getElementById('downloadPdfBtn').addEventListener('click', downloadOrSharePDF);
+        document.getElementById('shareWhatsappBtn').addEventListener('click', shareOnWhatsApp);
+        document.getElementById('shareEmailBtn').addEventListener('click', shareViaEmail);
+        document.getElementById('clearFormBtn').addEventListener('click', resetInvoiceForm);
+
+        // Thermal receipt modal buttons
+        document.getElementById('printThermalSlipBtn').addEventListener('click', () => window.print());
+        document.getElementById('closeThermalModalBtn').addEventListener('click', () => {
+            document.getElementById('thermalReceiptModal').style.display = 'none';
+        });
+
+        // Business, Customer, Product save buttons
+        document.getElementById('saveBusinessBtn').addEventListener('click', saveBusinessProfile);
+        document.getElementById('saveCustomerBtn').addEventListener('click', saveCustomer);
+        document.getElementById('saveProductBtn').addEventListener('click', saveProduct);
+    }
+
     function switchTab(tabID, evt) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(tabID + 'Panel').classList.add('active');
-        if(evt) evt.currentTarget.classList.add('active');
+        if(evt && evt.currentTarget) evt.currentTarget.classList.add('active');
         if(tabID === 'reports') updateReports();
         if(tabID === 'history') renderHistoryTable();
         if(tabID === 'quotation') renderQuotationTable();
@@ -633,13 +690,13 @@
         let tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${rowCount}</td>
-            <td class="left"><input type="text" class="input-field row-name" value="${prod.name}" list="inventoryList" onchange="onRowProductSelected(this)" style="margin-bottom:0;"></td>
+            <td class="left"><input type="text" class="input-field row-name" value="${prod.name}" list="inventoryList" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
-            <td><input type="number" class="input-field row-qty" value="1" min="1" oninput="calculateTotals()" style="margin-bottom:0;"></td>
-            <td><input type="number" class="input-field row-price" value="${prod.price}" step="0.01" oninput="calculateTotals()" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-qty" value="1" min="1" style="margin-bottom:0;"></td>
+            <td><input type="number" class="input-field row-price" value="${prod.price}" step="0.01" style="margin-bottom:0;"></td>
             <td>
-                <select class="input-field row-gst" onchange="calculateTotals()" style="margin-bottom:0;">
+                <select class="input-field row-gst" style="margin-bottom:0;">
                     <option value="18" ${prod.gst==18?'selected':''}>18%</option>
                     <option value="12" ${prod.gst==12?'selected':''}>12%</option>
                     <option value="28" ${prod.gst==28?'selected':''}>28%</option>
@@ -649,8 +706,20 @@
             </td>
             <td class="row-gst-amt right">0.00</td>
             <td class="row-total right">0.00</td>
-            <td class="no-print"><button type="button" class="btn-danger" onclick="this.closest('tr').remove(); calculateTotals();">X</button></td>
+            <td class="no-print"><button type="button" class="btn-danger remove-row-btn">X</button></td>
         `;
+        
+        tr.querySelector('.row-name').addEventListener('change', function() {
+            onRowProductSelected(this);
+        });
+        tr.querySelector('.row-qty').addEventListener('input', calculateTotals);
+        tr.querySelector('.row-price').addEventListener('input', calculateTotals);
+        tr.querySelector('.row-gst').addEventListener('change', calculateTotals);
+        tr.querySelector('.remove-row-btn').addEventListener('click', function() {
+            tr.remove();
+            calculateTotals();
+        });
+
         tbody.appendChild(tr);
         calculateTotals();
     }
@@ -674,7 +743,8 @@
     }
 
     function calculateTotals() {
-        let priceMode = document.querySelector('input[name="priceMode"]:checked').value;
+        let priceModeInput = document.querySelector('input[name="priceMode"]:checked');
+        let priceMode = priceModeInput ? priceModeInput.value : 'exclusive';
         let rows = document.querySelectorAll('#itemRows tr');
         let subTotal = 0;
         let grandTotal = 0;
@@ -820,7 +890,6 @@
         resetInvoiceForm();
     }
 
-    // Quotation Feature Functions
     function saveQuotation() {
         let firmIdx = document.getElementById('activeFirmSelect').value;
         let firmName = companies[firmIdx] ? companies[firmIdx].name : "Firm";
@@ -864,7 +933,10 @@
         tbody.innerHTML = '';
         quotations.forEach((q, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${q.firm}</td><td>${q.quotNumber}</td><td>${q.date}</td><td>${q.customer}</td><td>${q.grandTotal.toFixed(2)}</td><td><button type="button" class="btn-success" onclick="loadQuotationToInvoice(${idx})">Load to Bill</button> <button type="button" class="btn-danger" onclick="deleteQuotation(${idx})">Delete</button></td>`;
+            tr.innerHTML = `<td>${q.firm}</td><td>${q.quotNumber}</td><td>${q.date}</td><td>${q.customer}</td><td>${q.grandTotal.toFixed(2)}</td><td><button type="button" class="btn-success load-quot-btn">Load to Bill</button> <button type="button" class="btn-danger del-quot-btn">Delete</button></td>`;
+            
+            tr.querySelector('.load-quot-btn').addEventListener('click', () => loadQuotationToInvoice(idx));
+            tr.querySelector('.del-quot-btn').addEventListener('click', () => deleteQuotation(idx));
             tbody.appendChild(tr);
         });
     }
@@ -970,7 +1042,8 @@
         tbody.innerHTML = '';
         companies.forEach((c, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${c.name}</td><td>${c.gstin}</td><td><button type="button" class="btn-danger" onclick="deleteCompany(${idx})">Delete</button></td>`;
+            tr.innerHTML = `<td>${c.name}</td><td>${c.gstin}</td><td><button type="button" class="btn-danger del-comp-btn">Delete</button></td>`;
+            tr.querySelector('.del-comp-btn').addEventListener('click', () => deleteCompany(idx));
             tbody.appendChild(tr);
         });
     }
@@ -1003,7 +1076,8 @@
         tbody.innerHTML = '';
         customers.forEach((cust, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${cust.name}</td><td>${cust.phone}</td><td>${cust.gstin}<br>${cust.address}</td><td>0.00</td><td><button type="button" class="btn-danger" onclick="deleteCustomer(${idx})">Delete</button></td>`;
+            tr.innerHTML = `<td>${cust.name}</td><td>${cust.phone}</td><td>${cust.gstin}<br>${cust.address}</td><td>0.00</td><td><button type="button" class="btn-danger del-cust-btn">Delete</button></td>`;
+            tr.querySelector('.del-cust-btn').addEventListener('click', () => deleteCustomer(idx));
             tbody.appendChild(tr);
         });
     }
@@ -1037,7 +1111,8 @@
         inventory.forEach((prod, idx) => {
             let tr = document.createElement('tr');
             if(prod.stock <= 2) tr.classList.add('low-stock');
-            tr.innerHTML = `<td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button type="button" class="btn-danger" onclick="deleteProduct(${idx})">Delete</button></td>`;
+            tr.innerHTML = `<td>${prod.name}</td><td>${prod.barcode}</td><td>${prod.hsn}</td><td>${prod.price}</td><td>${prod.gst}%</td><td>${prod.stock}</td><td><button type="button" class="btn-danger del-prod-btn">Delete</button></td>`;
+            tr.querySelector('.del-prod-btn').addEventListener('click', () => deleteProduct(idx));
             tbody.appendChild(tr);
         });
         updateInventoryDatalist();
@@ -1072,7 +1147,9 @@
         tbody.innerHTML = '';
         invoices.forEach((inv, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${inv.firm}</td><td>${inv.invNumber}</td><td>${inv.date}</td><td>${inv.customer}</td><td>${inv.status}</td><td>${inv.grandTotal.toFixed(2)}</td><td><button type="button" class="btn-danger" onclick="deleteInvoice(${idx})">Delete</button></td>`;
+            let totalVal = (typeof inv.grandTotal === 'number') ? inv.grandTotal : 0;
+            tr.innerHTML = `<td>${inv.firm || ''}</td><td>${inv.invNumber || ''}</td><td>${inv.date || ''}</td><td>${inv.customer || ''}</td><td>${inv.status || ''}</td><td>${totalVal.toFixed(2)}</td><td><button type="button" class="btn-danger del-inv-btn">Delete</button></td>`;
+            tr.querySelector('.del-inv-btn').addEventListener('click', () => deleteInvoice(idx));
             tbody.appendChild(tr);
         });
     }
@@ -1089,7 +1166,8 @@
         tbody.innerHTML = '';
         invoices.filter(i => i.balance > 0).forEach((inv, idx) => {
             let tr = document.createElement('tr');
-            tr.innerHTML = `<td>${inv.customer}<br><small>${inv.custDetails}</small></td><td>${inv.invNumber}</td><td style="color:red; font-weight:bold;">${inv.balance.toFixed(2)}</td><td><button type="button" class="btn-success" onclick="markInvoicePaid('${inv.invNumber}')">Mark Paid</button></td>`;
+            tr.innerHTML = `<td>${inv.customer}<br><small>${inv.custDetails}</small></td><td>${inv.invNumber}</td><td style="color:red; font-weight:bold;">${inv.balance.toFixed(2)}</td><td><button type="button" class="btn-success mark-paid-btn">Mark Paid</button></td>`;
+            tr.querySelector('.mark-paid-btn').addEventListener('click', () => markInvoicePaid(inv.invNumber));
             tbody.appendChild(tr);
         });
     }
