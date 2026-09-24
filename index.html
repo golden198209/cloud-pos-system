@@ -45,7 +45,7 @@
         <span id="syncStatus" style="font-size:12px; color:gray;">💾 Local Mode</span>
     </div>
     <div>
-        <button class="tab-btn" onclick="toggleCloudConfig()" style="background:#17a2b8; color:white;">☁️ Cloud Sync</button>
+        <button class="tab-btn" onclick="toggleCloudConfig()" style="background:#17a2b8; color:white;">☁️ Firebase Sync</button>
     </div>
 </div>
 
@@ -57,14 +57,14 @@
 </div>
 
 <div class="nav-tabs no-print">
-    <button class="tab-btn active" onclick="switchTab('invoice', event)">📝 New Bill</button>
-    <button class="tab-btn" onclick="switchTab('history', event)">📜 History</button>
-    <button class="tab-btn" onclick="switchTab('quotation', event)">📋 Quotations</button>
-    <button class="tab-btn" onclick="switchTab('ledger', event)">💰 Ledger (Udhaar)</button>
-    <button class="tab-btn" onclick="switchTab('reports', event)">📊 Reports</button>
-    <button class="tab-btn" onclick="switchTab('business', event)">🏢 Firms</button>
-    <button class="tab-btn" onclick="switchTab('customers', event)">👥 Customers</button>
-    <button class="tab-btn" onclick="switchTab('inventory', event)">📦 Inventory</button>
+    <button class="tab-btn active" onclick="switchTab('invoice', event)">Create Invoice</button>
+    <button class="tab-btn" onclick="switchTab('history', event)">Invoice History</button>
+    <button class="tab-btn" onclick="switchTab('quotation', event)">Quotations</button>
+    <button class="tab-btn" onclick="switchTab('ledger', event)">Pending Payments (Udhaar)</button>
+    <button class="tab-btn" onclick="switchTab('reports', event)">📊 Reports & GSTR-1</button>
+    <button class="tab-btn" onclick="switchTab('business', event)">Manage Firms</button>
+    <button class="tab-btn" onclick="switchTab('customers', event)">Customers & Ledger</button>
+    <button class="tab-btn" onclick="switchTab('inventory', event)">Stock & Barcode</button>
 </div>
 
 <!-- 1. INVOICE PANEL -->
@@ -72,101 +72,128 @@
     <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div style="flex: 2; min-width: 300px;">
             <div class="box-section no-print">
-                <label><b>Select Firm:</b></label>
+                <label><b>Select Billing Firm:</b></label>
                 <select id="activeFirmSelect" class="input-field" onchange="onFirmChange()"></select>
                 
-                <div style="display:flex; gap:5px;">
+                <div style="display:flex; gap:5px; margin-bottom:8px;">
                     <input type="text" id="globalBarcodeScan" class="input-field" placeholder="Scan Barcode / Search Product..." onkeypress="handleGlobalBarcode(event)" style="margin-bottom:0;">
-                    <button class="btn-warning" onclick="startCameraScanner('global')" style="height:35px;">📷 Scan</button>
+                    <button class="btn-warning" onclick="startCameraScanner('global')" style="height:35px;">📷 Scan Camera</button>
+                </div>
+                
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <label><b>Price Mode:</b></label>
+                    <label><input type="radio" name="priceMode" value="exclusive" checked onchange="calculateTotals()"> Without GST</label>
+                    <label><input type="radio" name="priceMode" value="inclusive" onchange="calculateTotals()"> With GST</label>
                 </div>
             </div>
 
             <!-- INVOICE PRINTABLE AREA -->
             <div id="printableInvoice" style="background:#fff; padding:20px; border:1px solid #ddd;">
-                <h2 id="lblCompanyName" style="text-align:center; margin-bottom:5px;">Firm Name</h2>
+                <h3 style="text-align:center; margin-bottom:2px;">Tax Invoice</h3>
+                <h2 id="lblCompanyName" style="text-align:center; margin-top:0; margin-bottom:5px;">Golden Square & Co .</h2>
                 <p id="lblCompanyDetails" style="text-align:center; font-size:12px; margin-top:0;"></p>
                 <hr>
                 <div style="display:flex; justify-content:space-between; font-size:13px;">
                     <div>
-                        <b>Bill To:</b><br>
+                        <b>Bill To (Customer Details):</b><br>
                         <select id="invoiceCustDropdown" class="no-print input-field" onchange="onCustomerSelected()" style="margin-top:5px; width:200px;"></select>
                         <textarea id="manualCustDetails" class="input-field" rows="3" style="width:250px; margin-top:5px; font-size:12px;" placeholder="Customer Details..."></textarea>
                     </div>
                     <div>
-                        <b>Invoice No:</b> <input type="text" id="invNumber" style="width:80px; padding:2px;"><br>
+                        <b>Invoice:</b> <input type="text" id="invNumber" style="width:80px; padding:2px;"><br>
                         <b>Date:</b> <input type="date" id="invDate" style="width:120px; padding:2px;"><br>
-                        <div class="no-print" style="margin-top:5px;">
-                            <label><input type="radio" name="priceMode" value="exclusive" checked onchange="calculateTotals()"> Excl. GST</label>
-                            <label><input type="radio" name="priceMode" value="inclusive" onchange="calculateTotals()"> Incl. GST</label>
-                        </div>
+                        <b>Place of Supply:</b> <input type="text" id="placeOfSupply" value="01-Jammu & Kashmir" style="width:130px; padding:2px; margin-top:3px;"><br>
                     </div>
+                </div>
+
+                <div style="margin-top:8px;">
+                    <b>Notes / Remarks:</b> <input type="text" id="invoiceNotes" class="input-field" placeholder="Optional notes..." style="margin-bottom:5px;">
                 </div>
 
                 <table class="items-table">
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th class="left">Item Name</th>
+                            <th class="left">Item Name (Type to auto-suggest)</th>
                             <th>Barcode</th>
-                            <th>HSN</th>
+                            <th>HSN/SAC</th>
                             <th>Qty</th>
-                            <th>Unit</th>
-                            <th>Price</th>
-                            <th>GST</th>
-                            <th>Tax Amt</th>
-                            <th>Total (₹)</th>
+                            <th>UnitPrice (₹)</th>
+                            <th>GST Rate</th>
+                            <th>GST (₹)</th>
+                            <th>Amount(₹)</th>
                             <th class="no-print">Act</th>
                         </tr>
                     </thead>
                     <tbody id="itemRows"></tbody>
                 </table>
-                <button class="btn-success no-print" onclick="addItemRow()" style="margin-top:10px;">+ Add Item Row</button>
-
-                <div style="display:flex; justify-content:space-between; margin-top:15px; align-items:flex-start;">
-                    <div style="font-size:12px; width:55%;">
-                        <p id="lblBankDetails" style="background:#f9f9f9; padding:8px; border:1px solid #eee;"></p>
-                        <b>Amount in Words:</b> <span id="amountInWords" style="font-style:italic;">Zero</span>
-                    </div>
-                    <div style="width:40%; text-align:right;">
-                        <table style="width:100%; font-size:13px;">
-                            <tr><td><b>Sub Total:</b></td><td id="subTotal">0.00</td></tr>
-                            <tr><td><b>Grand Total:</b></td><td><b id="grandTotal" style="font-size:16px;">0.00</b></td></tr>
-                            <tr class="no-print"><td><b>Received:</b></td><td><input type="number" id="amtReceived" value="0" oninput="calculateTotals()" style="width:100px; text-align:right;"></td></tr>
-                            <tr class="no-print"><td><b>Balance Due:</b></td><td><b id="balanceAmount" style="color:red;">0.00</b></td></tr>
-                        </table>
-                    </div>
-                </div>
+                <button class="btn-success no-print" onclick="addItemRow()" style="margin-top:10px;">+ Add Item</button>
 
                 <!-- GST Tax Summary Table -->
                 <div style="margin-top:15px;">
-                    <h5 style="margin:0 0 5px 0;">Tax Summary</h5>
+                    <h5 style="margin:0 0 5px 0;">Tax Summary:</h5>
                     <table class="items-table" style="font-size:11px;">
                         <thead>
-                            <tr><th>HSN</th><th>Taxable Value</th><th>CGST Rate</th><th>CGST Amt</th><th>SGST Rate</th><th>SGST Amt</th><th>Total Tax</th></tr>
+                            <tr>
+                                <th>HSN/ SAC</th>
+                                <th>Taxable Amount (₹)</th>
+                                <th colspan="2">CGST</th>
+                                <th colspan="2">SGST</th>
+                                <th>Total Tax(₹)</th>
+                            </tr>
+                            <tr>
+                                <th></th>
+                                <th></th>
+                                <th>Rate (%)</th>
+                                <th>Amt (₹)</th>
+                                <th>Rate (%)</th>
+                                <th>Amt (₹)</th>
+                                <th></th>
+                            </tr>
                         </thead>
                         <tbody id="taxSummaryRows"></tbody>
                     </table>
                 </div>
 
-                <div style="margin-top:30px; display:flex; justify-content:space-between;">
+                <div style="display:flex; justify-content:space-between; margin-top:15px; align-items:flex-start;">
+                    <div style="font-size:12px; width:50%;">
+                        <p><b>Terms And Conditions:</b><br><span style="font-size:11px; color:#555;">Thank you for doing business with us. Goods once sold will not be taken back.</span></p>
+                        <p id="lblBankDetails" style="background:#f9f9f9; padding:8px; border:1px solid #eee; margin-top:5px;"></p>
+                    </div>
+                    <div style="width:45%; text-align:right;">
+                        <table style="width:100%; font-size:13px;">
+                            <tr><td><b>Sub Total :</b></td><td id="subTotal">0.00</td></tr>
+                            <tr><td><b>Total :</b></td><td><b id="grandTotal" style="font-size:15px;">0.00</b></td></tr>
+                            <tr class="no-print"><td><b>Received :</b></td><td><input type="number" id="amtReceived" value="0" oninput="calculateTotals()" style="width:100px; text-align:right;"></td></tr>
+                            <tr><td><b>Balance :</b></td><td><b id="balanceAmount" style="color:red;">0.00</b></td></tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="margin-top:10px; font-size:13px;">
+                    <b>Invoice Amount In Words:</b> <span id="amountInWords" style="font-style:italic;">Zero Rupees Only</span>
+                </div>
+
+                <div style="margin-top:25px; display:flex; justify-content:space-between;">
                     <div></div>
                     <div style="text-align:right;">
-                        <p id="lblSignCompanyName" style="margin-bottom:40px; font-weight:bold;">For Firm:</p>
+                        <p id="lblSignCompanyName" style="margin-bottom:30px; font-weight:bold;">For Golden Square & Co . :</p>
                         <p style="border-top:1px solid #333; display:inline-block; padding-top:5px;">Authorized Signatory</p>
                     </div>
                 </div>
             </div>
 
             <!-- ACTION BUTTONS -->
-            <div class="no-print" style="margin-top:15px; display:flex; gap:10px; flex-wrap:wrap;">
-                <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex:1;">💾 Save & Print Tax Invoice</button>
-                <button class="btn-warning" onclick="saveQuotation()" style="flex:1; background:#17a2b8; color:white;">📋 Save as Quotation</button>
-                <button class="btn-warning" onclick="openThermalReceipt()" style="flex:1;">🧾 Thermal Slip</button>
-                <button class="btn-danger" onclick="resetInvoiceForm()" style="flex:0.5;">🔄 Reset</button>
+            <div class="no-print" style="margin-top:15px; display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn-success" onclick="saveAndPrintInvoice()" style="flex:1;">Save & Print A4</button>
+                <button class="btn-warning" onclick="openThermalReceipt()" style="flex:1;">🖨️ Print POS</button>
+                <button class="btn-warning" onclick="saveQuotation()" style="flex:1; background:#17a2b8; color:white;">📋 Save Quotation</button>
+                <button class="btn-warning" onclick="downloadOrSharePDF()" style="flex:1; background:#6c757d; color:white;">📥 PDF Download</button>
             </div>
-            <div class="no-print" style="margin-top:10px; display:flex; gap:10px;">
-                <button class="btn-success" onclick="shareOnWhatsApp()" style="background:#25D366; flex:1;">💬 Share WhatsApp</button>
-                <button class="btn-success" onclick="shareViaEmail()" style="background:#007bff; flex:1;">📧 Email Bill</button>
+            <div class="no-print" style="margin-top:8px; display:flex; gap:8px;">
+                <button class="btn-success" onclick="shareOnWhatsApp()" style="background:#25D366; flex:1;">📱 WhatsApp</button>
+                <button class="btn-success" onclick="shareViaEmail()" style="background:#007bff; flex:1;">✉️ Email</button>
+                <button class="btn-danger" onclick="resetInvoiceForm()" style="flex:0.5;">Clear</button>
             </div>
         </div>
     </div>
@@ -196,7 +223,7 @@
 
 <!-- 3. LEDGER PANEL -->
 <div id="ledgerPanel" class="panel">
-    <h3>Pending Payments (Kisse Paise Lene Hain)</h3>
+    <h3>Pending Payments (Udhaar)</h3>
     <table class="items-table">
         <thead>
             <tr><th>Customer Name / Details</th><th>Invoice No.</th><th>Balance Amount (₹)</th><th>Action</th></tr>
@@ -284,7 +311,6 @@
         <tbody id="inventoryTableBody"></tbody>
     </table>
 </div>
-</div>
 
 <!-- CAMERA SCANNER MODAL VIEW -->
 <div id="scannerModal">
@@ -316,7 +342,27 @@
         {
             name: "Golden Square & Co .",
             prefix: "GS",
-            address: "3RD FLOOR ROOM 1 FURNITURE BUILDING NEAR VETERINARY HOSPITAL EXCHANGE ROAD LAL CHOWK",
+            address: "3RD FLOOR ROOM 1 FURNITURE BUILDING NEAR VETERINARY HOSPITAL EXCHANGE ROAD LAL CHOWK ESTATE MAISUMA",
+            phone: "7006688390",
+            gstin: "01OFPS7711Q1ZB",
+            bankName: "Jammu And Kashmir Bank Limited, Amira Kadal Srinagar",
+            accNo: "0002010100008509",
+            ifsc: "JAKAOSQUARE"
+        },
+        {
+            name: "golden star furniture and interior",
+            prefix: "GSFI",
+            address: "Srinagar, Jammu and Kashmir",
+            phone: "7006688390",
+            gstin: "01OFPS7711Q1ZB",
+            bankName: "Jammu And Kashmir Bank Limited",
+            accNo: "0002010100008509",
+            ifsc: "JAKAOSQUARE"
+        },
+        {
+            name: "clapsmile",
+            prefix: "CLP",
+            address: "Srinagar, Jammu and Kashmir",
             phone: "7006688390",
             gstin: "01OFPS7711Q1ZB",
             bankName: "Jammu And Kashmir Bank Limited",
@@ -326,8 +372,12 @@
     ];
 
     let customers = JSON.parse(localStorage.getItem('gs_customers')) || [
-        { name: "PRINCIPAL KV HUMHAMA", address: "STC BSF CAMPUS, HUMHAMA, Budgam, J&K-190007", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" }
+        { name: "PRINCIPAL KV1, SRINAGAR", address: "Srinagar, J&K", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" },
+        { name: "New vision enterprise", address: "Srinagar, J&K", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" },
+        { name: "PRINCIPAL KV HUMHAMA", address: "STC BSF CAMPUS, HUMHAMA, Budgam, J&K-190007", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" },
+        { name: "gurmeet singh", address: "Srinagar, J&K", phone: "7006688390", gstin: "Unregistered", state: "01-Jammu & Kashmir" }
     ];
+
     let inventory = JSON.parse(localStorage.getItem('gs_inventory')) || [
         { name: "Steel almirah big one", barcode: "890101", hsn: "9403", price: 9322.03, gst: 18, stock: 3 },
         { name: "Almirah small", barcode: "890102", hsn: "9403", price: 5508.47, gst: 18, stock: 15 }
@@ -540,8 +590,8 @@
         if(companies[idx]) {
             let firm = companies[idx];
             document.getElementById('lblCompanyName').innerText = firm.name;
-            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone}<br>GSTIN: ${firm.gstin}`;
-            document.getElementById('lblBankDetails').innerHTML = `Bank Name: ${firm.bankName || 'N/A'}<br>A/C No: ${firm.accNo || 'N/A'}<br>IFSC: ${firm.ifsc || 'N/A'}`;
+            document.getElementById('lblCompanyDetails').innerHTML = `Address: ${firm.address}<br>Phone: ${firm.phone} | GSTIN: ${firm.gstin}`;
+            document.getElementById('lblBankDetails').innerHTML = `<b>Bank Details:</b><br>Bank Name: ${firm.bankName || 'N/A'}<br>A/C No: ${firm.accNo || 'N/A'}<br>IFSC: ${firm.ifsc || 'N/A'}`;
             document.getElementById('lblSignCompanyName').innerText = `For ${firm.name} :`;
         }
     }
@@ -552,6 +602,9 @@
             let cust = customers[idx];
             let text = `${cust.name}\n${cust.address}\nPhone: ${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin || 'Unregistered'}\nState: ${cust.state || '01-Jammu & Kashmir'}`;
             document.getElementById('manualCustDetails').value = text;
+            if(cust.state) {
+                document.getElementById('placeOfSupply').value = cust.state;
+            }
         }
     }
 
@@ -580,7 +633,6 @@
             <td><input type="text" class="input-field row-barcode" value="${prod.barcode || ''}" style="margin-bottom:0;"></td>
             <td><input type="text" class="input-field row-hsn" value="${prod.hsn || ''}" style="margin-bottom:0;"></td>
             <td><input type="number" class="input-field row-qty" value="1" min="1" oninput="calculateTotals()" style="margin-bottom:0;"></td>
-            <td><input type="text" class="input-field row-unit" value="Nos" style="margin-bottom:0;"></td>
             <td><input type="number" class="input-field row-price" value="${prod.price}" step="0.01" oninput="calculateTotals()" style="margin-bottom:0;"></td>
             <td>
                 <select class="input-field row-gst" onchange="calculateTotals()" style="margin-bottom:0;">
@@ -779,7 +831,6 @@
                 barcode: tr.querySelector('.row-barcode').value,
                 hsn: tr.querySelector('.row-hsn').value,
                 qty: tr.querySelector('.row-qty').value,
-                unit: tr.querySelector('.row-unit').value,
                 price: tr.querySelector('.row-price').value,
                 gst: tr.querySelector('.row-gst').value,
                 total: tr.querySelector('.row-total').innerText
@@ -826,7 +877,6 @@
                 price: item.price,
                 gst: item.gst
             });
-            // Update qty if needed
             let lastRow = tbody.lastElementChild;
             if(lastRow) {
                 lastRow.querySelector('.row-qty').value = item.qty;
