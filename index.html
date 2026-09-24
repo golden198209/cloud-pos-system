@@ -1278,6 +1278,21 @@ State: 01-Jammu & Kashmir</textarea>
 </style>
 
 <script>
+    alert("File update ho gayi hai!"); // <-- Yahan bilkul sabse upar daal do
+
+    // 1. Quotation Form ko kholne ya band karne ke liye
+    function toggleQuotationForm() {
+        let formSection = document.getElementById('quotation-form-section');
+        if (formSection) {
+            if (formSection.style.display === 'none' || formSection.style.display === '') {
+                formSection.style.display = 'block';
+            } else {
+                formSection.style.display = 'none';
+            }
+        }
+    }
+    // ... baaki saare functions iske neeche rahenge ...
+</script>
 // 1. Quotation Form ko kholne ya band karne ke liye
 function toggleQuotationForm() {
     let formSection = document.getElementById('quotation-form-section');
