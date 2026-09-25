@@ -48,6 +48,13 @@
         <span id="syncStatus" style="font-size:12px; color:gray;">💾 Local Mode</span>
     </div>
     <div style="display: flex; align-items: center; gap: 10px;">
+        <!-- Mobile number daalne ka box -->
+        <input type="text" id="wa-recipient" placeholder="Customer Mobile (91...)" style="padding: 6px; font-size: 13px; width: 160px; border: 1px solid #ccc; border-radius: 4px;" />
+        <!-- WhatsApp Send Button -->
+        <button onclick="sendBillToWhatsApp()" style="background: #25D366; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">💬 Send WhatsApp</button>
+    </div>
+</div>
+</div> style="display: flex; align-items: center; gap: 10px;">
         <!-- Yeh raha WhatsApp Input aur Button -->
         <input type="text" id="wa-recipient" placeholder="Mobile No (91...)" style="padding: 5px; font-size: 12px; width: 140px; border: 1px solid #ccc; border-radius: 4px;" />
         <button onclick="sendBillToWhatsApp()" style="background: #25D366; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Send WhatsApp</button>
