@@ -51,7 +51,8 @@
         <!-- Mobile number daalne ka box -->
         <input type="text" id="wa-recipient" placeholder="Customer Mobile (91...)" style="padding: 6px; font-size: 13px; width: 160px; border: 1px solid #ccc; border-radius: 4px;" />
         <!-- WhatsApp Send Button -->
-        <button onclick="sendBillToWhatsApp()" style="background: #25D366; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">💬 Send WhatsApp</button>
+        <button onclick="
+()" style="background: #25D366; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">💬 Send WhatsApp</button>
     </div>
 </div>
 </div> style="display: flex; align-items: center; gap: 10px;">
@@ -1545,15 +1546,64 @@
 </script>
 <!-- YEH WAHI WHATSAPP WALA CODE HAI JO AAPKO APNI FILE KE ANTT MEIN DALNA HAI -->
 <script>
-    async function sendBillToWhatsApp(recipientPhone, invoiceNumber, grandTotal) {
-        const phoneNumberID = "1355541827643665";
-        const accessToken = "EAAYnwZAsX1ZCUBShY31GsAMM9HoQuwgnoiaYJPBxGuI2gEEHlVMrXk3mQnoyj0c59C7lPc2RxX07iWsdQSYPn6Sd5EitJGOSdCd1dneO6orKL6gaF5Pp2MkIscLHEGyAbJXC2kgdfjK10lyDkpxDfPD8cAaFEyFInq2K9aTYLI2i3OavluZBfP30kKxk7rtAO7LBzuJnGVrZCeY4V1IxKkIkQfuPZBEl8uz46ckQK9ZAHlaUgJeCMKj0Vv4F5S9hXCP1Lt9EsvQyDLZCjllQwszGAZDZD";
+    async function sendBillToWhatsApp() {
+    const recipientInput = document.getElementById("wa-recipient");
+    
+    if (!recipientInput) {
+        alert("WhatsApp recipient input field nahi mili!");
+        return;
+    }
 
-        if (!recipientPhone) {
-            alert("Customer ka mobile number nahi mila!");
-            return;
+    let rawPhone = recipientInput.value.trim();
+
+    if (!rawPhone) {
+        alert("Customer ka mobile number nahi mila! Kripya number darj karein.");
+        return;
+    }
+
+    let recipientPhone = rawPhone.replace(/\D/g, '');
+    if (recipientPhone.length === 10) {
+        recipientPhone = "91" + recipientPhone;
+    }
+
+    const accessToken = "EAAYnwZAsX1ZCUBShY31GsAMM9HoQuwgnoiaYJPBxGuI2gEEHlVMrXk3mQnoyj0c59C7lPc2RxX07iWsdQSYPn6Sd5EitJGOSdCd1dneO6orKL6gaF5Pp2MkIscLHEGyAbJXC2kgdfjK10lyDkpxDfPD8cAaFEyFInq2K9aTYLI2i3OavluZBfP30kKxk7rtAO7LBzuJnGVrZCeY4V1IxKkIkQfuPZBEl8uz46ckQK9ZAHlaUgJeCMKj0Vv4F5S9hXCP1Lt9EsvQyDLZCjllQwszGAZDZD";
+    const phoneNumberID = "YOUR_PHONE_NUMBER_ID";
+
+    const invoiceNum = typeof invoiceNumber !== 'undefined' ? invoiceNumber : (document.getElementById('invoiceNumber')?.value || 'INV-001');
+    const totalAmount = typeof grandTotal !== 'undefined' ? grandTotal : (document.getElementById('grandTotal')?.value || '0');
+
+    const url = `https://graph.facebook.com/v18.0/${phoneNumberID}/messages`;
+
+    const payload = {
+        messaging_product: "whatsapp",
+        to: recipientPhone,
+        type: "text",
+        text: {
+            body: `Hello! Your invoice (${invoiceNum}) amounting to ₹${totalAmount} from billbook.space has been generated successfully.`
         }
+    };
 
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ` + accessToken,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert("Success! Invoice WhatsApp par bhej di gayi hai.");
+        } else {
+            alert("Error: " + (result.error?.message || "Message nahi ja saka."));
+        }
+    } catch (error) {
+        alert("Network Error: " + error.message);
+    }
+}
         const url = `https://graph.facebook.com/v18.0/${phoneNumberID}/messages`;
 
         const payload = {
