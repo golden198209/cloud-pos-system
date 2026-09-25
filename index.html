@@ -1546,13 +1546,79 @@
 </script>
 <!-- YEH WAHI WHATSAPP WALA CODE HAI JO AAPKO APNI FILE KE ANTT MEIN DALNA HAI -->
 <script>
-    async function sendBillToWhatsApp() {
+   async function sendBillToWhatsApp() {
+    let rawPhone = "";
+
+    // 1. Pehle 'wa-recipient' ID se check karenge
     const recipientInput = document.getElementById("wa-recipient");
+    if (recipientInput && recipientInput.value.trim() !== "") {
+        rawPhone = recipientInput.value.trim();
+    } 
     
-    if (!recipientInput) {
-        alert("WhatsApp recipient input field nahi mili!");
+    // 2. Agar wahan nahi mila, toh poore page par koi bhi aisa text box dhoondhenge jisme number likha ho
+    if (!rawPhone) {
+        const allInputs = document.querySelectorAll('input[type="text"], input[type="tel"], input[type="number"]');
+        for (let input of allInputs) {
+            let val = input.value ? input.value.trim() : "";
+            // Agar input mein 10 ya usse zyada digits hain, toh use customer ka number maan lo
+            let cleanVal = val.replace(/\D/g, '');
+            if (cleanVal.length >= 10) {
+                rawPhone = val;
+                break;
+            }
+        }
+    }
+
+    // 3. Agar abhi bhi number nahi mila, tabhi error dikhao
+    if (!rawPhone) {
+        alert("Customer ka mobile number nahi mila! Kripya WhatsApp wale box mein number likhein.");
         return;
     }
+
+    // Phone number formatting (91 jodna)
+    let recipientPhone = rawPhone.replace(/\D/g, '');
+    if (recipientPhone.length === 10) {
+        recipientPhone = "91" + recipientPhone;
+    }
+
+    const accessToken = "EAAYnwZAsX1ZCUBShY31GsAMM9HoQuwgnoiaYJPBxGuI2gEEHlVMrXk3mQnoyj0c59C7lPc2RxX07iWsdQSYPn6Sd5EitJGOSdCd1dneO6orKL6gaF5Pp2MkIscLHEGyAbJXC2kgdfjK10lyDkpxDfPD8cAaFEyFInq2K9aTYLI2i3OavluZBfP30kKxk7rtAO7LBzuJnGVrZCeY4V1IxKkIkQfuPZBEl8uz46ckQK9ZAHlaUgJeCMKj0Vv4F5S9hXCP1Lt9EsvQyDLZCjllQwszGAZDZD";
+    const phoneNumberID = "1355541827643665"; // Aapki Meta Phone Number ID
+
+    const invoiceNum = typeof invoiceNumber !== 'undefined' ? invoiceNumber : (document.getElementById('invoiceNumber')?.value || 'INV-001');
+    const totalAmount = typeof grandTotal !== 'undefined' ? grandTotal : (document.getElementById('grandTotal')?.value || '0');
+
+    const url = `https://graph.facebook.com/v18.0/${phoneNumberID}/messages`;
+
+    const payload = {
+        messaging_product: "whatsapp",
+        to: recipientPhone,
+        type: "text",
+        text: {
+            body: `Hello! Your invoice (${invoiceNum}) amounting to ₹${totalAmount} from billbook.space has been generated successfully.`
+        }
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ` + accessToken,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert("Success! Invoice WhatsApp par bhej di gayi hai.");
+        } else {
+            alert("Error: " + (result.error?.message || "Message nahi ja saka."));
+        }
+    } catch (error) {
+        alert("Network Error: " + error.message);
+    }
+}
 
     let rawPhone = recipientInput.value.trim();
 
