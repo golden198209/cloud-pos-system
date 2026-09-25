@@ -47,8 +47,10 @@
         <h2 style="margin:0;">Golden Star POS</h2>
         <span id="syncStatus" style="font-size:12px; color:gray;">💾 Local Mode</span>
     </div>
-    <div>
-        <button id="cloudConfigToggleBtn" class="tab-btn" style="background:#17a2b8; color:white;">☁️ Firebase Sync</button>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <!-- Yeh raha WhatsApp Input aur Button -->
+        <input type="text" id="wa-recipient" placeholder="Mobile No (91...)" style="padding: 5px; font-size: 12px; width: 140px; border: 1px solid #ccc; border-radius: 4px;" />
+        <button onclick="sendBillToWhatsApp()" style="background: #25D366; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Send WhatsApp</button>
     </div>
 </div>
 
