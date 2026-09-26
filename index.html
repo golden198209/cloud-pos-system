@@ -51,14 +51,8 @@
         <!-- Mobile number daalne ka box -->
         <input type="text" id="wa-recipient" placeholder="Customer Mobile (91...)" style="padding: 6px; font-size: 13px; width: 160px; border: 1px solid #ccc; border-radius: 4px;" />
         <!-- WhatsApp Send Button -->
-        <button onclick="
-()" style="background: #25D366; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">💬 Send WhatsApp</button>
-    </div>
-</div>
-</div> style="display: flex; align-items: center; gap: 10px;">
-        <!-- Yeh raha WhatsApp Input aur Button -->
-        <input type="text" id="wa-recipient" placeholder="Mobile No (91...)" style="padding: 5px; font-size: 12px; width: 140px; border: 1px solid #ccc; border-radius: 4px;" />
-        <button onclick="sendBillToWhatsApp()" style="background: #25D366; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Send WhatsApp</button>
+        <button onclick="sendBillToWhatsApp()" style="background: #25D366; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">💬 Send WhatsApp</button>
+        <button id="cloudConfigToggleBtn" class="tab-btn" style="background:#6c757d; color:white;">☁️ Cloud Config</button>
     </div>
 </div>
 
@@ -213,7 +207,7 @@
                 <button type="button" id="downloadPdfBtn" class="btn-warning" style="flex:1; background:#6c757d; color:white;">📥 PDF Download</button>
             </div>
             <div class="no-print" style="margin-top:8px; display:flex; gap:8px;">
-                <button type="button" id="shareWhatsappBtn" class="btn-success" style="background:#25D366; flex:1;">📱 WhatsApp</button>
+                <button type="button" id="shareWhatsappBtn" class="btn-success" style="background:#25D366; flex:1;" onclick="sendBillToWhatsApp()">📱 WhatsApp</button>
                 <button type="button" id="shareEmailBtn" class="btn-success" style="background:#007bff; flex:1;">✉️ Email</button>
                 <button type="button" id="clearFormBtn" class="btn-danger" style="flex:0.5;">Clear</button>
             </div>
@@ -599,12 +593,10 @@
             return;
         }
 
-        // Simple parsing logic
         let parts = text.split(/ ko | ko | - /i);
         let custName = parts.length > 1 ? parts[0].trim() : "Cash Customer";
         let restText = parts.length > 1 ? parts[1] : text;
 
-        // Extract Qty, Price, GST
         let qtyMatch = restText.match(/(\d+)\s*(chair|table|pcs|piece|item|almirah|bed)/i) || restText.match(/(\d+)\s/);
         let qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
@@ -612,14 +604,12 @@
         let price = 0;
         let numbers = restText.match(/\d+/g);
         if(numbers) {
-            // filter out qty if found
             let filteredNums = numbers.map(Number);
             if(qtyMatch && filteredNums.includes(qty)) {
                 let idx = filteredNums.indexOf(qty);
                 filteredNums.splice(idx, 1);
             }
             if(filteredNums.length > 0) {
-                // last or largest sensible number is usually price (unless it's gst)
                 price = filteredNums.find(n => n !== 18 && n !== 12 && n !== 5 && n !== 28) || filteredNums[0];
             }
         }
@@ -627,14 +617,11 @@
         let gstMatch = restText.match(/(?:gst\s*|@\s*)(\d+)/i);
         let gstRate = gstMatch ? parseInt(gstMatch[1]) : 18;
 
-        // Item name cleaning
         let itemName = restText.replace(/\d+/g, '').replace(/ki|rs|rupee|gst|%|pcs|piece/gi, '').trim();
         if(!itemName) itemName = "General Item";
 
-        // Set Customer Details
         document.getElementById('manualCustDetails').value = `${custName.toUpperCase()}\nJammu & Kashmir\nState: 01-Jammu & Kashmir`;
 
-        // Clear and add item row
         let tbody = document.getElementById('itemRows');
         tbody.innerHTML = '';
         addItemRowWithProduct({
@@ -810,6 +797,7 @@
 
     function populateFirmDropdowns() {
         let sel = document.getElementById('activeFirmSelect');
+        if(!sel) return;
         sel.innerHTML = '';
         companies.forEach((c, idx) => {
             let opt = document.createElement('option');
@@ -821,11 +809,12 @@
 
     function populateCustomerDropdown() {
         let sel = document.getElementById('invoiceCustDropdown');
+        if(!sel) return;
         sel.innerHTML = '<option value="">-- Select Customer --</option>';
         customers.forEach((cust, idx) => {
             let opt = document.createElement('option');
             opt.value = idx;
-            opt.innerText = cust.name;
+            opt.innerText = cust.name + (cust.phone ? ' (' + cust.phone + ')' : '');
             sel.appendChild(opt);
         });
     }
@@ -1117,6 +1106,7 @@
 
     function renderQuotationTable() {
         let tbody = document.getElementById('quotationTableBody');
+        if(!tbody) return;
         tbody.innerHTML = '';
         quotations.forEach((q, idx) => {
             let tr = document.createElement('tr');
@@ -1142,6 +1132,7 @@
 
     function renderHistoryTable() {
         let tbody = document.getElementById('historyTableBody');
+        if(!tbody) return;
         tbody.innerHTML = '';
         invoices.forEach((inv, idx) => {
             let tr = document.createElement('tr');
@@ -1330,7 +1321,7 @@
         receiptText += `--------------------------------\n`;
         receiptText += `Bill To:\n${custDetails}\n`;
         receiptText += `--------------------------------\n`;
-        receiptText += `Item            Qty   Price   Total\n`;
+        receiptText += `Item           Qty   Price   Total\n`;
         receiptText += `--------------------------------\n`;
 
         document.querySelectorAll('#itemRows tr').forEach(tr => {
@@ -1356,11 +1347,7 @@
     }
 
     function shareOnWhatsApp() {
-        let custDetails = document.getElementById('manualCustDetails').value;
-        let grandTotal = document.getElementById('grandTotal').innerText;
-        let invNo = document.getElementById('invNumber').value;
-        let msg = encodeURIComponent(`Hello, here is your Tax Invoice #${invNo} amounting to Rs. ${grandTotal}.\n\nCustomer Details:\n${custDetails}\n\nThank you for doing business with us!`);
-        window.open(`https://wa.me/?text=${msg}`, '_blank');
+        sendBillToWhatsApp();
     }
 
     function shareViaEmail() {
@@ -1373,6 +1360,7 @@
 
     function renderCompanyTable() {
         let tbody = document.getElementById('companyTableBody');
+        if(!tbody) return;
         tbody.innerHTML = '';
         companies.forEach((c, idx) => {
             let tr = document.createElement('tr');
@@ -1407,6 +1395,7 @@
 
     function renderCustomerTable() {
         let tbody = document.getElementById('customerTableBody');
+        if(!tbody) return;
         tbody.innerHTML = '';
         customers.forEach((cust, idx) => {
             let tr = document.createElement('tr');
@@ -1441,6 +1430,7 @@
 
     function renderInventoryTable() {
         let tbody = document.getElementById('inventoryTableBody');
+        if(!tbody) return;
         tbody.innerHTML = '';
         inventory.forEach((prod, idx) => {
             let tr = document.createElement('tr');
@@ -1485,6 +1475,7 @@
 
     function renderLedgerTable() {
         let tbody = document.getElementById('ledgerTableBody');
+        if(!tbody) return;
         tbody.innerHTML = '';
         invoices.filter(i => i.balance > 0).forEach((inv, idx) => {
             let tr = document.createElement('tr');
@@ -1511,6 +1502,7 @@
         let totalReceived = 0;
         let totalPending = 0;
         let dayBookBody = document.getElementById('dayBookTableBody');
+        if(!dayBookBody) return;
         dayBookBody.innerHTML = '';
 
         invoices.forEach(inv => {
@@ -1532,6 +1524,7 @@
         document.getElementById('repTotalPending').innerText = `₹${totalPending.toFixed(2)}`;
 
         let gstrBody = document.getElementById('gstr1TableBody');
+        if(!gstrBody) return;
         gstrBody.innerHTML = '';
         let dummyTaxable = totalSales / 1.18;
         let dummyCgst = (totalSales - dummyTaxable) / 2;
@@ -1546,10 +1539,7 @@
 </script>
 <!-- YEH WAHI WHATSAPP WALA CODE HAI JO AAPKO APNI FILE KE ANTT MEIN DALNA HAI -->
 <script>
-   
-
 async function sendBillToWhatsApp() {
-    // Sabse pehle yeh check karne ke liye ki button chala ya nahi
     alert("Test: Button dab gaya hai!");
 
     let rawPhone = "";
