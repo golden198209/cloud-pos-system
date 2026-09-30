@@ -6,6 +6,7 @@
     <title>Golden Star PCOS & Billing System</title>
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <!-- QuaggaJS for Barcode Scanning -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
@@ -45,11 +46,14 @@
         .stat-card div { font-size: 17px; font-weight: bold; }
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 3500; justify-content: center; align-items: center; }
         .modal-box { background: #fff; border-radius: 8px; padding: 15px; width: 440px; max-width: 95%; max-height: 90vh; overflow-y: auto; }
-        #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 18px; border-radius: 6px; font-size: 13px; z-index: 9000; display: none; max-width: 90%; text-align: center; }
+        #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 18px; border-radius: 6px; font-size: 13px; z-index: 9800; display: none; max-width: 90%; text-align: center; }
         .banner { padding: 8px 12px; border-radius: 5px; margin-bottom: 10px; font-size: 13px; display: none; }
         #lowStockBanner { background: #fff3cd; border: 1px solid #ffc107; color: #7a5a00; }
         #editBanner { background: #e2e3ff; border: 1px solid #6c6cff; color: #2a2a8a; }
         #lockScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a365d; z-index: 9999; justify-content: center; align-items: center; }
+        #authScreen { display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a365d; z-index: 9500; justify-content: center; align-items: center; overflow-y: auto; }
+        .auth-box { background: #fff; padding: 25px; border-radius: 10px; width: 360px; max-width: 92%; box-sizing: border-box; }
+        .auth-box a { color: #007bff; cursor: pointer; text-decoration: none; }
         @media print {
             .no-print { display: none !important; }
             body { background: white; padding: 0; }
@@ -63,10 +67,42 @@
 </head>
 <body>
 
+<!-- LOGIN / SIGNUP / SETUP SCREEN -->
+<div id="authScreen">
+    <div class="auth-box">
+        <h2 id="authAppName" style="margin:0 0 4px 0;">Golden Star POS</h2>
+        <p style="margin:0 0 14px 0; font-size:12px; color:#666;">GST Billing • Stock • Udhaar • Reports</p>
+
+        <div id="authLoading" style="text-align:center; padding:20px; color:#555;">Loading...</div>
+
+        <div id="authForm" style="display:none;">
+            <h3 id="authTitle" style="margin:0 0 10px 0;">Login</h3>
+            <div id="authFirmRow" style="display:none;">
+                <input type="text" id="authFirmName" class="input-field" placeholder="Aapki firm / dukaan ka naam">
+            </div>
+            <input type="email" id="authEmail" class="input-field" placeholder="Email" autocomplete="username">
+            <input type="password" id="authPassword" class="input-field" placeholder="Password (kam se kam 6 character)" autocomplete="current-password">
+            <button type="button" id="authSubmitBtn" class="btn-success" style="width:100%;">Login</button>
+            <div id="authError" style="color:#b30000; font-size:12px; margin-top:8px; min-height:16px;"></div>
+            <div style="margin-top:8px; font-size:13px; text-align:center;">
+                <a id="authToggleBtn">Naya account banao</a> &nbsp;|&nbsp; <a id="authForgotBtn">Password bhool gaye?</a>
+            </div>
+        </div>
+
+        <div id="authSetup" style="display:none;">
+            <h3 style="margin:0 0 8px 0;">Firebase setup baaki hai</h3>
+            <p style="font-size:12px; color:#555; margin-top:0;">Firebase console se apna <b>firebaseConfig</b> yahan paste karo (poora kaafi hai).</p>
+            <textarea id="fbCfgInput" class="input-field" rows="6" placeholder='const firebaseConfig = { apiKey: "...", authDomain: "...", projectId: "...", ... };'></textarea>
+            <button type="button" id="fbCfgSaveBtn" class="btn-success" style="width:100%;">Save & Connect</button>
+            <button type="button" id="authLocalBtn" class="btn-grey" style="width:100%; margin-top:8px;">Bina login ke chalao (sirf is device par)</button>
+        </div>
+    </div>
+</div>
+
 <!-- PIN LOCK -->
 <div id="lockScreen">
     <div style="background:#fff; padding:25px; border-radius:8px; text-align:center; width:280px;">
-        <h3 style="margin-top:0;">🔒 Golden Star POS</h3>
+        <h3 style="margin-top:0;">🔒 App Locked</h3>
         <input type="password" id="lockPinInput" class="input-field" placeholder="PIN daalo" inputmode="numeric" style="text-align:center;">
         <button type="button" id="lockBtn" class="btn-success" style="width:100%;">Unlock</button>
         <div id="lockErr" style="color:red; font-size:12px; margin-top:6px;"></div>
@@ -77,21 +113,15 @@
 
 <div class="header no-print">
     <div>
-        <h2 style="margin:0;">Golden Star POS</h2>
+        <h2 id="appTitle" style="margin:0;">Golden Star POS</h2>
         <span id="syncStatus" style="font-size:12px; color:gray;">💾 Local Mode</span>
     </div>
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <input type="text" id="wa-recipient" placeholder="Customer Mobile (10 digit)" style="padding: 6px; font-size: 13px; width: 160px; border: 1px solid #ccc; border-radius: 4px;" />
         <button type="button" id="headerWaBtn" style="background: #25D366; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">💬 Send WhatsApp</button>
-        <button id="cloudConfigToggleBtn" class="tab-btn" style="background:#6c757d; color:white;">☁️ Cloud Config</button>
+        <span id="userEmailLbl" style="font-size:12px; color:#555;"></span>
+        <button type="button" id="logoutBtn" class="tab-btn" style="background:#6c757d; color:white; display:none;">🚪 Logout</button>
     </div>
-</div>
-
-<!-- Cloud Config Box -->
-<div id="cloudConfigBox" class="no-print box-section" style="display:none;">
-    <h4>Firebase Cloud Configuration (JSON)</h4>
-    <textarea id="firebaseConfigInput" class="input-field" rows="4" placeholder="Paste Firebase config JSON here..."></textarea>
-    <button id="saveFirebaseConfigBtn" class="btn-success">Connect & Sync</button>
 </div>
 
 <div class="nav-tabs no-print">
@@ -145,7 +175,7 @@
             <!-- INVOICE EDITOR AREA -->
             <div id="printableInvoice" style="background:#fff; padding:20px; border:1px solid #ddd;">
                 <h3 style="text-align:center; margin-bottom:2px;">Tax Invoice</h3>
-                <h2 id="lblCompanyName" style="text-align:center; margin-top:0; margin-bottom:5px;">Golden Square & Co .</h2>
+                <h2 id="lblCompanyName" style="text-align:center; margin-top:0; margin-bottom:5px;"></h2>
                 <p id="lblCompanyDetails" style="text-align:center; font-size:12px; margin-top:0;"></p>
                 <hr>
                 <div style="display:flex; justify-content:space-between; font-size:13px; flex-wrap:wrap; gap:10px;">
@@ -157,7 +187,7 @@
                     <div>
                         <b>Invoice:</b> <input type="text" id="invNumber" style="width:80px; padding:2px;"><br>
                         <b>Date:</b> <input type="date" id="invDate" style="width:130px; padding:2px;"><br>
-                        <b>Place of Supply:</b> <input type="text" id="placeOfSupply" list="stateList" value="01-Jammu & Kashmir" style="width:160px; padding:2px; margin-top:3px;"><br>
+                        <b>Place of Supply:</b> <input type="text" id="placeOfSupply" list="stateList" value="" style="width:160px; padding:2px; margin-top:3px;"><br>
                         <span id="taxTypeLabel" style="font-size:11px; color:#2b6cb0;"></span>
                     </div>
                 </div>
@@ -240,7 +270,7 @@
                 <div style="margin-top:25px; display:flex; justify-content:space-between;">
                     <div></div>
                     <div style="text-align:right;">
-                        <p id="lblSignCompanyName" style="margin-bottom:30px; font-weight:bold;">For Golden Square & Co . :</p>
+                        <p id="lblSignCompanyName" style="margin-bottom:30px; font-weight:bold;"></p>
                         <p style="border-top:1px solid #333; display:inline-block; padding-top:5px;">Authorized Signatory</p>
                     </div>
                 </div>
@@ -440,6 +470,7 @@
         <textarea id="busAddress" class="input-field" placeholder="Address"></textarea>
         <input type="text" id="busPhone" class="input-field" placeholder="Phone">
         <input type="text" id="busGstin" class="input-field" placeholder="GSTIN">
+        <input type="text" id="busState" class="input-field" list="stateList" placeholder="State (jaise 01-Jammu & Kashmir)">
         <input type="text" id="busPan" class="input-field" placeholder="PAN (optional)">
         <input type="text" id="busBank" class="input-field" placeholder="Bank Name">
         <input type="text" id="busAcc" class="input-field" placeholder="Account No.">
@@ -463,7 +494,7 @@
         <textarea id="newCustAddress" class="input-field" placeholder="Address"></textarea>
         <input type="text" id="newCustPhone" class="input-field" placeholder="Phone">
         <input type="text" id="newCustGstin" class="input-field" placeholder="GSTIN">
-        <input type="text" id="newCustState" class="input-field" list="stateList" value="01-Jammu & Kashmir" placeholder="State">
+        <input type="text" id="newCustState" class="input-field" list="stateList" value="" placeholder="State (khali chhodo to aapki firm wala state)">
         <button type="button" id="saveCustomerBtn" class="btn-success">Save Customer</button>
         <button type="button" id="cancelCustEditBtn" class="btn-grey" style="display:none;">Edit cancel</button>
     </div>
@@ -510,8 +541,17 @@
     <h3>⚙️ Settings & Backup</h3>
 
     <div class="box-section">
+        <h4 style="margin-top:0;">👤 Account</h4>
+        <p id="accountInfo" style="font-size:13px;"></p>
+        <button type="button" id="reloadCloudBtn" class="btn-info">🔄 Cloud se dobara load karo</button>
+        <button type="button" id="resetPwBtn" class="btn-warning">🔑 Password badalne ka email bhejo</button>
+        <button type="button" id="enableCloudBtn" class="btn-success" style="display:none;">☁️ Login / Cloud setup karo</button>
+        <button type="button" id="logoutBtn2" class="btn-danger">🚪 Logout</button>
+    </div>
+
+    <div class="box-section">
         <h4 style="margin-top:0;">💾 Data Backup / Restore</h4>
-        <p style="font-size:12px; color:#555;">Har hafte backup lena mat bhoolna. Browser data clear hone par sab ud jaata hai. <span id="lastBackupText"></span></p>
+        <p style="font-size:12px; color:#555;">Har hafte backup lena mat bhoolna. <span id="lastBackupText"></span></p>
         <button type="button" id="exportBackupBtn" class="btn-success">⬇️ Backup Download (JSON)</button>
         <button type="button" id="importBackupBtn" class="btn-warning">⬆️ Backup Restore</button>
         <input type="file" id="importBackupFile" accept=".json,application/json" style="display:none;">
@@ -694,6 +734,21 @@
 
 <script>
 /* ============================================================
+   SETTINGS YOU CAN EDIT
+   ============================================================ */
+const APP_NAME = 'Golden Star POS';
+
+// Firebase config (bechne ke liye yahan apni values daal do; agar khali chhodo to login screen par paste karne ka box aayega)
+const FIREBASE_CONFIG = {
+    apiKey: "PASTE_API_KEY",
+    authDomain: "PASTE_AUTH_DOMAIN",
+    projectId: "PASTE_PROJECT_ID",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
+};
+
+/* ============================================================
    HELPERS
    ============================================================ */
 const $ = id => document.getElementById(id);
@@ -712,64 +767,44 @@ function toast(msg) {
     t.innerText = msg;
     t.style.display = 'block';
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3200);
+    toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3500);
 }
 
 /* ============================================================
    DATA
    ============================================================ */
-let db = null;
-let useCloud = false;
+const DATA_KEYS = ['companies', 'customers', 'inventory', 'invoices', 'quotations', 'expenses', 'suppliers', 'purchases', 'stockLog'];
+const defaultData = () => ({
+    companies: [{ name: 'Meri Firm', prefix: 'INV', address: '', phone: '', gstin: '', pan: '', state: '', bankName: '', accNo: '', ifsc: '' }],
+    customers: [], inventory: [], invoices: [], quotations: [], expenses: [], suppliers: [], purchases: [], stockLog: []
+});
 
-const LSKEYS = {
-    companies: 'gs_companies', customers: 'gs_customers', inventory: 'gs_inventory',
-    invoices: 'gs_invoices', quotations: 'gs_quotations', expenses: 'gs_expenses',
-    suppliers: 'gs_suppliers', purchases: 'gs_purchases', stockLog: 'gs_stocklog'
-};
-
-let companies = LS('gs_companies', [
-    {
-        name: "Golden Square & Co .", prefix: "GS",
-        address: "3RD FLOOR ROOM 1 FURNITURE BUILDING NEAR VETERINARY HOSPITAL EXCHANGE ROAD LAL CHOWK ESTATE MAISUMA",
-        phone: "7006688390", gstin: "01OFPS7711Q1ZB",
-        bankName: "Jammu And Kashmir Bank Limited, Amira Kadal Srinagar", accNo: "0002010100008509", ifsc: "JAKAOSQUARE"
-    },
-    {
-        name: "golden star furniture and interior", prefix: "GSFI",
-        address: "Srinagar, Jammu and Kashmir", phone: "7006688390", gstin: "01OFPS7711Q1ZB",
-        bankName: "Jammu And Kashmir Bank Limited", accNo: "0002010100008509", ifsc: "JAKAOSQUARE"
-    },
-    {
-        name: "clapsmile", prefix: "CLP",
-        address: "Srinagar, Jammu and Kashmir", phone: "7006688390", gstin: "01OFPS7711Q1ZB",
-        bankName: "Jammu And Kashmir Bank Limited", accNo: "0002010100008509", ifsc: "JAKAOSQUARE"
-    }
-]);
-
-let customers = LS('gs_customers', [
-    { name: "PRINCIPAL KV1, SRINAGAR", address: "Srinagar, J&K", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" },
-    { name: "New vision enterprise", address: "Srinagar, J&K", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" },
-    { name: "PRINCIPAL KV HUMHAMA", address: "STC BSF CAMPUS, HUMHAMA, Budgam, J&K-190007", phone: "", gstin: "Unregistered", state: "01-Jammu & Kashmir" },
-    { name: "gurmeet singh", address: "Srinagar, J&K", phone: "7006688390", gstin: "Unregistered", state: "01-Jammu & Kashmir" }
-]);
-
-let inventory = LS('gs_inventory', [
-    { name: "Steel almirah big one", barcode: "890101", hsn: "9403", price: 9322.03, gst: 18, stock: 3 },
-    { name: "Almirah small", barcode: "890102", hsn: "9403", price: 5508.47, gst: 18, stock: 15 }
-]);
-let invoices = LS('gs_invoices', []);
-let quotations = LS('gs_quotations', []);
-let expenses = LS('gs_expenses', []);
-let suppliers = LS('gs_suppliers', []);
-let purchases = LS('gs_purchases', []);
-let stockLog = LS('gs_stocklog', []);
+let companies = [], customers = [], inventory = [], invoices = [], quotations = [];
+let expenses = [], suppliers = [], purchases = [], stockLog = [];
 let settings = LS('gs_settings', { lowStock: 2, pin: '' });   // device-local only (not synced to cloud)
 
-let editingId = null;         // invoice being edited
+let auth = null, db = null, useCloud = false;
+let currentUser = null;          // { uid, email } when logged in
+let keyPrefix = 'gs_';           // localStorage prefix ('gs_' = local mode / legacy, 'gs_u_<uid>_' = per user cache)
+let syncedJson = {};             // last JSON written to / read from cloud, per key
+let cloudWritable = false;       // only true after a successful cloud read (protects against overwriting)
+let mainStarted = false;
+let authMode = 'login';
+let lastAutoPos = '';
+
+let editingId = null;            // invoice being edited
 let editingFirmIdx = null;
 let editingCustIdx = null;
 let editingProdIdx = null;
 let currentDoc = null;
+
+const lsKey = k => keyPrefix + k.toLowerCase();
+function getData() { return { companies, customers, inventory, invoices, quotations, expenses, suppliers, purchases, stockLog }; }
+function setData(d) {
+    companies = d.companies || []; customers = d.customers || []; inventory = d.inventory || [];
+    invoices = d.invoices || []; quotations = d.quotations || []; expenses = d.expenses || [];
+    suppliers = d.suppliers || []; purchases = d.purchases || []; stockLog = d.stockLog || [];
+}
 
 /* ============================================================
    CORE CALCULATIONS
@@ -788,11 +823,21 @@ function lineCalc(qty, price, gst, mode) {
     return { taxable, tax, total };
 }
 
+function stateFromGstin(g) {
+    const c = String(g || '').slice(0, 2);
+    if (!/^\d\d$/.test(c)) return '';
+    const o = [...document.querySelectorAll('#stateList option')].find(x => x.value.startsWith(c + '-'));
+    return o ? o.value : '';
+}
+function firmState(firm) { return (firm && (firm.state || stateFromGstin(firm.gstin))) || ''; }
+function activeFirm() { return companies[+$('activeFirmSelect').value] || companies[0] || {}; }
+function defaultPos() { return firmState(activeFirm()); }
+
 function isInterstate(firm, pos) {
-    const firmState = ((firm && firm.gstin) || '01').slice(0, 2);
-    const posState = (pos || '').slice(0, 2);
-    if (!/^\d\d$/.test(posState) || !/^\d\d$/.test(firmState)) return false;
-    return firmState !== posState;
+    const fs = firmState(firm).slice(0, 2);
+    const ps = (pos || '').slice(0, 2);
+    if (!/^\d\d$/.test(fs) || !/^\d\d$/.test(ps)) return false;
+    return fs !== ps;
 }
 
 // Single source of truth for tax figures (used by form, print, reports)
@@ -875,52 +920,306 @@ function normalizeDocs(list, isInvoice) {
         }
     });
 }
-normalizeDocs(invoices, true);
-normalizeDocs(quotations, false);
-purchases.forEach(p => { if (!p.id) p.id = uid(); if (!Array.isArray(p.payments)) p.payments = []; recalcPay(p); });
-suppliers.forEach(s => { if (!s.id) s.id = uid(); });
-expenses.forEach(e => { if (!e.id) e.id = uid(); });
+function normalizeAll() {
+    normalizeDocs(invoices, true);
+    normalizeDocs(quotations, false);
+    purchases.forEach(p => { if (!p.id) p.id = uid(); if (!Array.isArray(p.payments)) p.payments = []; recalcPay(p); });
+    suppliers.forEach(s => { if (!s.id) s.id = uid(); });
+    expenses.forEach(e => { if (!e.id) e.id = uid(); });
+    if (!companies.length) companies = defaultData().companies;
+}
 
-function saveAll() {
-    const data = { companies, customers, inventory, invoices, quotations, expenses, suppliers, purchases, stockLog };
+/* ============================================================
+   STORAGE: LOCAL + CLOUD (per user)
+   ============================================================ */
+function loadLocalData() {
+    const d = defaultData();
+    const out = {};
+    DATA_KEYS.forEach(k => { out[k] = LS(lsKey(k), d[k]); });
+    setData(out);
+    normalizeAll();
+}
+function saveLocal() {
+    const data = getData();
     try {
-        Object.keys(data).forEach(k => localStorage.setItem(LSKEYS[k], JSON.stringify(data[k])));
+        DATA_KEYS.forEach(k => localStorage.setItem(lsKey(k), JSON.stringify(data[k])));
     } catch (e) { toast('⚠️ Browser storage full ho gaya! Backup le lo.'); }
-    if (useCloud && db) {
-        db.collection('pos_data').doc('store').set(data).catch(() => { $('syncStatus').innerText = '⚠️ Cloud sync fail'; });
+}
+function markSynced() {
+    const data = getData();
+    DATA_KEYS.forEach(k => { syncedJson[k] = JSON.stringify(data[k]); });
+}
+function setSyncStatus(state, err) {
+    const el = $('syncStatus');
+    if (!el) return;
+    if (!useCloud) { el.innerText = '💾 Local Mode (sirf is device par)'; el.style.color = 'gray'; return; }
+    if (state === 'ok') { el.innerText = '☁️ Cloud Synced'; el.style.color = '#007bff'; }
+    else {
+        el.innerText = '⚠️ Cloud sync problem'; el.style.color = '#b30000';
+        if (err) console.error(err);
     }
 }
-const syncToCloud = saveAll;
-
+function saveAll() {
+    saveLocal();
+    if (!(useCloud && db && currentUser)) return;
+    if (!cloudWritable) { setSyncStatus('err'); return; }
+    const data = getData();
+    DATA_KEYS.forEach(k => {
+        const json = JSON.stringify(data[k]);
+        if (json === syncedJson[k]) return;
+        db.collection('users').doc(currentUser.uid).collection('data').doc(k)
+            .set({ list: JSON.parse(json), updatedAt: Date.now() })
+            .then(() => { syncedJson[k] = json; setSyncStatus('ok'); })
+            .catch(e => {
+                setSyncStatus('err', e);
+                if (e && e.code === 'permission-denied') toast('⚠️ Cloud permission denied: Firestore Rules check karo');
+                else toast('⚠️ Cloud par save nahi hua (' + k + '). Backup le lo.');
+            });
+    });
+}
 function saveSettings() { localStorage.setItem('gs_settings', JSON.stringify(settings)); }
+
+async function loadCloudData() {
+    const ref = db.collection('users').doc(currentUser.uid).collection('data');
+    const snaps = await Promise.all(DATA_KEYS.map(k => ref.doc(k).get()));
+    const d = defaultData();
+    const out = {};
+    let found = false;
+    DATA_KEYS.forEach((k, i) => {
+        const s = snaps[i];
+        if (s.exists && Array.isArray(s.data().list)) { out[k] = s.data().list; found = true; }
+        else out[k] = d[k];
+    });
+    return { found, out };
+}
+
+async function loadUserData() {
+    const userPrefix = 'gs_u_' + currentUser.uid + '_';
+    keyPrefix = userPrefix;
+    let cloud = null;
+    try {
+        cloud = await loadCloudData();
+    } catch (e) {
+        console.error(e);
+        setSyncStatus('err', e);
+        toast(e && e.code === 'permission-denied' ? '⚠️ Firestore Rules publish nahi hue (permission denied)' : '⚠️ Cloud se connect nahi ho paya. Data cloud par save nahi hoga.');
+    }
+
+    if (cloud && cloud.found) {
+        setData(cloud.out); normalizeAll(); markSynced();
+        cloudWritable = true; setSyncStatus('ok');
+        saveLocal();
+        return;
+    }
+    if (cloud && !cloud.found) {
+        // Naya account: cloud par kuch nahi hai
+        let loaded = false;
+        const legacyExists = ['gs_invoices', 'gs_companies', 'gs_inventory', 'gs_customers'].some(k => localStorage.getItem(k));
+        if (legacyExists && !localStorage.getItem('gs_legacy_asked')) {
+            localStorage.setItem('gs_legacy_asked', '1');
+            if (confirm('Is device par bina-login wala purana data mila. Ise is naye account mein import karein?')) {
+                keyPrefix = 'gs_'; loadLocalData(); keyPrefix = userPrefix; loaded = true;
+            }
+        }
+        if (!loaded) {
+            setData(defaultData());
+            const pending = localStorage.getItem('gs_pending_firm');
+            if (pending) companies[0].name = pending;
+        }
+        localStorage.removeItem('gs_pending_firm');
+        normalizeAll();
+        cloudWritable = true; syncedJson = {};
+        saveAll();
+        try { db.collection('users').doc(currentUser.uid).collection('meta').doc('profile').set({ email: currentUser.email, createdAt: Date.now(), plan: 'trial' }); } catch (e) {}
+        setSyncStatus('ok');
+        return;
+    }
+    // Cloud fail: sirf local cache dikhao, cloud par likhna band
+    loadLocalData();
+    cloudWritable = false;
+}
+
+async function reloadFromCloud() {
+    if (!currentUser || !useCloud) { toast('Cloud login nahi hai'); return; }
+    if (!confirm('Cloud ka data is device par load karein? (Is device ka na-save hua data replace ho sakta hai)')) return;
+    try {
+        const r = await loadCloudData();
+        if (!r.found) { toast('Cloud par abhi data nahi hai'); return; }
+        setData(r.out); normalizeAll(); markSynced();
+        cloudWritable = true; setSyncStatus('ok');
+        saveLocal(); renderAll(); setNextInvoiceNumber();
+        toast('Cloud se data load ho gaya');
+    } catch (e) { setSyncStatus('err', e); toast('Cloud se load nahi ho paya'); }
+}
+
+/* ============================================================
+   AUTH (LOGIN / SIGNUP)
+   ============================================================ */
+function getFirebaseConfig() {
+    if (FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && !/^PASTE/i.test(FIREBASE_CONFIG.apiKey) && FIREBASE_CONFIG.projectId && !/^PASTE/i.test(FIREBASE_CONFIG.projectId)) return FIREBASE_CONFIG;
+    try {
+        const s = JSON.parse(localStorage.getItem('gs_fb_config') || 'null');
+        if (s && s.apiKey && s.projectId) return s;
+    } catch (e) {}
+    return null;
+}
+function parseFirebaseConfigText(t) {
+    const cfg = {};
+    const re = /["']?(\w+)["']?\s*:\s*["']([^"']*)["']/g;
+    let m;
+    while ((m = re.exec(t))) cfg[m[1]] = m[2];
+    return (cfg.apiKey && cfg.projectId) ? cfg : null;
+}
+function saveFbConfigFromInput() {
+    const cfg = parseFirebaseConfigText($('fbCfgInput').value);
+    if (!cfg) { toast('Config sahi nahi mila (apiKey aur projectId chahiye)'); return; }
+    localStorage.setItem('gs_fb_config', JSON.stringify(cfg));
+    localStorage.removeItem('gs_force_local');
+    location.reload();
+}
+function showAuthScreen(mode) {
+    $('authScreen').style.display = 'flex';
+    $('authLoading').style.display = mode === 'loading' ? 'block' : 'none';
+    $('authForm').style.display = (mode === 'login' || mode === 'signup') ? 'block' : 'none';
+    $('authSetup').style.display = mode === 'setup' ? 'block' : 'none';
+    if (mode === 'login' || mode === 'signup') {
+        authMode = mode;
+        $('authTitle').innerText = mode === 'login' ? 'Login' : 'Naya Account Banao';
+        $('authSubmitBtn').innerText = mode === 'login' ? 'Login' : 'Account Banao';
+        $('authFirmRow').style.display = mode === 'signup' ? 'block' : 'none';
+        $('authToggleBtn').innerText = mode === 'login' ? 'Naya account banao' : 'Pehle se account hai? Login';
+        $('authPassword').setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+        $('authError').innerText = '';
+    }
+}
+function authErrorText(e) {
+    const map = {
+        'auth/invalid-email': 'Email sahi nahi hai',
+        'auth/user-not-found': 'Email ya password galat hai',
+        'auth/wrong-password': 'Email ya password galat hai',
+        'auth/invalid-credential': 'Email ya password galat hai',
+        'auth/email-already-in-use': 'Ye email pehle se registered hai, Login karo',
+        'auth/weak-password': 'Password kam se kam 6 character ka rakho',
+        'auth/network-request-failed': 'Internet check karo',
+        'auth/too-many-requests': 'Bahut baar try kiya, thodi der baad koshish karo',
+        'auth/operation-not-allowed': 'Firebase console mein Email/Password sign-in enable karo',
+        'auth/configuration-not-found': 'Firebase console mein Authentication ko "Get started" karke enable karo',
+        'auth/invalid-api-key': 'Firebase apiKey galat hai',
+        'auth/unauthorized-domain': 'Firebase Authentication > Settings > Authorized domains mein apna domain add karo'
+    };
+    return (e && map[e.code]) || (e && e.message) || 'Kuch galat ho gaya';
+}
+async function authSubmit() {
+    const email = $('authEmail').value.trim();
+    const pw = $('authPassword').value;
+    if (!email || !pw) { $('authError').innerText = 'Email aur password daalo'; return; }
+    $('authError').innerText = '';
+    $('authSubmitBtn').disabled = true;
+    try {
+        if (authMode === 'signup') {
+            const fn = $('authFirmName').value.trim();
+            if (fn) localStorage.setItem('gs_pending_firm', fn);
+            await auth.createUserWithEmailAndPassword(email, pw);
+        } else {
+            await auth.signInWithEmailAndPassword(email, pw);
+        }
+    } catch (e) {
+        if (authMode === 'signup') localStorage.removeItem('gs_pending_firm');
+        $('authError').innerText = authErrorText(e);
+    }
+    $('authSubmitBtn').disabled = false;
+}
+function sendResetEmail(fromLogin) {
+    const email = fromLogin ? $('authEmail').value.trim() : (currentUser && currentUser.email);
+    if (!email) { toast('Pehle email likho'); return; }
+    auth.sendPasswordResetEmail(email)
+        .then(() => toast('Password reset ka email bhej diya: ' + email))
+        .catch(e => toast(authErrorText(e)));
+}
+async function onAuthChanged(user) {
+    if (!user) {
+        if (mainStarted) { location.reload(); return; }
+        currentUser = null;
+        showAuthScreen('login');
+        return;
+    }
+    currentUser = { uid: user.uid, email: user.email };
+    showAuthScreen('loading');
+    await loadUserData();
+    $('authScreen').style.display = 'none';
+    startMain();
+}
+function doLogout() {
+    if (!auth) return;
+    if (!confirm('Logout karein?')) return;
+    auth.signOut().then(() => location.reload());
+}
+function startLocalMode() {
+    localStorage.setItem('gs_force_local', '1');
+    useCloud = false; currentUser = null; keyPrefix = 'gs_';
+    loadLocalData();
+    $('authScreen').style.display = 'none';
+    startMain();
+}
+function renderAccount() {
+    $('userEmailLbl').innerText = currentUser ? currentUser.email : '';
+    $('logoutBtn').style.display = currentUser ? 'inline-block' : 'none';
+    $('logoutBtn2').style.display = currentUser ? 'inline-block' : 'none';
+    $('reloadCloudBtn').style.display = currentUser ? 'inline-block' : 'none';
+    $('resetPwBtn').style.display = currentUser ? 'inline-block' : 'none';
+    $('enableCloudBtn').style.display = currentUser ? 'none' : 'inline-block';
+    $('accountInfo').innerText = currentUser
+        ? 'Logged in: ' + currentUser.email + ' (aapka data sirf aapke account mein cloud par save hota hai)'
+        : 'Abhi aap bina login ke local mode mein ho. Data sirf is device ke browser mein hai.';
+}
 
 /* ============================================================
    INIT
    ============================================================ */
 window.onload = function () {
+    $('appTitle').innerText = APP_NAME;
+    $('authAppName').innerText = APP_NAME;
+    document.title = APP_NAME + ' - Billing';
+    setupEventListeners();
+    initLock();
+
+    const cfg = getFirebaseConfig();
+    if (cfg && typeof firebase !== 'undefined') {
+        try {
+            if (!firebase.apps.length) firebase.initializeApp(cfg);
+            auth = firebase.auth();
+            db = firebase.firestore();
+            useCloud = true;
+            showAuthScreen('loading');
+            auth.onAuthStateChanged(onAuthChanged);
+            return;
+        } catch (e) { console.error(e); }
+    }
+    if (localStorage.getItem('gs_force_local') === '1') { startLocalMode(); return; }
+    showAuthScreen('setup');
+};
+
+function startMain() {
+    if (mainStarted) return;
+    mainStarted = true;
     $('invDate').value = today();
     $('expDate').value = today();
     $('purDate').value = today();
-    setupEventListeners();
+    setSyncStatus(cloudWritable ? 'ok' : (useCloud ? 'err' : 'local'));
+    renderAccount();
     renderAll();
     addItemRow();
     setNextInvoiceNumber();
 
-    let savedCfg = localStorage.getItem('gs_fb_config');
-    if (savedCfg) {
-        try {
-            let cfgObj = JSON.parse(savedCfg);
-            $('firebaseConfigInput').value = savedCfg;
-            initFirebase(cfgObj);
-        } catch (e) {}
-    }
-
-    initLock();
     const lb = localStorage.getItem('gs_last_backup');
     if (invoices.length > 0 && (!lb || (Date.now() - new Date(lb).getTime()) > 7 * 86400000)) {
         setTimeout(() => toast('💾 Backup lene ka time ho gaya (Settings me jaake).'), 1500);
     }
-};
+    if (companies.length === 1 && !companies[0].address && !companies[0].gstin) {
+        switchTab('business');
+        setTimeout(() => toast('Pehle apni firm ki details bharo (address, GSTIN, bank). "Meri Firm" ke saamne Edit dabao.'), 800);
+    }
+}
 
 function renderAll() {
     populateFirmDropdowns();
@@ -946,8 +1245,18 @@ function setupEventListeners() {
         btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
     });
 
-    on('cloudConfigToggleBtn', 'click', toggleCloudConfig);
-    on('saveFirebaseConfigBtn', 'click', saveFirebaseConfig);
+    // auth
+    on('authSubmitBtn', 'click', authSubmit);
+    on('authPassword', 'keypress', e => { if (e.key === 'Enter') authSubmit(); });
+    on('authToggleBtn', 'click', () => showAuthScreen(authMode === 'login' ? 'signup' : 'login'));
+    on('authForgotBtn', 'click', () => sendResetEmail(true));
+    on('fbCfgSaveBtn', 'click', saveFbConfigFromInput);
+    on('authLocalBtn', 'click', startLocalMode);
+    on('logoutBtn', 'click', doLogout);
+    on('logoutBtn2', 'click', doLogout);
+    on('reloadCloudBtn', 'click', reloadFromCloud);
+    on('resetPwBtn', 'click', () => sendResetEmail(false));
+    on('enableCloudBtn', 'click', () => { localStorage.removeItem('gs_force_local'); location.reload(); });
 
     on('activeFirmSelect', 'change', () => { onFirmChange(); calculateTotals(); });
     on('globalBarcodeScan', 'keypress', handleGlobalBarcode);
@@ -1041,7 +1350,7 @@ function switchTab(tabID) {
         reports: updateReports, history: renderHistoryTable, quotation: renderQuotationTable,
         ledger: renderLedgerTable, expenses: renderExpenseTable,
         purchases: () => { renderSupplierTable(); renderPurchaseTable(); },
-        customers: renderCustomerTable, inventory: renderInventoryTable, settings: renderSettings
+        customers: renderCustomerTable, inventory: renderInventoryTable, settings: () => { renderSettings(); renderAccount(); }
     };
     if (actions[tabID]) actions[tabID]();
 }
@@ -1088,8 +1397,9 @@ function downloadFile(name, content, type) {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 function exportBackup() {
-    const data = { version: 2, exportedAt: new Date().toISOString(), companies, customers, inventory, invoices, quotations, expenses, suppliers, purchases, stockLog };
-    downloadFile('goldenstar-backup-' + today() + '.json', JSON.stringify(data, null, 1), 'application/json');
+    const data = Object.assign({ version: 3, exportedAt: new Date().toISOString() }, getData());
+    const base = APP_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    downloadFile(base + '-backup-' + today() + '.json', JSON.stringify(data, null, 1), 'application/json');
     localStorage.setItem('gs_last_backup', new Date().toISOString());
     renderSettings(); toast('Backup download ho gaya');
 }
@@ -1102,71 +1412,14 @@ function importBackup(e) {
             const d = JSON.parse(reader.result);
             if (!d || !Array.isArray(d.invoices) || !Array.isArray(d.companies)) throw new Error('bad');
             if (!confirm('Restore karne par abhi ka sara data replace ho jaayega. Continue?')) return;
-            companies = d.companies; customers = d.customers || []; inventory = d.inventory || [];
-            invoices = d.invoices; quotations = d.quotations || []; expenses = d.expenses || [];
-            suppliers = d.suppliers || []; purchases = d.purchases || []; stockLog = d.stockLog || [];
-            normalizeDocs(invoices, true); normalizeDocs(quotations, false);
-            purchases.forEach(p => { if (!p.id) p.id = uid(); if (!Array.isArray(p.payments)) p.payments = []; recalcPay(p); });
-            suppliers.forEach(s => { if (!s.id) s.id = uid(); });
-            expenses.forEach(x => { if (!x.id) x.id = uid(); });
+            setData(d);
+            normalizeAll();
             saveAll(); renderAll(); setNextInvoiceNumber();
             toast('✅ Backup restore ho gaya');
         } catch (err) { toast('❌ Ye valid backup file nahi hai'); }
     };
     reader.readAsText(file);
     e.target.value = '';
-}
-
-/* ============================================================
-   CLOUD (FIREBASE)
-   ============================================================ */
-function toggleCloudConfig() {
-    let box = $('cloudConfigBox');
-    box.style.display = box.style.display === 'none' ? 'block' : 'none';
-}
-function saveFirebaseConfig() {
-    let val = $('firebaseConfigInput').value.trim();
-    try {
-        let cfgObj = JSON.parse(val);
-        localStorage.setItem('gs_fb_config', val);
-        initFirebase(cfgObj);
-        toast('Firebase connect ho gaya!');
-        toggleCloudConfig();
-    } catch (e) { toast('Invalid JSON format!'); }
-}
-function initFirebase(config) {
-    try {
-        if (!firebase.apps.length) firebase.initializeApp(config);
-        db = firebase.firestore();
-        useCloud = true;
-        $('syncStatus').innerText = '☁️ Cloud Synced';
-        $('syncStatus').style.color = '#007bff';
-        fetchCloudData();
-    } catch (e) { useCloud = false; }
-}
-async function fetchCloudData() {
-    if (!useCloud || !db) return;
-    try {
-        let snap = await db.collection('pos_data').doc('store').get();
-        if (snap.exists) {
-            let data = snap.data();
-            if (data.companies) companies = data.companies;
-            if (data.customers) customers = data.customers;
-            if (data.inventory) inventory = data.inventory;
-            if (data.invoices) invoices = data.invoices;
-            if (data.quotations) quotations = data.quotations;
-            if (data.expenses) expenses = data.expenses;
-            if (data.suppliers) suppliers = data.suppliers;
-            if (data.purchases) purchases = data.purchases;
-            if (data.stockLog) stockLog = data.stockLog;
-            normalizeDocs(invoices, true); normalizeDocs(quotations, false);
-            purchases.forEach(p => { if (!p.id) p.id = uid(); if (!Array.isArray(p.payments)) p.payments = []; recalcPay(p); });
-            suppliers.forEach(s => { if (!s.id) s.id = uid(); });
-            expenses.forEach(x => { if (!x.id) x.id = uid(); });
-            renderAll();
-            setNextInvoiceNumber();
-        }
-    } catch (e) {}
 }
 
 /* ============================================================
@@ -1232,12 +1485,16 @@ function onFirmChange() {
         $('lblBankDetails').innerHTML = `<b>Bank Details:</b><br>Bank Name: ${esc(firm.bankName || 'N/A')}<br>A/C No: ${esc(firm.accNo || 'N/A')}<br>IFSC: ${esc(firm.ifsc || 'N/A')}`;
         $('lblSignCompanyName').innerText = `For ${firm.name} :`;
     }
+    const dp = defaultPos();
+    const pi = $('placeOfSupply');
+    if (pi && (!pi.value || pi.value === lastAutoPos)) pi.value = dp;
+    lastAutoPos = dp;
 }
 function onCustomerSelected() {
     const idx = $('invoiceCustDropdown').value;
     if (idx !== '') {
         const cust = customers[idx];
-        $('manualCustDetails').value = `${cust.name}\n${cust.address}\nPhone: ${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin || 'Unregistered'}\nState: ${cust.state || '01-Jammu & Kashmir'}`;
+        $('manualCustDetails').value = `${cust.name}\n${cust.address}\nPhone: ${cust.phone || 'N/A'}\nGSTIN: ${cust.gstin || 'Unregistered'}\nState: ${cust.state || defaultPos()}`;
         if (cust.state) $('placeOfSupply').value = cust.state;
         $('wa-recipient').value = cust.phone || '';
         calculateTotals();
@@ -1381,10 +1638,10 @@ function parseGstin(text) {
 }
 
 function buildRecordFromForm() {
-    const firm = companies[+$('activeFirmSelect').value] || {};
+    const firm = activeFirm();
     const mode = getPriceMode();
     const details = $('manualCustDetails').value;
-    const pos = $('placeOfSupply').value.trim() || '01-Jammu & Kashmir';
+    const pos = $('placeOfSupply').value.trim() || defaultPos();
     const items = [];
     document.querySelectorAll('#itemRows tr').forEach(tr => {
         const qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
@@ -1496,10 +1753,10 @@ function processAiBillingPrompt() {
     let itemName = restText.replace(/\d+/g, '').replace(/ki|rs|rupee|gst|%|pcs|piece/gi, '').replace(/[,@]/g, '').trim();
     if (!itemName) itemName = 'General Item';
 
-    $('manualCustDetails').value = `${custName.toUpperCase()}\nJammu & Kashmir\nState: 01-Jammu & Kashmir`;
+    $('manualCustDetails').value = `${custName.toUpperCase()}\nState: ${defaultPos()}`;
     $('itemRows').innerHTML = '';
     const prod = inventory.find(p => p.name.toLowerCase() === itemName.toLowerCase());
-    addItemRowWithProduct({ name: itemName, barcode: prod ? prod.barcode : '', hsn: prod ? prod.hsn : '9403', price: price || 1000, gst: gstRate, qty });
+    addItemRowWithProduct({ name: itemName, barcode: prod ? prod.barcode : '', hsn: prod ? prod.hsn : '', price: price || 1000, gst: gstRate, qty });
     $('aiPromptInput').value = '';
     toast(`Bill ready: ${custName.toUpperCase()} - ${qty} x ${itemName} @ ₹${price} (${gstRate}% GST)`);
 }
@@ -1604,7 +1861,7 @@ function fillFormFromDoc(doc, keepNumber) {
     $('wa-recipient').value = doc.phone || '';
     if (keepNumber) $('invNumber').value = doc.invNumber;
     $('invDate').value = keepNumber ? (doc.date || today()) : today();
-    $('placeOfSupply').value = doc.pos || '01-Jammu & Kashmir';
+    $('placeOfSupply').value = doc.pos || defaultPos();
     $('invoiceNotes').value = doc.notes || '';
     $('discountInput').value = doc.discount || 0;
     $('transportInput').value = doc.transport || 0;
@@ -1639,7 +1896,7 @@ function resetInvoiceForm() {
     $('discountInput').value = 0; $('transportInput').value = 0;
     $('manualCustDetails').value = ''; $('invoiceCustDropdown').value = '';
     $('wa-recipient').value = ''; $('invoiceNotes').value = '';
-    $('placeOfSupply').value = '01-Jammu & Kashmir';
+    $('placeOfSupply').value = defaultPos();
     $('invDate').value = today();
     $('editBanner').style.display = 'none';
     addItemRow();
@@ -1763,8 +2020,8 @@ function showDocModal(doc, type) {
 
     const cd = (doc.custDetails || '').trim();
     if (!cd || cd.toLowerCase() === 'cash customer') {
-        $('dBillTo').innerHTML = `<b>CASH SALE</b><br>Place of Supply: ${esc(doc.pos || 'Jammu & Kashmir')}`;
-        $('dShipTo').innerHTML = `<b>CASH SALE</b><br>Place of Supply: ${esc(doc.pos || 'Jammu & Kashmir')}`;
+        $('dBillTo').innerHTML = `<b>CASH SALE</b><br>Place of Supply: ${esc(doc.pos || '')}`;
+        $('dShipTo').innerHTML = `<b>CASH SALE</b><br>Place of Supply: ${esc(doc.pos || '')}`;
     } else { $('dBillTo').innerText = cd; $('dShipTo').innerText = cd; }
 
     const body = $('dItems');
@@ -1868,7 +2125,7 @@ async function pdfFromForm(share) {
    THERMAL RECEIPT
    ============================================================ */
 function openThermalReceipt() {
-    const firm = companies[+$('activeFirmSelect').value] || {};
+    const firm = activeFirm();
     const rec = buildRecordFromForm();
     const items = rec.items.filter(i => i.name);
     const t = taxBreakup(rec);
@@ -2306,6 +2563,7 @@ function renderCompanyTable() {
             editingFirmIdx = idx;
             $('busName').value = c.name || ''; $('busPrefix').value = c.prefix || ''; $('busAddress').value = c.address || '';
             $('busPhone').value = c.phone || ''; $('busGstin').value = c.gstin || ''; $('busPan').value = c.pan || '';
+            $('busState').value = c.state || stateFromGstin(c.gstin) || '';
             $('busBank').value = c.bankName || ''; $('busAcc').value = c.accNo || ''; $('busIfsc').value = c.ifsc || '';
             $('saveBusinessBtn').innerText = 'Update Firm'; $('cancelFirmEditBtn').style.display = 'block';
             window.scrollTo(0, 0);
@@ -2316,7 +2574,7 @@ function renderCompanyTable() {
 }
 function clearFirmForm() {
     editingFirmIdx = null;
-    ['busName', 'busPrefix', 'busAddress', 'busPhone', 'busGstin', 'busPan', 'busBank', 'busAcc', 'busIfsc'].forEach(id => { $(id).value = ''; });
+    ['busName', 'busPrefix', 'busAddress', 'busPhone', 'busGstin', 'busState', 'busPan', 'busBank', 'busAcc', 'busIfsc'].forEach(id => { $(id).value = ''; });
     $('saveBusinessBtn').innerText = 'Save Firm'; $('cancelFirmEditBtn').style.display = 'none';
 }
 function saveBusinessProfile() {
@@ -2324,7 +2582,7 @@ function saveBusinessProfile() {
     if (!name) { toast('Firm ka naam daalo'); return; }
     const obj = {
         name, prefix: $('busPrefix').value.trim(), address: $('busAddress').value.trim(), phone: $('busPhone').value.trim(),
-        gstin: $('busGstin').value.trim().toUpperCase(), pan: $('busPan').value.trim().toUpperCase(),
+        gstin: $('busGstin').value.trim().toUpperCase(), pan: $('busPan').value.trim().toUpperCase(), state: $('busState').value.trim(),
         bankName: $('busBank').value.trim(), accNo: $('busAcc').value.trim(), ifsc: $('busIfsc').value.trim()
     };
     if (editingFirmIdx !== null) {
@@ -2361,7 +2619,7 @@ function renderCustomerTable() {
         tr.querySelector('.e').addEventListener('click', () => {
             editingCustIdx = idx;
             $('newCustName').value = cust.name; $('newCustAddress').value = cust.address || ''; $('newCustPhone').value = cust.phone || '';
-            $('newCustGstin').value = cust.gstin || ''; $('newCustState').value = cust.state || '01-Jammu & Kashmir';
+            $('newCustGstin').value = cust.gstin || ''; $('newCustState').value = cust.state || '';
             $('saveCustomerBtn').innerText = 'Update Customer'; $('cancelCustEditBtn').style.display = 'inline-block';
             window.scrollTo(0, 0);
         });
@@ -2374,8 +2632,7 @@ function renderCustomerTable() {
 }
 function clearCustomerForm() {
     editingCustIdx = null;
-    ['newCustName', 'newCustAddress', 'newCustPhone', 'newCustGstin'].forEach(id => { $(id).value = ''; });
-    $('newCustState').value = '01-Jammu & Kashmir';
+    ['newCustName', 'newCustAddress', 'newCustPhone', 'newCustGstin', 'newCustState'].forEach(id => { $(id).value = ''; });
     $('saveCustomerBtn').innerText = 'Save Customer'; $('cancelCustEditBtn').style.display = 'none';
 }
 function saveCustomer() {
@@ -2383,7 +2640,7 @@ function saveCustomer() {
     if (!name) { toast('Customer ka naam daalo'); return; }
     const obj = {
         name, address: $('newCustAddress').value.trim(), phone: $('newCustPhone').value.trim(),
-        gstin: $('newCustGstin').value.trim().toUpperCase() || 'Unregistered', state: $('newCustState').value.trim() || '01-Jammu & Kashmir'
+        gstin: $('newCustGstin').value.trim().toUpperCase() || 'Unregistered', state: $('newCustState').value.trim() || defaultPos()
     };
     if (editingCustIdx !== null) customers[editingCustIdx] = obj; else customers.push(obj);
     saveAll(); clearCustomerForm(); renderCustomerTable(); populateCustomerDropdown();
