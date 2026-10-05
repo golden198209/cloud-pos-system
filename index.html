@@ -13,6 +13,8 @@
     <!-- Real PDF download -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- UPI QR code -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background: #f4f6f9; color: #333; }
         .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; background: #fff; padding: 10px 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; }
@@ -127,6 +129,7 @@
 <div class="nav-tabs no-print">
     <button class="tab-btn active" data-tab="invoice">Create Invoice</button>
     <button class="tab-btn" data-tab="history">Invoice History</button>
+    <button class="tab-btn" data-tab="creditnotes">↩ Credit Notes</button>
     <button class="tab-btn" data-tab="quotation">Quotations</button>
     <button class="tab-btn" data-tab="ledger">Pending Payments (Udhaar)</button>
     <button class="tab-btn" data-tab="reports">📊 Reports & GSTR-1</button>
@@ -175,6 +178,7 @@
             <!-- INVOICE EDITOR AREA -->
             <div id="printableInvoice" style="background:#fff; padding:20px; border:1px solid #ddd;">
                 <h3 style="text-align:center; margin-bottom:2px;">Tax Invoice</h3>
+                <img id="lblLogo" alt="" style="display:none; max-height:60px; max-width:180px; margin:0 auto 6px auto;">
                 <h2 id="lblCompanyName" style="text-align:center; margin-top:0; margin-bottom:5px;"></h2>
                 <p id="lblCompanyDetails" style="text-align:center; font-size:12px; margin-top:0;"></p>
                 <hr>
@@ -185,7 +189,7 @@
                         <textarea id="manualCustDetails" class="input-field" rows="3" style="width:250px; margin-top:5px; font-size:12px;" placeholder="Customer Details..."></textarea>
                     </div>
                     <div>
-                        <b>Invoice:</b> <input type="text" id="invNumber" style="width:80px; padding:2px;"><br>
+                        <b>Invoice:</b> <input type="text" id="invNumber" style="width:130px; padding:2px;"><br>
                         <b>Date:</b> <input type="date" id="invDate" style="width:130px; padding:2px;"><br>
                         <b>Place of Supply:</b> <input type="text" id="placeOfSupply" list="stateList" value="" style="width:160px; padding:2px; margin-top:3px;"><br>
                         <span id="taxTypeLabel" style="font-size:11px; color:#2b6cb0;"></span>
@@ -308,6 +312,20 @@
     </div>
 </div>
 
+<!-- 2.05 CREDIT NOTES PANEL -->
+<div id="creditnotesPanel" class="panel">
+    <h3>↩ Credit Notes (Return / Galti sudhaar)</h3>
+    <p style="font-size:12px; color:#555;">Credit Note banane ke liye <b>Invoice History</b> mein us invoice ke saamne <b>↩ CN</b> button dabao.</p>
+    <div class="table-wrap">
+    <table class="items-table">
+        <thead>
+            <tr><th>Firm</th><th>Credit Note No.</th><th>Date</th><th>Invoice</th><th>Customer</th><th>Amount (₹)</th><th>Action</th></tr>
+        </thead>
+        <tbody id="creditNoteTableBody"></tbody>
+    </table>
+    </div>
+</div>
+
 <!-- 2.1 QUOTATIONS PANEL -->
 <div id="quotationPanel" class="panel">
     <h3>Quotations / Estimates</h3>
@@ -364,7 +382,7 @@
     </div>
     <div id="repCards" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;"></div>
 
-    <h4 style="border-top: 1px solid #ccc; padding-top: 10px;">GSTR-1 HSN-Wise Summary Report</h4>
+    <h4 style="border-top: 1px solid #ccc; padding-top: 10px;">GSTR-1 HSN-Wise Summary Report (credit notes minus ke saath)</h4>
     <div class="table-wrap">
     <table class="items-table">
         <thead><tr><th>HSN / SAC</th><th>GST Rate</th><th>Taxable Value (₹)</th><th>CGST (₹)</th><th>SGST (₹)</th><th>IGST (₹)</th><th>Total Tax (₹)</th></tr></thead>
@@ -381,7 +399,7 @@
     <h4 style="margin-top:20px;">Day Book</h4>
     <div class="table-wrap">
     <table class="items-table">
-        <thead><tr><th>Date</th><th>Invoice No.</th><th>Customer Name</th><th>Total Bill (₹)</th><th>Received (₹)</th><th>Balance (₹)</th><th>Status</th></tr></thead>
+        <thead><tr><th>Date</th><th>Invoice / CN No.</th><th>Customer Name</th><th>Total Bill (₹)</th><th>Received (₹)</th><th>Balance (₹)</th><th>Status</th></tr></thead>
         <tbody id="dayBookTableBody"></tbody>
     </table>
     </div>
@@ -466,7 +484,7 @@
     <h3>Manage Firms</h3>
     <div class="box-section">
         <input type="text" id="busName" class="input-field" placeholder="Firm Name">
-        <input type="text" id="busPrefix" class="input-field" placeholder="Prefix">
+        <input type="text" id="busPrefix" class="input-field" placeholder="Prefix (invoice number ke liye, jaise GS)">
         <textarea id="busAddress" class="input-field" placeholder="Address"></textarea>
         <input type="text" id="busPhone" class="input-field" placeholder="Phone">
         <input type="text" id="busGstin" class="input-field" placeholder="GSTIN">
@@ -475,6 +493,18 @@
         <input type="text" id="busBank" class="input-field" placeholder="Bank Name">
         <input type="text" id="busAcc" class="input-field" placeholder="Account No.">
         <input type="text" id="busIfsc" class="input-field" placeholder="IFSC">
+        <input type="text" id="busUpi" class="input-field" placeholder="UPI ID (invoice par QR ke liye), jaise naam@oksbi">
+        <label style="font-size:12px;"><b>Invoice number ka format</b></label>
+        <select id="busNumFmt" class="input-field">
+            <option value="fy">FY wala (jaise GS/26-27/001)</option>
+            <option value="simple">Simple (1, 2, 3...)</option>
+        </select>
+        <label style="font-size:12px;"><b>Logo (optional)</b></label>
+        <input type="file" id="busLogoFile" accept="image/*" class="input-field">
+        <div id="busLogoRow" style="display:none; margin-bottom:8px;">
+            <img id="busLogoPreview" alt="" style="max-height:60px; max-width:160px; border:1px solid #ddd; padding:3px; vertical-align:middle;">
+            <button type="button" id="busLogoClear" class="btn-danger btn-sm">Logo hatao</button>
+        </div>
         <button type="button" id="saveBusinessBtn" class="btn-success" style="margin-top: 10px; width:100%;">Save Firm</button>
         <button type="button" id="cancelFirmEditBtn" class="btn-grey" style="margin-top: 6px; width:100%; display:none;">Edit cancel</button>
     </div>
@@ -608,12 +638,13 @@
     </div>
 </div>
 
-<!-- INVOICE / QUOTATION DOCUMENT MODAL -->
+<!-- INVOICE / QUOTATION / CREDIT NOTE DOCUMENT MODAL -->
 <div id="docOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:3200; overflow-y:auto;">
     <div style="width:820px; max-width:100%; margin:20px auto;">
         <div id="docSheet" style="background:#fff; padding:30px; border-radius:6px; font-family:'Segoe UI', Arial, sans-serif; border-top: 6px solid #1a365d;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px; gap:10px;">
                 <div>
+                    <img id="dLogo" alt="" style="display:none; max-height:60px; max-width:180px; margin-bottom:6px;">
                     <h1 id="dTitle" style="margin:0; font-size:26px; color:#1a365d; letter-spacing:1px; font-weight:800;">TAX INVOICE</h1>
                     <h3 id="dFirm" style="margin:6px 0 3px 0; color:#2b6cb0; font-size:18px; font-weight:700;"></h3>
                     <p id="dFirmDetails" style="font-size:11px; color:#4a5568; margin:0; line-height:1.5;"></p>
@@ -683,6 +714,10 @@
                 <div style="width:48%; background:#f7fafc; padding:12px; border-radius:6px; border:1px solid #e2e8f0;">
                     <b style="color:#1a365d; font-size:12px; display:block; margin-bottom:5px;">Bank Details:</b>
                     <div id="dBank" style="margin-top:4px; line-height:1.5; color:#4a5568;"></div>
+                    <div id="dUpiBox" style="display:none; align-items:center; gap:10px; margin-top:10px; border-top:1px dashed #cbd5e0; padding-top:8px;">
+                        <div id="dQr"></div>
+                        <div id="dUpiText" style="font-size:11px; color:#4a5568; line-height:1.5;"></div>
+                    </div>
                     <div style="margin-top:8px; color:#718096;">Goods once sold will not be taken back.</div>
                 </div>
                 <div style="width:45%; text-align:right; padding-top: 10px;">
@@ -732,6 +767,35 @@
     </div>
 </div>
 
+<!-- CREDIT NOTE ENTRY MODAL -->
+<div id="cnOverlay" class="overlay" style="z-index:3650;">
+    <div class="modal-box" style="width:720px;">
+        <h3 style="margin-top:0;">↩ Credit Note banao</h3>
+        <p id="cnInfo" style="font-size:13px;"></p>
+        <div class="table-wrap">
+            <table class="items-table">
+                <thead><tr><th class="left">Item</th><th>Bill Qty</th><th>Pehle wapas</th><th>Ab wapas Qty</th><th>Amount (₹)</th></tr></thead>
+                <tbody id="cnItems"></tbody>
+            </table>
+        </div>
+        <div class="row-flex" style="margin-top:8px;">
+            <div><label>Date</label><input type="date" id="cnDate" class="input-field"></div>
+            <div style="flex:2;"><label>Wajah (reason)</label><input type="text" id="cnReason" class="input-field" placeholder="Jaise: maal kharab nikla / customer ne wapas kiya"></div>
+        </div>
+        <label style="font-size:13px;"><input type="checkbox" id="cnRestock" checked> Wapas aaya maal stock mein add karo</label>
+        <div class="row-flex" style="margin-top:8px;">
+            <div><b>Credit Note Total: ₹<span id="cnTotal">0.00</span></b></div>
+            <div><label>Customer ko refund diya (₹)</label><input type="number" id="cnRefund" class="input-field" min="0" step="0.01" value="0"></div>
+            <div><label>Refund mode</label><select id="cnRefundMode" class="input-field"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
+        </div>
+        <p id="cnHint" style="font-size:12px; color:#555;"></p>
+        <div style="display:flex; gap:8px;">
+            <button type="button" id="cnSaveBtn" class="btn-success" style="flex:1;">Credit Note Save karo</button>
+            <button type="button" id="cnCancelBtn" class="btn-danger" style="flex:1;">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
 /* ============================================================
    SETTINGS YOU CAN EDIT
@@ -774,14 +838,14 @@ function toast(msg) {
 /* ============================================================
    DATA
    ============================================================ */
-const COLL_KEYS = ['companies', 'customers', 'inventory', 'invoices', 'quotations', 'expenses', 'suppliers', 'purchases'];   // har record alag document
-const DATA_KEYS = COLL_KEYS.concat(['stockLog']);                                                                            // stockLog ek document
+const COLL_KEYS = ['companies', 'customers', 'inventory', 'invoices', 'creditNotes', 'quotations', 'expenses', 'suppliers', 'purchases'];   // har record alag document
+const DATA_KEYS = COLL_KEYS.concat(['stockLog']);                                                                                          // stockLog ek document
 const defaultData = () => ({
-    companies: [{ name: 'Meri Firm', prefix: 'INV', address: '', phone: '', gstin: '', pan: '', state: '', bankName: '', accNo: '', ifsc: '' }],
-    customers: [], inventory: [], invoices: [], quotations: [], expenses: [], suppliers: [], purchases: [], stockLog: []
+    companies: [{ name: 'Meri Firm', prefix: 'INV', address: '', phone: '', gstin: '', pan: '', state: '', bankName: '', accNo: '', ifsc: '', upi: '', numFormat: 'fy', logo: '' }],
+    customers: [], inventory: [], invoices: [], creditNotes: [], quotations: [], expenses: [], suppliers: [], purchases: [], stockLog: []
 });
 
-let companies = [], customers = [], inventory = [], invoices = [], quotations = [];
+let companies = [], customers = [], inventory = [], invoices = [], creditNotes = [], quotations = [];
 let expenses = [], suppliers = [], purchases = [], stockLog = [];
 let settings = LS('gs_settings', { lowStock: 2, pin: '' });   // device-local only (not synced to cloud)
 
@@ -802,12 +866,15 @@ let editingFirmIdx = null;
 let editingCustIdx = null;
 let editingProdIdx = null;
 let currentDoc = null;
+let pendingLogo = '';            // firm form mein chuna hua logo (data URL)
+let cnCtx = null;                // credit note modal ka data
+let cnRefundTouched = false;
 
 const lsKey = k => keyPrefix + k.toLowerCase();
-function getData() { return { companies, customers, inventory, invoices, quotations, expenses, suppliers, purchases, stockLog }; }
+function getData() { return { companies, customers, inventory, invoices, creditNotes, quotations, expenses, suppliers, purchases, stockLog }; }
 function setData(d) {
     companies = d.companies || []; customers = d.customers || []; inventory = d.inventory || [];
-    invoices = d.invoices || []; quotations = d.quotations || []; expenses = d.expenses || [];
+    invoices = d.invoices || []; creditNotes = d.creditNotes || []; quotations = d.quotations || []; expenses = d.expenses || [];
     suppliers = d.suppliers || []; purchases = d.purchases || []; stockLog = d.stockLog || [];
 }
 
@@ -869,7 +936,7 @@ function taxBreakup(doc) {
         if (doc.igst) { m.cgst = 0; m.sgst = 0; m.igst = m.tax; }
         else { m.cgst = m.tax / 2; m.sgst = m.tax / 2; m.igst = 0; }
     });
-    return { rows, raw, disc, tr, trTax, taxable, tax, total: taxable + tax };
+    return { rows, raw, disc, f, tr, trTax, taxable, tax, total: taxable + tax };
 }
 
 function finalizeTotals(rec) {
@@ -883,7 +950,7 @@ function finalizeTotals(rec) {
 function recalcPay(rec) {
     const tot = rec.grandTotal !== undefined ? rec.grandTotal : rec.total;
     rec.received = round2((rec.payments || []).reduce((s, p) => s + (+p.amount || 0), 0));
-    rec.balance = Math.max(0, round2(tot - rec.received));
+    rec.balance = Math.max(0, round2(tot - (+rec.creditTotal || 0) - rec.received));
     rec.status = rec.balance <= 0 ? 'Paid' : (rec.received > 0 ? 'Partial' : 'Pending');
 }
 
@@ -925,13 +992,26 @@ function normalizeDocs(list, isInvoice) {
         }
     });
 }
+
+// Har invoice par uske credit notes ka total lagao aur balance dobara nikalo
+function applyCredits() {
+    const sums = {};
+    creditNotes.forEach(c => { sums[c.invoiceId] = (sums[c.invoiceId] || 0) + (+c.grandTotal || 0); });
+    invoices.forEach(inv => {
+        inv.creditTotal = round2(sums[inv.id] || 0);
+        recalcPay(inv);
+    });
+}
+
 function normalizeAll() {
     normalizeDocs(invoices, true);
     normalizeDocs(quotations, false);
     purchases.forEach(p => { if (!p.id) p.id = uid(); if (!Array.isArray(p.payments)) p.payments = []; recalcPay(p); });
     suppliers.forEach(s => { if (!s.id) s.id = uid(); });
     expenses.forEach(e => { if (!e.id) e.id = uid(); });
+    creditNotes.forEach(c => { if (!c.id) c.id = uid(); c.items = c.items || []; c.grandTotal = +c.grandTotal || 0; });
     if (!companies.length) companies = defaultData().companies;
+    applyCredits();
 }
 
 /* ============================================================
@@ -1339,6 +1419,7 @@ function renderAll() {
     renderCustomerTable();
     renderInventoryTable();
     renderHistoryTable();
+    renderCreditNoteTable();
     renderQuotationTable();
     renderLedgerTable();
     renderExpenseTable();
@@ -1366,7 +1447,8 @@ function setupEventListeners() {
     on('resetPwBtn', 'click', () => sendResetEmail(false));
     on('enableCloudBtn', 'click', () => { localStorage.removeItem('gs_force_local'); location.reload(); });
 
-    on('activeFirmSelect', 'change', () => { onFirmChange(); calculateTotals(); });
+    on('activeFirmSelect', 'change', () => { onFirmChange(); if (!editingId) setNextInvoiceNumber(); calculateTotals(); });
+    on('invDate', 'change', () => { if (!editingId) setNextInvoiceNumber(); });
     on('globalBarcodeScan', 'keypress', handleGlobalBarcode);
 
     on('processAiPromptBtn', 'click', processAiBillingPrompt);
@@ -1409,6 +1491,10 @@ function setupEventListeners() {
     on('paySaveBtn', 'click', savePayment);
     on('payCancelBtn', 'click', () => { $('payOverlay').style.display = 'none'; });
 
+    on('cnSaveBtn', 'click', saveCreditNote);
+    on('cnCancelBtn', 'click', () => { $('cnOverlay').style.display = 'none'; });
+    on('cnRefund', 'input', () => { cnRefundTouched = true; });
+
     on('historySearch', 'input', renderHistoryTable);
     on('ledgerSearch', 'input', renderLedgerTable);
 
@@ -1425,6 +1511,8 @@ function setupEventListeners() {
 
     on('saveBusinessBtn', 'click', saveBusinessProfile);
     on('cancelFirmEditBtn', 'click', clearFirmForm);
+    on('busLogoFile', 'change', handleLogoFile);
+    on('busLogoClear', 'click', () => { pendingLogo = ''; renderLogoPreview(); });
     on('saveCustomerBtn', 'click', saveCustomer);
     on('cancelCustEditBtn', 'click', clearCustomerForm);
     on('saveProductBtn', 'click', saveProduct);
@@ -1455,7 +1543,7 @@ function switchTab(tabID) {
     document.querySelectorAll('.tab-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tabID));
     $(tabID + 'Panel').classList.add('active');
     const actions = {
-        reports: updateReports, history: renderHistoryTable, quotation: renderQuotationTable,
+        reports: updateReports, history: renderHistoryTable, creditnotes: renderCreditNoteTable, quotation: renderQuotationTable,
         ledger: renderLedgerTable, expenses: renderExpenseTable,
         purchases: () => { renderSupplierTable(); renderPurchaseTable(); },
         customers: renderCustomerTable, inventory: renderInventoryTable, settings: () => { renderSettings(); renderAccount(); }
@@ -1505,7 +1593,7 @@ function downloadFile(name, content, type) {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 function exportBackup() {
-    const data = Object.assign({ version: 3, exportedAt: new Date().toISOString() }, getData());
+    const data = Object.assign({ version: 4, exportedAt: new Date().toISOString() }, getData());
     const base = APP_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     downloadFile(base + '-backup-' + today() + '.json', JSON.stringify(data, null, 1), 'application/json');
     localStorage.setItem('gs_last_backup', new Date().toISOString());
@@ -1590,8 +1678,13 @@ function onFirmChange() {
     if (firm) {
         $('lblCompanyName').innerText = firm.name;
         $('lblCompanyDetails').innerHTML = `Address: ${esc(firm.address)}<br>Phone: ${esc(firm.phone)} | GSTIN: ${esc(firm.gstin)}`;
-        $('lblBankDetails').innerHTML = `<b>Bank Details:</b><br>Bank Name: ${esc(firm.bankName || 'N/A')}<br>A/C No: ${esc(firm.accNo || 'N/A')}<br>IFSC: ${esc(firm.ifsc || 'N/A')}`;
+        $('lblBankDetails').innerHTML = `<b>Bank Details:</b><br>Bank Name: ${esc(firm.bankName || 'N/A')}<br>A/C No: ${esc(firm.accNo || 'N/A')}<br>IFSC: ${esc(firm.ifsc || 'N/A')}${firm.upi ? '<br>UPI: ' + esc(firm.upi) : ''}`;
         $('lblSignCompanyName').innerText = `For ${firm.name} :`;
+        const lg = $('lblLogo');
+        if (lg) {
+            if (firm.logo) { lg.src = firm.logo; lg.style.display = 'block'; }
+            else { lg.style.display = 'none'; lg.removeAttribute('src'); }
+        }
     }
     const dp = defaultPos();
     const pi = $('placeOfSupply');
@@ -1776,11 +1869,12 @@ function buildRecordFromForm() {
         invNumber: $('invNumber').value.trim()
     };
     finalizeTotals(rec);
-    let paid;
-    if (editingId) { const old = invoices.find(i => i.id === editingId); paid = old ? old.received : 0; }
+    let paid, credit = 0;
+    if (editingId) { const old = invoices.find(i => i.id === editingId); paid = old ? old.received : 0; credit = old ? (old.creditTotal || 0) : 0; }
     else paid = parseFloat($('amtReceived').value) || 0;
+    rec.creditTotal = credit;
     rec.received = round2(paid);
-    rec.balance = Math.max(0, round2(rec.grandTotal - paid));
+    rec.balance = Math.max(0, round2(rec.grandTotal - credit - paid));
     return rec;
 }
 
@@ -1909,21 +2003,59 @@ function checkLowStock() {
 }
 
 /* ============================================================
-   SAVE / EDIT INVOICE
+   NUMBERING (Invoice / Credit Note), FY wala ya simple
    ============================================================ */
-function setNextInvoiceNumber() {
+function fyLabel(dateStr) {
+    const p = String(dateStr || today()).split('-');
+    const y = +p[0], m = +p[1];
+    const s = m >= 4 ? y : y - 1;
+    return String(s).slice(-2) + '-' + String(s + 1).slice(-2);
+}
+function firmPrefix(f) {
+    let p = String((f && f.prefix) || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!p) p = String((f && f.name) || '').split(/\s+/).map(w => w[0] || '').join('').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    return p || 'INV';
+}
+function seqNumber(existing, prefix) {
     let max = 0;
-    invoices.forEach(i => { const n = parseInt(i.invNumber); if (!isNaN(n) && n > max) max = n; });
-    $('invNumber').value = max + 1;
+    existing.forEach(n => {
+        const s = String(n);
+        if (s.startsWith(prefix)) { const k = parseInt(s.slice(prefix.length)); if (!isNaN(k) && k > max) max = k; }
+    });
+    return prefix + String(max + 1).padStart(3, '0');
+}
+function nextInvoiceNumberValue() {
+    const firm = activeFirm();
+    const date = $('invDate').value || today();
+    if (firm.numFormat === 'simple') {
+        let max = 0;
+        invoices.forEach(i => { const n = parseInt(i.invNumber); if (!isNaN(n) && n > max) max = n; });
+        return String(max + 1);
+    }
+    return seqNumber(invoices.filter(i => i.firm === firm.name).map(i => i.invNumber), firmPrefix(firm) + '/' + fyLabel(date) + '/');
+}
+function setNextInvoiceNumber() { $('invNumber').value = nextInvoiceNumberValue(); }
+
+function nextCnNumber(firmName, date) {
+    const firm = companies.find(c => c.name === firmName) || {};
+    if (firm.numFormat === 'simple') {
+        let max = 0;
+        creditNotes.forEach(c => { const n = parseInt(String(c.cnNumber).replace(/\D/g, '')); if (!isNaN(n) && n > max) max = n; });
+        return 'CN-' + String(max + 1).padStart(3, '0');
+    }
+    return seqNumber(creditNotes.filter(c => c.firm === firmName).map(c => c.cnNumber), firmPrefix(firm) + '/CN/' + fyLabel(date) + '/');
 }
 
+/* ============================================================
+   SAVE / EDIT INVOICE
+   ============================================================ */
 function saveInvoice(andPrint) {
     const rec = buildRecordFromForm();
     rec.items = rec.items.filter(i => i.name);
     if (!rec.items.length) { toast('Kam se kam ek item daalo'); return null; }
     if (rec.items.some(i => i.qty <= 0)) { toast('Quantity 0 nahi ho sakti'); return null; }
     finalizeTotals(rec);
-    if (!rec.invNumber) rec.invNumber = String(invoices.length + 1);
+    if (!rec.invNumber) rec.invNumber = nextInvoiceNumberValue();
 
     const dup = invoices.find(i => i.invNumber === rec.invNumber && i.firm === rec.firm && i.id !== editingId);
     if (dup && !confirm(`Invoice number ${rec.invNumber} is firm me pehle se hai. Phir bhi save karein?`)) return null;
@@ -1945,7 +2077,7 @@ function saveInvoice(andPrint) {
         if (adv > 0) rec.payments.push({ date: rec.date, amount: round2(adv), mode: $('payMode').value, note: 'Invoice ke saath' });
         invoices.push(rec);
     }
-    recalcPay(rec);
+    applyCredits();
     changeStock(rec.items, -1, `Invoice ${rec.invNumber}`);
     saveAll();
     renderAll();
@@ -2025,7 +2157,7 @@ function saveQuotation() {
     quotations.forEach(q => { const n = parseInt(String(q.quotNumber).replace(/\D/g, '')); if (!isNaN(n) && n > max) max = n; });
     rec.quotNumber = 'QT-' + String(max + 1).padStart(3, '0');
     rec.id = uid();
-    delete rec.invNumber; delete rec.received; delete rec.balance;
+    delete rec.invNumber; delete rec.received; delete rec.balance; delete rec.creditTotal;
     quotations.push(rec);
     saveAll();
     renderQuotationTable();
@@ -2075,15 +2207,17 @@ function renderHistoryTable() {
         tr.innerHTML = `
             <td>${esc(inv.firm)}</td><td>${esc(inv.invNumber)}</td><td>${fmtDate(inv.date)}</td><td>${esc(inv.customer)}</td>
             <td style="color:${inv.status === 'Paid' ? 'green' : '#b30000'}; font-weight:bold;">${inv.status}</td>
-            <td>${money(inv.grandTotal)}</td><td>${money(inv.balance)}</td>
+            <td>${money(inv.grandTotal)}${inv.creditTotal > 0 ? '<br><small style="color:#b30000;">CN: -' + money(inv.creditTotal) + '</small>' : ''}</td><td>${money(inv.balance)}</td>
             <td>
                 <button type="button" class="btn-warning btn-sm v">📄 View/Print</button>
                 <button type="button" class="btn-info btn-sm e">✏️ Edit</button>
+                <button type="button" class="btn-grey btn-sm cn">↩ CN</button>
                 <button type="button" class="btn-success btn-sm w" style="background:#25D366;">💬</button>
                 <button type="button" class="btn-danger btn-sm d">Delete</button>
             </td>`;
         tr.querySelector('.v').addEventListener('click', () => showDocModal(inv, 'TAX INVOICE'));
         tr.querySelector('.e').addEventListener('click', () => editInvoice(inv.id));
+        tr.querySelector('.cn').addEventListener('click', () => openCreditNoteModal(inv.id));
         tr.querySelector('.w').addEventListener('click', () => {
             openWhatsApp(inv.phone, `Namaste ${inv.customer},\n${inv.firm} ki Invoice #${inv.invNumber} (${fmtDate(inv.date)})\nTotal: ₹${money(inv.grandTotal)} | Received: ₹${money(inv.received)} | Baaki: ₹${money(inv.balance)}\nDhanyavaad!`);
         });
@@ -2095,11 +2229,154 @@ function renderHistoryTable() {
 function deleteInvoice(id) {
     const inv = invoices.find(i => i.id === id);
     if (!inv) return;
+    if (creditNotes.some(c => c.invoiceId === id)) { toast('Is invoice par credit note bani hai. Pehle credit note delete karo.'); return; }
     if (!confirm(`Invoice #${inv.invNumber} delete karein? Stock wapas add ho jaayega.`)) return;
     changeStock(inv.items, +1, `Invoice ${inv.invNumber} deleted`);
     invoices = invoices.filter(i => i.id !== id);
     saveAll(); renderAll();
     if (editingId === id) resetInvoiceForm();
+}
+
+/* ============================================================
+   CREDIT NOTES
+   ============================================================ */
+function itemKey(it) { return ((it.barcode || '') + '|' + (it.name || '')).toLowerCase(); }
+function returnedQtyMap(invId) {
+    const m = {};
+    creditNotes.filter(c => c.invoiceId === invId).forEach(c => c.items.forEach(it => {
+        const k = itemKey(it);
+        m[k] = (m[k] || 0) + (+it.qty || 0);
+    }));
+    return m;
+}
+
+function openCreditNoteModal(invId) {
+    const inv = invoices.find(i => i.id === invId);
+    if (!inv) return;
+    const t = taxBreakup(inv);
+    const f = t.raw > 0 ? (t.raw - t.disc) / t.raw : 1;
+    const ret = returnedQtyMap(inv.id);
+    const rows = inv.items.map(it => {
+        const prev = Math.min(ret[itemKey(it)] || 0, it.qty);
+        return { it, prev, max: Math.max(0, it.qty - prev), unit: it.qty ? (it.total * f / it.qty) : 0, r: 0 };
+    });
+    cnCtx = { inv, f, rows, total: 0 };
+    $('cnInfo').innerHTML = `Invoice <b>#${esc(inv.invNumber)}</b> — ${esc(inv.customer)} | Total ₹${money(inv.grandTotal)} | Mil chuka ₹${money(inv.received)}`;
+    const tb = $('cnItems');
+    tb.innerHTML = '';
+    rows.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="left">${esc(row.it.name)}</td><td>${row.it.qty}</td><td>${row.prev}</td>
+            <td><input type="number" class="input-field cn-qty" min="0" max="${row.max}" step="any" value="0" style="margin-bottom:0; width:90px;" ${row.max <= 0 ? 'disabled' : ''}></td>
+            <td class="right cn-amt">0.00</td>`;
+        tr.querySelector('.cn-qty').addEventListener('input', cnRecalc);
+        tb.appendChild(tr);
+    });
+    $('cnDate').value = today();
+    $('cnReason').value = '';
+    $('cnRestock').checked = true;
+    $('cnRefund').value = 0;
+    cnRefundTouched = false;
+    $('cnRefundMode').value = 'Cash';
+    $('cnTotal').innerText = '0.00';
+    $('cnHint').innerText = '';
+    $('cnOverlay').style.display = 'flex';
+}
+
+function cnRecalc() {
+    if (!cnCtx) return;
+    let total = 0;
+    const inputs = document.querySelectorAll('#cnItems .cn-qty');
+    inputs.forEach((inp, i) => {
+        const row = cnCtx.rows[i];
+        let r = parseFloat(inp.value) || 0;
+        if (r < 0) { r = 0; inp.value = 0; }
+        if (r > row.max) { r = row.max; inp.value = r; }
+        row.r = r;
+        const amt = r * row.unit;
+        total += amt;
+        inp.closest('tr').querySelector('.cn-amt').innerText = amt.toFixed(2);
+    });
+    total = round2(total);
+    cnCtx.total = total;
+    $('cnTotal').innerText = money(total);
+    const inv = cnCtx.inv;
+    const net = inv.grandTotal - (inv.creditTotal || 0) - total;
+    const excess = Math.max(0, round2(inv.received - net));
+    if (!cnRefundTouched) $('cnRefund').value = excess;
+    $('cnHint').innerText = total <= 0 ? '' : (excess > 0
+        ? `Customer ne ₹${money(inv.received)} de rakhe hain, isliye ₹${money(excess)} wapas karna banta hai. Agar abhi wapas nahi kiya, to refund 0 rakho (tab ye customer ka credit rahega, jo aapko alag se yaad rakhna padega).`
+        : 'Ye amount invoice ke baaki udhaar se kat jaayega.');
+}
+
+function saveCreditNote() {
+    if (!cnCtx) return;
+    const inv = cnCtx.inv;
+    const items = [];
+    cnCtx.rows.forEach(row => {
+        if (row.r > 0) {
+            const ratio = row.it.qty ? row.r / row.it.qty : 0;
+            items.push({
+                name: row.it.name, barcode: row.it.barcode || '', hsn: row.it.hsn || '',
+                qty: row.r, price: row.it.price, gst: row.it.gst,
+                taxable: row.it.taxable * ratio * cnCtx.f,
+                tax: row.it.tax * ratio * cnCtx.f,
+                total: row.it.total * ratio * cnCtx.f
+            });
+        }
+    });
+    if (!items.length) { toast('Kam se kam ek item ki wapas quantity daalo'); return; }
+    const date = $('cnDate').value || today();
+    const refund = round2(parseFloat($('cnRefund').value) || 0);
+    if (refund > inv.received + 0.01) { toast('Refund jitna mila hai usse zyada nahi ho sakta (₹' + money(inv.received) + ')'); return; }
+
+    const cn = {
+        id: uid(), seq: nextSeq(), firm: inv.firm, cnNumber: nextCnNumber(inv.firm, date), date,
+        invoiceId: inv.id, invNumber: inv.invNumber, invDate: inv.date,
+        customer: inv.customer, custDetails: inv.custDetails, phone: inv.phone || '', gstin: inv.gstin || '',
+        pos: inv.pos, igst: inv.igst, priceMode: inv.priceMode,
+        items, discount: 0, transport: 0, transportGst: 0,
+        reason: $('cnReason').value.trim(), restock: $('cnRestock').checked
+    };
+    finalizeTotals(cn);
+    creditNotes.push(cn);
+    if (refund > 0) inv.payments.push({ date, amount: -refund, mode: $('cnRefundMode').value, note: 'Refund ' + cn.cnNumber, cnId: cn.id });
+    if (cn.restock) changeStock(cn.items, +1, 'Credit Note ' + cn.cnNumber);
+    applyCredits();
+    saveAll();
+    $('cnOverlay').style.display = 'none';
+    cnCtx = null;
+    renderAll();
+    toast('Credit Note ban gayi: ' + cn.cnNumber);
+    showDocModal(cn, 'CREDIT NOTE');
+}
+
+function renderCreditNoteTable() {
+    const tb = $('creditNoteTableBody');
+    if (!tb) return;
+    tb.innerHTML = '';
+    [...creditNotes].reverse().forEach(cn => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${esc(cn.firm)}</td><td>${esc(cn.cnNumber)}</td><td>${fmtDate(cn.date)}</td><td>${esc(cn.invNumber)}</td><td>${esc(cn.customer)}</td><td>${money(cn.grandTotal)}</td>
+            <td><button type="button" class="btn-warning btn-sm p">🖨️ Print</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
+        tr.querySelector('.p').addEventListener('click', () => showDocModal(cn, 'CREDIT NOTE'));
+        tr.querySelector('.d').addEventListener('click', () => deleteCreditNote(cn.id));
+        tb.appendChild(tr);
+    });
+    if (!creditNotes.length) tb.innerHTML = '<tr><td colspan="7">Abhi koi credit note nahi</td></tr>';
+}
+
+function deleteCreditNote(id) {
+    const cn = creditNotes.find(c => c.id === id);
+    if (!cn) return;
+    if (!confirm(`Credit Note ${cn.cnNumber} delete karein? Stock aur refund ki entry bhi wapas ho jaayegi.`)) return;
+    if (cn.restock) changeStock(cn.items, -1, `Credit Note ${cn.cnNumber} deleted`);
+    const inv = invoices.find(i => i.id === cn.invoiceId);
+    if (inv) inv.payments = inv.payments.filter(p => p.cnId !== cn.id);
+    creditNotes = creditNotes.filter(c => c.id !== id);
+    applyCredits();
+    saveAll(); renderAll();
+    toast('Credit Note delete ho gayi');
 }
 
 /* ============================================================
@@ -2110,15 +2387,20 @@ function showDocModal(doc, type) {
     currentDoc = { doc, type };
     const firm = companies.find(c => c.name === doc.firm) || companies[0] || {};
     const isQ = type === 'QUOTATION';
+    const isCN = type === 'CREDIT NOTE';
     const t = taxBreakup(doc);
     const pan = firm.pan || '';
+
+    const lg = $('dLogo');
+    if (firm.logo) { lg.src = firm.logo; lg.style.display = 'block'; }
+    else { lg.style.display = 'none'; lg.removeAttribute('src'); }
 
     $('dTitle').innerText = type;
     $('dFirm').innerText = doc.firm || '';
     $('dFirmDetails').innerHTML = `Address: ${esc(firm.address || '')}<br>Phone: ${esc(firm.phone || '')} | GSTIN: ${esc(firm.gstin || '')}${pan ? ' | PAN: ' + esc(pan) : ''}`;
-    $('dNoLabel').innerText = isQ ? 'Quotation No:' : 'Invoice No:';
-    $('dDateLabel').innerText = isQ ? 'Quotation Date:' : 'Invoice Date:';
-    $('dNum').innerText = isQ ? doc.quotNumber : doc.invNumber;
+    $('dNoLabel').innerText = isQ ? 'Quotation No:' : (isCN ? 'Credit Note No:' : 'Invoice No:');
+    $('dDateLabel').innerText = isQ ? 'Quotation Date:' : (isCN ? 'Credit Note Date:' : 'Invoice Date:');
+    $('dNum').innerText = isQ ? doc.quotNumber : (isCN ? doc.cnNumber : doc.invNumber);
     $('dDate').innerText = fmtDate(doc.date);
     $('dPos').innerText = doc.pos || '';
     if (isQ) {
@@ -2150,11 +2432,12 @@ function showDocModal(doc, type) {
     });
 
     const row = (l, v, b) => `<tr><td style="padding:3px 10px; text-align:right; ${b ? 'font-weight:bold; font-size:14px; border-top:1px solid #1a365d;' : ''}">${l}</td><td style="padding:3px 10px; text-align:right; min-width:110px; ${b ? 'font-weight:bold; font-size:14px; border-top:1px solid #1a365d; color:#1a365d;' : ''}">${v}</td></tr>`;
-    let tot = row('Items Total', '₹' + money(t.raw));
+    let tot = row(isCN ? 'Returned Items Total' : 'Items Total', '₹' + money(t.raw));
     if (t.disc > 0) tot += row('Discount', '- ₹' + money(t.disc));
     if (t.tr > 0) tot += row('Transport / Packing (+GST)', '₹' + money(t.tr + t.trTax));
-    tot += row('Grand Total', '₹' + money(doc.grandTotal), true);
-    if (!isQ) {
+    tot += row(isCN ? 'Credit Note Amount' : 'Grand Total', '₹' + money(doc.grandTotal), true);
+    if (!isQ && !isCN) {
+        if (doc.creditTotal > 0) tot += row('Credit Notes (return)', '- ₹' + money(doc.creditTotal));
         tot += row('Received', '₹' + money(doc.received));
         tot += row('<b>Balance</b>', '<b style="color:' + (doc.balance > 0 ? '#b30000' : 'green') + ';">₹' + money(doc.balance) + '</b>');
     }
@@ -2176,8 +2459,33 @@ function showDocModal(doc, type) {
     });
 
     $('dWords').innerText = convertNumberToWords(doc.grandTotal);
-    $('dNotes').innerHTML = doc.notes ? '<b>Notes:</b> ' + esc(doc.notes) : '';
+    let notes = '';
+    if (isCN) {
+        notes += `<b>Against Invoice:</b> ${esc(doc.invNumber)} (${fmtDate(doc.invDate)})`;
+        if (doc.reason) notes += `<br><b>Reason:</b> ${esc(doc.reason)}`;
+    } else if (doc.notes) notes = '<b>Notes:</b> ' + esc(doc.notes);
+    $('dNotes').innerHTML = notes;
     $('dBank').innerHTML = `Name: <b>${esc(firm.bankName || 'N/A')}</b><br>IFSC Code: <b>${esc(firm.ifsc || 'N/A')}</b><br>Account No: <b>${esc(firm.accNo || 'N/A')}</b>`;
+
+    // UPI QR (sirf invoice par, jab baaki ho aur firm ki UPI ID bhari ho)
+    $('dUpiBox').style.display = 'none';
+    $('dQr').innerHTML = '';
+    if (!isQ && !isCN && firm.upi && doc.balance > 0) {
+        let img = '';
+        try {
+            if (typeof qrcode !== 'undefined') {
+                const url = 'upi://pay?pa=' + encodeURIComponent(firm.upi).replace(/%40/g, '@') + '&pn=' + encodeURIComponent(firm.name || '') + '&am=' + (+doc.balance).toFixed(2) + '&cu=INR&tn=' + encodeURIComponent('Invoice ' + doc.invNumber);
+                const qr = qrcode(0, 'M');
+                qr.addData(url);
+                qr.make();
+                img = '<img alt="UPI QR" src="' + qr.createDataURL(4, 2) + '" style="width:110px; height:110px;">';
+            }
+        } catch (e) { console.error(e); }
+        $('dQr').innerHTML = img;
+        $('dUpiText').innerHTML = 'UPI ID: <b>' + esc(firm.upi) + '</b><br>' + (img ? 'QR scan karke ' : '') + '₹' + money(doc.balance) + ' pay karein';
+        $('dUpiBox').style.display = 'flex';
+    }
+
     $('dSign').innerText = `For ${doc.firm || 'Firm'}`;
     $('docOverlay').style.display = 'block';
     $('docOverlay').scrollTop = 0;
@@ -2201,8 +2509,10 @@ async function makePdfBlob() {
 function pdfFileName() {
     if (!currentDoc) return 'document.pdf';
     const d = currentDoc.doc;
-    const no = currentDoc.type === 'QUOTATION' ? d.quotNumber : d.invNumber;
-    return (currentDoc.type === 'QUOTATION' ? 'Quotation' : 'Invoice') + '-' + no + '-' + String(d.customer || '').replace(/[^\w]+/g, '_').slice(0, 20) + '.pdf';
+    const isQ = currentDoc.type === 'QUOTATION';
+    const isCN = currentDoc.type === 'CREDIT NOTE';
+    const no = isQ ? d.quotNumber : (isCN ? d.cnNumber : d.invNumber);
+    return (isQ ? 'Quotation' : (isCN ? 'CreditNote' : 'Invoice')) + '-' + String(no).replace(/[^\w-]+/g, '_') + '-' + String(d.customer || '').replace(/[^\w]+/g, '_').slice(0, 20) + '.pdf';
 }
 async function downloadDocPdf(share) {
     try {
@@ -2304,7 +2614,7 @@ function openPayModal(type, id) {
     if (!rec) return;
     payCtx = { type, id };
     $('payInfo').innerHTML = type === 'inv'
-        ? `<b>${esc(rec.customer)}</b> — Invoice #${esc(rec.invNumber)}<br>Total ₹${money(rec.grandTotal)} | Baaki ₹${money(rec.balance)}`
+        ? `<b>${esc(rec.customer)}</b> — Invoice #${esc(rec.invNumber)}<br>Total ₹${money(rec.grandTotal)}${rec.creditTotal > 0 ? ' (credit note: -₹' + money(rec.creditTotal) + ')' : ''} | Baaki ₹${money(rec.balance)}`
         : `<b>${esc(rec.supplier || 'Cash / Direct')}</b> — Bill ${esc(rec.billNo || '-')}<br>Total ₹${money(rec.total)} | Baaki ₹${money(rec.balance)}`;
     $('payAmount').value = rec.balance;
     $('payDate').value = today();
@@ -2328,7 +2638,7 @@ function savePayment() {
 function showPaymentHistory(rec, title) {
     let h = `<table class="items-table"><thead><tr><th>Date</th><th>Amount (₹)</th><th>Mode</th><th>Note</th><th class="no-print">Action</th></tr></thead><tbody>`;
     (rec.payments || []).forEach((p, i) => {
-        h += `<tr><td>${fmtDate(p.date)}</td><td>${money(p.amount)}</td><td>${esc(p.mode)}</td><td>${esc(p.note || '')}</td><td class="no-print"><button type="button" class="btn-danger btn-sm" data-del="${i}">Delete</button></td></tr>`;
+        h += `<tr><td>${fmtDate(p.date)}</td><td>${money(p.amount)}</td><td>${esc(p.mode)}</td><td>${esc(p.note || '')}</td><td class="no-print">${p.cnId ? '<small>Credit Note se juda</small>' : `<button type="button" class="btn-danger btn-sm" data-del="${i}">Delete</button>`}</td></tr>`;
     });
     if (!(rec.payments || []).length) h += `<tr><td colspan="5">Koi payment nahi</td></tr>`;
     h += `</tbody></table>`;
@@ -2370,7 +2680,7 @@ function renderLedgerTable() {
         tr.innerHTML = `
             <td style="text-align:left;">${esc(inv.customer)}<br><small style="color:#666;">${esc(inv.firm)}</small></td>
             <td>${esc(inv.invNumber)}</td><td>${fmtDate(inv.date)}</td>
-            <td>${money(inv.grandTotal)}</td><td>${money(inv.received)}</td>
+            <td>${money(inv.grandTotal - (inv.creditTotal || 0))}</td><td>${money(inv.received)}</td>
             <td style="color:red; font-weight:bold;">${money(inv.balance)}</td>
             <td>
                 <button type="button" class="btn-success btn-sm pay">+ Payment</button>
@@ -2429,7 +2739,10 @@ function showCustomerStatement(name, phone) {
     const entries = [];
     invoices.filter(i => i.customer.toLowerCase() === name.toLowerCase()).forEach(i => {
         entries.push({ date: i.date, desc: `Invoice #${i.invNumber} (${i.firm})`, debit: i.grandTotal, credit: 0 });
-        (i.payments || []).forEach(p => entries.push({ date: p.date, desc: `Payment ${p.mode}${p.note ? ' - ' + p.note : ''} (Inv #${i.invNumber})`, debit: 0, credit: p.amount }));
+        (i.payments || []).forEach(p => entries.push({ date: p.date, desc: `${p.amount < 0 ? 'Refund' : 'Payment'} ${p.mode}${p.note ? ' - ' + p.note : ''} (Inv #${i.invNumber})`, debit: 0, credit: p.amount }));
+    });
+    creditNotes.filter(c => String(c.customer).toLowerCase() === name.toLowerCase()).forEach(c => {
+        entries.push({ date: c.date, desc: `Credit Note ${c.cnNumber} (Inv #${c.invNumber})`, debit: 0, credit: c.grandTotal });
     });
     const r = buildStatementHtml('', entries, 'Baaki');
     const html = `<p style="font-size:13px;">Customer: <b>${esc(name)}</b> &nbsp; | &nbsp; Aaj ki date: ${fmtDate(today())}</p>` + r.html;
@@ -2567,22 +2880,34 @@ function computeReport() {
     const inR = d => (!f || d >= f) && (!t || d <= t);
     const firmOk = n => !firm || n === firm;
     const invs = invoices.filter(i => inR(i.date) && firmOk(i.firm));
+    const cns = creditNotes.filter(c => inR(c.date) && firmOk(c.firm));
     const purs = purchases.filter(p => inR(p.date) && firmOk(p.firm));
     const exps = expenses.filter(e => inR(e.date) && firmOk(e.firm));
-    const R = { invs, purs, exps, sales: 0, received: 0, pending: 0, taxable: 0, outTax: 0, hsn: {}, register: [] };
+    const R = { invs, cns, purs, exps, sales: 0, received: 0, pending: 0, taxable: 0, outTax: 0, cnTotal: 0, hsn: {}, register: [] };
+    const addHsn = (r, sign) => {
+        const k = r.hsn + '|' + r.rate;
+        if (!R.hsn[k]) R.hsn[k] = { hsn: r.hsn, rate: r.rate, taxable: 0, cgst: 0, sgst: 0, igst: 0 };
+        const m = R.hsn[k];
+        m.taxable += sign * r.taxable; m.cgst += sign * r.cgst; m.sgst += sign * r.sgst; m.igst += sign * r.igst;
+    };
     invs.forEach(inv => {
         const tb = taxBreakup(inv);
         R.sales += inv.grandTotal; R.received += inv.received; R.pending += inv.balance;
         R.taxable += tb.taxable; R.outTax += tb.tax;
         let cg = 0, sg = 0, ig = 0;
-        tb.rows.forEach(r => {
-            const k = r.hsn + '|' + r.rate;
-            if (!R.hsn[k]) R.hsn[k] = { hsn: r.hsn, rate: r.rate, taxable: 0, cgst: 0, sgst: 0, igst: 0 };
-            const m = R.hsn[k];
-            m.taxable += r.taxable; m.cgst += r.cgst; m.sgst += r.sgst; m.igst += r.igst;
-            cg += r.cgst; sg += r.sgst; ig += r.igst;
-        });
+        tb.rows.forEach(r => { addHsn(r, 1); cg += r.cgst; sg += r.sgst; ig += r.igst; });
         R.register.push({ inv, taxable: tb.taxable, cgst: cg, sgst: sg, igst: ig });
+    });
+    cns.forEach(cn => {
+        const tb = taxBreakup(cn);
+        R.sales -= cn.grandTotal; R.cnTotal += cn.grandTotal;
+        R.taxable -= tb.taxable; R.outTax -= tb.tax;
+        let cg = 0, sg = 0, ig = 0;
+        tb.rows.forEach(r => { addHsn(r, -1); cg += r.cgst; sg += r.sgst; ig += r.igst; });
+        R.register.push({
+            inv: { invNumber: cn.cnNumber, date: cn.date, firm: cn.firm, customer: cn.customer, gstin: cn.gstin, pos: cn.pos, grandTotal: -cn.grandTotal, received: 0, balance: 0 },
+            taxable: -tb.taxable, cgst: -cg, sgst: -sg, igst: -ig
+        });
     });
     R.purTaxable = purs.reduce((s, p) => s + p.taxable, 0);
     R.inTax = purs.reduce((s, p) => s + p.tax, 0);
@@ -2597,8 +2922,9 @@ function updateReports() {
     const R = computeReport();
     const card = (h, v, c) => `<div class="stat-card"><h4>${h}</h4><div style="color:${c || '#222'};">${v}</div></div>`;
     $('repCards').innerHTML =
-        card('Total Sales (GST ke saath)', '₹' + money(R.sales)) +
+        card('Total Sales (GST ke saath, return ke baad)', '₹' + money(R.sales)) +
         card('Sales (bina GST)', '₹' + money(R.taxable)) +
+        card('Credit Notes (return)', '₹' + money(R.cnTotal), '#b30000') +
         card('Total Received', '₹' + money(R.received), 'green') +
         card('Total Pending (Udhaar)', '₹' + money(R.pending), 'red') +
         card('Output GST (becha)', '₹' + money(R.outTax)) +
@@ -2633,9 +2959,12 @@ function updateReports() {
 
     const db2 = $('dayBookTableBody');
     db2.innerHTML = '';
-    [...R.invs].sort((a, b) => b.date.localeCompare(a.date)).forEach(inv => {
+    const dbRows = R.invs.map(inv => ({ date: inv.date, no: inv.invNumber, cust: inv.customer, total: inv.grandTotal, rec: inv.received, bal: inv.balance, status: inv.status }))
+        .concat(R.cns.map(c => ({ date: c.date, no: c.cnNumber, cust: c.customer, total: -c.grandTotal, rec: 0, bal: 0, status: 'Credit Note' })));
+    dbRows.sort((a, b) => b.date.localeCompare(a.date));
+    dbRows.forEach(r => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${fmtDate(inv.date)}</td><td>${esc(inv.invNumber)}</td><td class="left">${esc(inv.customer)}</td><td>${money(inv.grandTotal)}</td><td>${money(inv.received)}</td><td>${money(inv.balance)}</td><td>${inv.status}</td>`;
+        tr.innerHTML = `<td>${fmtDate(r.date)}</td><td>${esc(r.no)}</td><td class="left">${esc(r.cust)}</td><td>${money(r.total)}</td><td>${money(r.rec)}</td><td>${money(r.bal)}</td><td>${esc(r.status)}</td>`;
         db2.appendChild(tr);
     });
 }
@@ -2650,7 +2979,7 @@ function exportGstr1Csv() {
 }
 function exportRegisterCsv() {
     const R = computeReport();
-    let csv = ['Invoice No', 'Date', 'Firm', 'Customer', 'Customer GSTIN', 'Place of Supply', 'Taxable Value', 'CGST', 'SGST', 'IGST', 'Invoice Total', 'Received', 'Balance'].map(csvCell).join(',') + '\n';
+    let csv = ['Invoice / CN No', 'Date', 'Firm', 'Customer', 'Customer GSTIN', 'Place of Supply', 'Taxable Value', 'CGST', 'SGST', 'IGST', 'Total', 'Received', 'Balance'].map(csvCell).join(',') + '\n';
     R.register.forEach(r => {
         const i = r.inv;
         csv += [i.invNumber, i.date, i.firm, i.customer, i.gstin || '', i.pos, r.taxable.toFixed(2), r.cgst.toFixed(2), r.sgst.toFixed(2), r.igst.toFixed(2), i.grandTotal.toFixed(2), i.received.toFixed(2), i.balance.toFixed(2)].map(csvCell).join(',') + '\n';
@@ -2661,6 +2990,43 @@ function exportRegisterCsv() {
 /* ============================================================
    FIRMS
    ============================================================ */
+function renderLogoPreview() {
+    const row = $('busLogoRow');
+    if (pendingLogo) { $('busLogoPreview').src = pendingLogo; row.style.display = 'block'; }
+    else { row.style.display = 'none'; $('busLogoPreview').removeAttribute('src'); }
+}
+function handleLogoFile(e) {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { toast('Sirf image file chuno (PNG ya JPG)'); e.target.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+            const max = 240;
+            const s = Math.min(1, max / Math.max(img.width, img.height));
+            const w = Math.max(1, Math.round(img.width * s)), h = Math.max(1, Math.round(img.height * s));
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const x = c.getContext('2d');
+            x.drawImage(img, 0, 0, w, h);
+            let url = c.toDataURL('image/png');
+            if (url.length > 200000) {
+                x.globalCompositeOperation = 'destination-over';
+                x.fillStyle = '#ffffff';
+                x.fillRect(0, 0, w, h);
+                url = c.toDataURL('image/jpeg', 0.8);
+            }
+            pendingLogo = url;
+            renderLogoPreview();
+            toast('Logo chun liya. "Save Firm" dabao.');
+        };
+        img.onerror = () => toast('Ye image padh nahi paye');
+        img.src = reader.result;
+    };
+    reader.readAsDataURL(f);
+    e.target.value = '';
+}
 function renderCompanyTable() {
     const tbody = $('companyTableBody');
     if (!tbody) return;
@@ -2674,6 +3040,10 @@ function renderCompanyTable() {
             $('busPhone').value = c.phone || ''; $('busGstin').value = c.gstin || ''; $('busPan').value = c.pan || '';
             $('busState').value = c.state || stateFromGstin(c.gstin) || '';
             $('busBank').value = c.bankName || ''; $('busAcc').value = c.accNo || ''; $('busIfsc').value = c.ifsc || '';
+            $('busUpi').value = c.upi || '';
+            $('busNumFmt').value = c.numFormat === 'simple' ? 'simple' : 'fy';
+            pendingLogo = c.logo || '';
+            renderLogoPreview();
             $('saveBusinessBtn').innerText = 'Update Firm'; $('cancelFirmEditBtn').style.display = 'block';
             window.scrollTo(0, 0);
         });
@@ -2683,7 +3053,10 @@ function renderCompanyTable() {
 }
 function clearFirmForm() {
     editingFirmIdx = null;
-    ['busName', 'busPrefix', 'busAddress', 'busPhone', 'busGstin', 'busState', 'busPan', 'busBank', 'busAcc', 'busIfsc'].forEach(id => { $(id).value = ''; });
+    ['busName', 'busPrefix', 'busAddress', 'busPhone', 'busGstin', 'busState', 'busPan', 'busBank', 'busAcc', 'busIfsc', 'busUpi'].forEach(id => { $(id).value = ''; });
+    $('busNumFmt').value = 'fy';
+    pendingLogo = '';
+    renderLogoPreview();
     $('saveBusinessBtn').innerText = 'Save Firm'; $('cancelFirmEditBtn').style.display = 'none';
 }
 function saveBusinessProfile() {
@@ -2692,7 +3065,8 @@ function saveBusinessProfile() {
     const obj = {
         name, prefix: $('busPrefix').value.trim(), address: $('busAddress').value.trim(), phone: $('busPhone').value.trim(),
         gstin: $('busGstin').value.trim().toUpperCase(), pan: $('busPan').value.trim().toUpperCase(), state: $('busState').value.trim(),
-        bankName: $('busBank').value.trim(), accNo: $('busAcc').value.trim(), ifsc: $('busIfsc').value.trim()
+        bankName: $('busBank').value.trim(), accNo: $('busAcc').value.trim(), ifsc: $('busIfsc').value.trim(),
+        upi: $('busUpi').value.trim(), numFormat: $('busNumFmt').value, logo: pendingLogo || ''
     };
     if (editingFirmIdx !== null) {
         const oldC = companies[editingFirmIdx];
@@ -2700,10 +3074,11 @@ function saveBusinessProfile() {
         obj.id = oldC.id; obj.seq = oldC.seq;
         companies[editingFirmIdx] = obj;
         if (oldName !== name) {
-            [invoices, quotations, expenses, purchases].forEach(list => list.forEach(x => { if (x.firm === oldName) x.firm = name; }));
+            [invoices, creditNotes, quotations, expenses, purchases].forEach(list => list.forEach(x => { if (x.firm === oldName) x.firm = name; }));
         }
     } else companies.push(obj);
     saveAll(); clearFirmForm(); populateFirmDropdowns(); renderCompanyTable(); onFirmChange(); renderAll();
+    if (!editingId) setNextInvoiceNumber();
     toast('Firm save ho gayi');
 }
 function deleteCompany(idx) {
