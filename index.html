@@ -738,7 +738,7 @@
    ============================================================ */
 const APP_NAME = 'Golden Star POS';
 
-    // Firebase config (bechne ke liye yahan apni values daal do; agar khali chhodo to login screen par paste karne ka box aayega)
+// Firebase config (code mein hi likhi hui hai, isliye har device par seedha Login screen aayegi)
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyDlHR_MyuEIu9mIs-4_Mmk8NRUsLGQslw0",
     authDomain: "my-pos-app-54ef4.firebaseapp.com",
@@ -755,7 +755,8 @@ const $ = id => document.getElementById(id);
 const round2 = n => Math.round((+n || 0) * 100) / 100;
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = n => (+n || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+let uidCounter = 0;
+const uid = () => Date.now().toString(36) + (uidCounter++ % 1296).toString(36).padStart(2, '0') + Math.random().toString(36).slice(2, 5);
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const fmtDate = d => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : d; };
 const on = (id, evt, fn) => { const el = $(id); if (el) el.addEventListener(evt, fn); };
@@ -773,7 +774,8 @@ function toast(msg) {
 /* ============================================================
    DATA
    ============================================================ */
-const DATA_KEYS = ['companies', 'customers', 'inventory', 'invoices', 'quotations', 'expenses', 'suppliers', 'purchases', 'stockLog'];
+const COLL_KEYS = ['companies', 'customers', 'inventory', 'invoices', 'quotations', 'expenses', 'suppliers', 'purchases'];   // har record alag document
+const DATA_KEYS = COLL_KEYS.concat(['stockLog']);                                                                            // stockLog ek document
 const defaultData = () => ({
     companies: [{ name: 'Meri Firm', prefix: 'INV', address: '', phone: '', gstin: '', pan: '', state: '', bankName: '', accNo: '', ifsc: '' }],
     customers: [], inventory: [], invoices: [], quotations: [], expenses: [], suppliers: [], purchases: [], stockLog: []
@@ -786,11 +788,14 @@ let settings = LS('gs_settings', { lowStock: 2, pin: '' });   // device-local on
 let auth = null, db = null, useCloud = false;
 let currentUser = null;          // { uid, email } when logged in
 let keyPrefix = 'gs_';           // localStorage prefix ('gs_' = local mode / legacy, 'gs_u_<uid>_' = per user cache)
-let syncedJson = {};             // last JSON written to / read from cloud, per key
+let syncedMap = {};              // collection -> { id: last synced JSON }
+let syncedStock = null;          // last synced stockLog JSON
+let formatWritten = false;       // meta/format document likha ja chuka hai ya nahi
 let cloudWritable = false;       // only true after a successful cloud read (protects against overwriting)
 let mainStarted = false;
 let authMode = 'login';
 let lastAutoPos = '';
+let quotaWarned = false;
 
 let editingId = null;            // invoice being edited
 let editingFirmIdx = null;
@@ -930,24 +935,51 @@ function normalizeAll() {
 }
 
 /* ============================================================
-   STORAGE: LOCAL + CLOUD (per user)
+   STORAGE: LOCAL + CLOUD (har record alag document)
+   Cloud structure: users/{uid}/{collection}/{recordId}
    ============================================================ */
+let lastSeq = 0;
+function nextSeq() { lastSeq = Math.max(lastSeq + 1, Date.now()); return lastSeq; }
+function bySeq(a, b) { return (a.seq || 0) - (b.seq || 0) || String(a.id).localeCompare(String(b.id)); }
+
+// Har record ko id aur seq (order) dena
+function ensureIds() {
+    const data = getData();
+    COLL_KEYS.forEach(k => {
+        const used = {};
+        data[k].forEach(r => {
+            if (!r.id || used[r.id]) r.id = uid();
+            used[r.id] = 1;
+            if (!r.seq) r.seq = nextSeq();
+        });
+    });
+}
+
 function loadLocalData() {
     const d = defaultData();
     const out = {};
     DATA_KEYS.forEach(k => { out[k] = LS(lsKey(k), d[k]); });
     setData(out);
     normalizeAll();
+    ensureIds();
 }
 function saveLocal() {
     const data = getData();
     try {
         DATA_KEYS.forEach(k => localStorage.setItem(lsKey(k), JSON.stringify(data[k])));
-    } catch (e) { toast('⚠️ Browser storage full ho gaya! Backup le lo.'); }
+    } catch (e) {
+        if (!quotaWarned) { quotaWarned = true; toast('⚠️ Browser storage full ho gaya! Backup le lo.'); }
+    }
 }
 function markSynced() {
     const data = getData();
-    DATA_KEYS.forEach(k => { syncedJson[k] = JSON.stringify(data[k]); });
+    syncedMap = {};
+    COLL_KEYS.forEach(k => {
+        const m = {};
+        data[k].forEach(r => { m[r.id] = JSON.stringify(r); });
+        syncedMap[k] = m;
+    });
+    syncedStock = JSON.stringify(data.stockLog);
 }
 function setSyncStatus(state, err) {
     const el = $('syncStatus');
@@ -959,28 +991,86 @@ function setSyncStatus(state, err) {
         if (err) console.error(err);
     }
 }
+
 function saveAll() {
+    ensureIds();
     saveLocal();
     if (!(useCloud && db && currentUser)) return;
     if (!cloudWritable) { setSyncStatus('err'); return; }
-    const data = getData();
-    DATA_KEYS.forEach(k => {
-        const json = JSON.stringify(data[k]);
-        if (json === syncedJson[k]) return;
-        db.collection('users').doc(currentUser.uid).collection('data').doc(k)
-            .set({ list: JSON.parse(json), updatedAt: Date.now() })
-            .then(() => { syncedJson[k] = json; setSyncStatus('ok'); })
-            .catch(e => {
-                setSyncStatus('err', e);
-                if (e && e.code === 'permission-denied') toast('⚠️ Cloud permission denied: Firestore Rules check karo');
-                else toast('⚠️ Cloud par save nahi hua (' + k + '). Backup le lo.');
-            });
-    });
+    cloudSync();
 }
+
+// Sirf badle hue records likhta hai, hataye hue records delete karta hai
+async function pushCollection(k) {
+    const arr = getData()[k];
+    const cur = {};
+    arr.forEach(r => { cur[r.id] = JSON.stringify(r); });
+    const prev = syncedMap[k] || {};
+    const ops = [];
+    Object.keys(cur).forEach(id => { if (prev[id] !== cur[id]) ops.push({ t: 's', id, json: cur[id] }); });
+    Object.keys(prev).forEach(id => { if (!(id in cur)) ops.push({ t: 'd', id }); });
+    if (!ops.length) return;
+    const col = db.collection('users').doc(currentUser.uid).collection(k);
+    for (let i = 0; i < ops.length; i += 400) {
+        const batch = db.batch();
+        ops.slice(i, i + 400).forEach(o => {
+            const ref = col.doc(o.id);
+            if (o.t === 's') batch.set(ref, JSON.parse(o.json)); else batch.delete(ref);
+        });
+        await batch.commit();
+    }
+    syncedMap[k] = cur;
+}
+async function pushStockLog() {
+    const json = JSON.stringify(stockLog);
+    if (json === syncedStock) return;
+    await db.collection('users').doc(currentUser.uid).collection('data').doc('stockLog').set({ list: JSON.parse(json), updatedAt: Date.now() });
+    syncedStock = json;
+}
+let syncing = false, syncAgain = false;
+async function cloudSync() {
+    if (!(useCloud && db && currentUser && cloudWritable)) return;
+    if (syncing) { syncAgain = true; return; }
+    syncing = true;
+    try {
+        do {
+            syncAgain = false;
+            for (const k of COLL_KEYS) await pushCollection(k);
+            await pushStockLog();
+            if (!formatWritten) {
+                await db.collection('users').doc(currentUser.uid).collection('meta').doc('format').set({ v: 2, at: Date.now() });
+                formatWritten = true;
+            }
+            setSyncStatus('ok');
+        } while (syncAgain);
+    } catch (e) {
+        setSyncStatus('err', e);
+        if (e && e.code === 'permission-denied') toast('⚠️ Cloud permission denied: Firestore Rules check karo');
+        else toast('⚠️ Cloud par save nahi hua. Internet check karo, agla save phir koshish karega.');
+    }
+    syncing = false;
+}
+
 function saveSettings() { localStorage.setItem('gs_settings', JSON.stringify(settings)); }
 
 async function loadCloudData() {
-    const ref = db.collection('users').doc(currentUser.uid).collection('data');
+    const base = db.collection('users').doc(currentUser.uid);
+    const fmt = await base.collection('meta').doc('format').get();
+    if (fmt.exists) {
+        // Naya format: har record alag document
+        const res = await Promise.all(COLL_KEYS.map(k => base.collection(k).get()));
+        const out = {};
+        COLL_KEYS.forEach((k, i) => {
+            out[k] = res[i].docs.map(d => Object.assign({ id: d.id }, d.data()));
+            out[k].sort(bySeq);
+        });
+        const sl = await base.collection('data').doc('stockLog').get();
+        out.stockLog = (sl.exists && Array.isArray(sl.data().list)) ? sl.data().list : [];
+        if (!out.companies.length) out.companies = defaultData().companies;
+        return { mode: 'v2', out };
+    }
+    // Purana format: users/{uid}/data/{key} mein poori list
+    const ref = base.collection('data');
     const snaps = await Promise.all(DATA_KEYS.map(k => ref.doc(k).get()));
     const d = defaultData();
     const out = {};
@@ -990,7 +1080,26 @@ async function loadCloudData() {
         if (s.exists && Array.isArray(s.data().list)) { out[k] = s.data().list; found = true; }
         else out[k] = d[k];
     });
-    return { found, out };
+    return { mode: found ? 'old' : 'new', out };
+}
+
+function adoptCloud(r) {
+    setData(r.out);
+    normalizeAll();
+    ensureIds();
+    if (r.mode === 'v2') {
+        markSynced();
+        formatWritten = true;
+        cloudWritable = true;
+        saveLocal();
+    } else {
+        // Purane format se naye format mein badlo
+        syncedMap = {}; syncedStock = null; formatWritten = false;
+        cloudWritable = true;
+        saveLocal();
+        toast('Data naye format mein badla ja raha hai, thoda ruko...');
+        cloudSync();
+    }
 }
 
 async function loadUserData() {
@@ -1005,13 +1114,12 @@ async function loadUserData() {
         toast(e && e.code === 'permission-denied' ? '⚠️ Firestore Rules publish nahi hue (permission denied)' : '⚠️ Cloud se connect nahi ho paya. Data cloud par save nahi hoga.');
     }
 
-    if (cloud && cloud.found) {
-        setData(cloud.out); normalizeAll(); markSynced();
-        cloudWritable = true; setSyncStatus('ok');
-        saveLocal();
+    if (cloud && (cloud.mode === 'v2' || cloud.mode === 'old')) {
+        adoptCloud(cloud);
+        setSyncStatus('ok');
         return;
     }
-    if (cloud && !cloud.found) {
+    if (cloud && cloud.mode === 'new') {
         // Naya account: cloud par kuch nahi hai
         let loaded = false;
         const legacyExists = ['gs_invoices', 'gs_companies', 'gs_inventory', 'gs_customers'].some(k => localStorage.getItem(k));
@@ -1028,7 +1136,7 @@ async function loadUserData() {
         }
         localStorage.removeItem('gs_pending_firm');
         normalizeAll();
-        cloudWritable = true; syncedJson = {};
+        cloudWritable = true; syncedMap = {}; syncedStock = null; formatWritten = false;
         saveAll();
         try { db.collection('users').doc(currentUser.uid).collection('meta').doc('profile').set({ email: currentUser.email, createdAt: Date.now(), plan: 'trial' }); } catch (e) {}
         setSyncStatus('ok');
@@ -1044,10 +1152,10 @@ async function reloadFromCloud() {
     if (!confirm('Cloud ka data is device par load karein? (Is device ka na-save hua data replace ho sakta hai)')) return;
     try {
         const r = await loadCloudData();
-        if (!r.found) { toast('Cloud par abhi data nahi hai'); return; }
-        setData(r.out); normalizeAll(); markSynced();
-        cloudWritable = true; setSyncStatus('ok');
-        saveLocal(); renderAll(); setNextInvoiceNumber();
+        if (r.mode === 'new') { toast('Cloud par abhi data nahi hai'); return; }
+        adoptCloud(r);
+        renderAll(); setNextInvoiceNumber();
+        setSyncStatus('ok');
         toast('Cloud se data load ho gaya');
     } catch (e) { setSyncStatus('err', e); toast('Cloud se load nahi ho paya'); }
 }
@@ -1778,7 +1886,7 @@ function changeStock(items, sign, reason) {
         p.stock = (parseFloat(p.stock) || 0) + q;
         stockLog.push({ date: today(), product: p.name, change: q, balance: p.stock, reason });
     });
-    if (stockLog.length > 3000) stockLog = stockLog.slice(-3000);
+    if (stockLog.length > 1000) stockLog = stockLog.slice(-1000);
 }
 function shortfalls(rec, old) {
     const need = {};
@@ -1827,6 +1935,7 @@ function saveInvoice(andPrint) {
     if (old) {
         changeStock(old.items, +1, `Invoice ${old.invNumber} edited (wapas)`);
         rec.id = old.id;
+        rec.seq = old.seq;
         rec.payments = old.payments;
         invoices[invoices.indexOf(old)] = rec;
     } else {
@@ -2586,7 +2695,9 @@ function saveBusinessProfile() {
         bankName: $('busBank').value.trim(), accNo: $('busAcc').value.trim(), ifsc: $('busIfsc').value.trim()
     };
     if (editingFirmIdx !== null) {
-        const oldName = companies[editingFirmIdx].name;
+        const oldC = companies[editingFirmIdx];
+        const oldName = oldC.name;
+        obj.id = oldC.id; obj.seq = oldC.seq;
         companies[editingFirmIdx] = obj;
         if (oldName !== name) {
             [invoices, quotations, expenses, purchases].forEach(list => list.forEach(x => { if (x.firm === oldName) x.firm = name; }));
@@ -2642,7 +2753,11 @@ function saveCustomer() {
         name, address: $('newCustAddress').value.trim(), phone: $('newCustPhone').value.trim(),
         gstin: $('newCustGstin').value.trim().toUpperCase() || 'Unregistered', state: $('newCustState').value.trim() || defaultPos()
     };
-    if (editingCustIdx !== null) customers[editingCustIdx] = obj; else customers.push(obj);
+    if (editingCustIdx !== null) {
+        const oc = customers[editingCustIdx];
+        obj.id = oc.id; obj.seq = oc.seq;
+        customers[editingCustIdx] = obj;
+    } else customers.push(obj);
     saveAll(); clearCustomerForm(); renderCustomerTable(); populateCustomerDropdown();
     toast('Customer save ho gaya');
 }
@@ -2710,6 +2825,7 @@ function saveProduct() {
     };
     if (editingProdIdx !== null) {
         const old = inventory[editingProdIdx];
+        obj.id = old.id; obj.seq = old.seq;
         if (old.stock !== obj.stock) stockLog.push({ date: today(), product: obj.name, change: obj.stock - old.stock, balance: obj.stock, reason: 'Manual correction' });
         inventory[editingProdIdx] = obj;
     } else {
