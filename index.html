@@ -98,6 +98,8 @@
             <button type="button" id="fbCfgSaveBtn" class="btn-success" style="width:100%;">Save & Connect</button>
             <button type="button" id="authLocalBtn" class="btn-grey" style="width:100%; margin-top:8px;">Bina login ke chalao (sirf is device par)</button>
         </div>
+
+        <div id="authContact" style="display:none; margin-top:14px; padding-top:10px; border-top:1px solid #eee; font-size:12px; color:#555; text-align:center; line-height:1.7;"></div>
     </div>
 </div>
 
@@ -122,6 +124,7 @@
         <input type="text" id="wa-recipient" placeholder="Customer Mobile (10 digit)" style="padding: 6px; font-size: 13px; width: 160px; border: 1px solid #ccc; border-radius: 4px;" />
         <button type="button" id="headerWaBtn" style="background: #25D366; color: white; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">💬 Send WhatsApp</button>
         <span id="userEmailLbl" style="font-size:12px; color:#555;"></span>
+        <button type="button" id="helpBtn" class="tab-btn" style="background:#17a2b8; color:white;">❓ Help</button>
         <button type="button" id="logoutBtn" class="tab-btn" style="background:#6c757d; color:white; display:none;">🚪 Logout</button>
     </div>
 </div>
@@ -445,6 +448,7 @@
         </div>
         <input type="text" id="supAddress" class="input-field" placeholder="Address">
         <button type="button" id="saveSupplierBtn" class="btn-success">Save Supplier</button>
+        <button type="button" id="cancelSupEditBtn" class="btn-grey" style="display:none;">Edit cancel</button>
     </div>
     <div class="table-wrap">
     <table class="items-table">
@@ -455,6 +459,7 @@
 
     <h3 style="margin-top:25px;">Purchase Entry</h3>
     <div class="box-section">
+        <p id="purEditHint" style="display:none; font-size:12px; color:#2a2a8a; background:#e2e3ff; border:1px solid #6c6cff; padding:6px 10px; border-radius:5px; margin-top:0;">✏️ <b>Purchase edit ho rahi hai.</b> "Abhi diya" aur Mode yahan se nahi badalte. Payment ke liye neeche table mein <b>+ Payment</b> ya <b>History</b> use karo.</p>
         <div class="row-flex">
             <div><label>Date</label><input type="date" id="purDate" class="input-field"></div>
             <div><label>Firm</label><select id="purFirm" class="input-field"></select></div>
@@ -470,6 +475,7 @@
             <div><label>Mode</label><select id="purMode" class="input-field"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
         </div>
         <button type="button" id="savePurchaseBtn" class="btn-success">Save Purchase</button>
+        <button type="button" id="cancelPurEditBtn" class="btn-grey" style="display:none;">Edit cancel</button>
     </div>
     <div class="table-wrap">
     <table class="items-table">
@@ -577,6 +583,11 @@
         <button type="button" id="resetPwBtn" class="btn-warning">🔑 Password badalne ka email bhejo</button>
         <button type="button" id="enableCloudBtn" class="btn-success" style="display:none;">☁️ Login / Cloud setup karo</button>
         <button type="button" id="logoutBtn2" class="btn-danger">🚪 Logout</button>
+    </div>
+
+    <div class="box-section">
+        <h4 style="margin-top:0;">📞 Help & Contact</h4>
+        <div id="contactBox" style="font-size:13px; line-height:1.8;"></div>
     </div>
 
     <div class="box-section">
@@ -802,6 +813,16 @@
    ============================================================ */
 const APP_NAME = 'Golden Star POS';
 
+// Aapki contact details (sab users ko login screen, Help button aur Settings mein dikhengi).
+// Jo field khali chhodoge ya PASTE_ wali rehne doge, wo dikhegi hi nahi.
+const CONTACT = {
+    name: 'PASTE_NAME',            // jaise 'Gurmeet Singh'
+    phone: 'PASTE_PHONE',          // 10 digit, jaise '9876543210'
+    whatsapp: 'PASTE_WHATSAPP',    // 10 digit; khali chhodo to phone wala hi use hoga
+    email: 'PASTE_EMAIL',          // jaise 'aapka@email.com'
+    hours: ''                      // optional, jaise 'Subah 10 se shaam 6'
+};
+
 // Firebase config (code mein hi likhi hui hai, isliye har device par seedha Login screen aayegi)
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyDlHR_MyuEIu9mIs-4_Mmk8NRUsLGQslw0",
@@ -836,6 +857,49 @@ function toast(msg) {
 }
 
 /* ============================================================
+   CONTACT / HELP
+   ============================================================ */
+function contactParts() {
+    const ok = v => v && !/^PASTE/i.test(String(v).trim());
+    const d10 = v => String(v || '').replace(/\D/g, '').slice(-10);
+    const wa = ok(CONTACT.whatsapp) ? d10(CONTACT.whatsapp) : (ok(CONTACT.phone) ? d10(CONTACT.phone) : '');
+    return {
+        name: ok(CONTACT.name) ? String(CONTACT.name).trim() : '',
+        phone: ok(CONTACT.phone) ? String(CONTACT.phone).trim() : '',
+        phoneDigits: ok(CONTACT.phone) ? d10(CONTACT.phone) : '',
+        wa,
+        email: ok(CONTACT.email) ? String(CONTACT.email).trim() : '',
+        hours: CONTACT.hours ? String(CONTACT.hours).trim() : ''
+    };
+}
+function contactHtml() {
+    const c = contactParts();
+    if (!c.name && !c.phone && !c.wa && !c.email) return '';
+    let h = '<b>Madad chahiye? Humse sampark karein</b><br>';
+    if (c.name) h += esc(c.name) + '<br>';
+    if (c.phone) h += '📞 <a href="tel:+91' + esc(c.phoneDigits) + '">' + esc(c.phone) + '</a><br>';
+    if (c.wa) h += '💬 <a href="https://wa.me/91' + esc(c.wa) + '" target="_blank" rel="noopener">WhatsApp par message karein</a><br>';
+    if (c.email) h += '✉️ <a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a><br>';
+    if (c.hours) h += '🕘 ' + esc(c.hours);
+    return h;
+}
+function renderContact() {
+    const h = contactHtml();
+    const a = $('authContact');
+    if (a) { a.innerHTML = h; a.style.display = h ? 'block' : 'none'; }
+    const b = $('contactBox');
+    if (b) b.innerHTML = h || '<span style="color:#888;">Contact details abhi set nahi hain.</span>';
+}
+function showHelp() {
+    const c = contactHtml();
+    const tips = '<ul style="font-size:13px; line-height:1.8; padding-left:18px; margin:0;">' +
+        '<li>Sabse pehle <b>Manage Firms</b> mein apni firm ki details (address, GSTIN, bank, UPI) bharo.</li>' +
+        '<li>Har hafte <b>Settings → Backup Download</b> karke file Google Drive mein rakho.</li>' +
+        '<li>Kuch atke to screenshot ke saath upar diye gaye number par bhejo.</li></ul>';
+    showInfo('❓ Help & Contact', '<div style="font-size:13px; line-height:1.8;">' + (c || 'Contact details abhi set nahi hain.') + '</div><hr>' + tips);
+}
+
+/* ============================================================
    DATA
    ============================================================ */
 const COLL_KEYS = ['companies', 'customers', 'inventory', 'invoices', 'creditNotes', 'quotations', 'expenses', 'suppliers', 'purchases'];   // har record alag document
@@ -865,6 +929,8 @@ let editingId = null;            // invoice being edited
 let editingFirmIdx = null;
 let editingCustIdx = null;
 let editingProdIdx = null;
+let editingSupId = null;         // supplier being edited
+let editingPurId = null;         // purchase bill being edited
 let currentDoc = null;
 let pendingLogo = '';            // firm form mein chuna hua logo (data URL)
 let cnCtx = null;                // credit note modal ka data
@@ -1368,6 +1434,7 @@ window.onload = function () {
     $('appTitle').innerText = APP_NAME;
     $('authAppName').innerText = APP_NAME;
     document.title = APP_NAME + ' - Billing';
+    renderContact();
     setupEventListeners();
     initLock();
 
@@ -1443,6 +1510,7 @@ function setupEventListeners() {
     on('authLocalBtn', 'click', startLocalMode);
     on('logoutBtn', 'click', doLogout);
     on('logoutBtn2', 'click', doLogout);
+    on('helpBtn', 'click', showHelp);
     on('reloadCloudBtn', 'click', reloadFromCloud);
     on('resetPwBtn', 'click', () => sendResetEmail(false));
     on('enableCloudBtn', 'click', () => { localStorage.removeItem('gs_force_local'); location.reload(); });
@@ -1507,7 +1575,9 @@ function setupEventListeners() {
 
     on('saveExpenseBtn', 'click', saveExpense);
     on('saveSupplierBtn', 'click', saveSupplier);
+    on('cancelSupEditBtn', 'click', clearSupplierForm);
     on('savePurchaseBtn', 'click', savePurchase);
+    on('cancelPurEditBtn', 'click', clearPurchaseForm);
 
     on('saveBusinessBtn', 'click', saveBusinessProfile);
     on('cancelFirmEditBtn', 'click', clearFirmForm);
@@ -1546,7 +1616,7 @@ function switchTab(tabID) {
         reports: updateReports, history: renderHistoryTable, creditnotes: renderCreditNoteTable, quotation: renderQuotationTable,
         ledger: renderLedgerTable, expenses: renderExpenseTable,
         purchases: () => { renderSupplierTable(); renderPurchaseTable(); },
-        customers: renderCustomerTable, inventory: renderInventoryTable, settings: () => { renderSettings(); renderAccount(); }
+        customers: renderCustomerTable, inventory: renderInventoryTable, settings: () => { renderSettings(); renderAccount(); renderContact(); }
     };
     if (actions[tabID]) actions[tabID]();
 }
@@ -1654,12 +1724,14 @@ function populateCustomerDropdown() {
 function populateSupplierDropdown() {
     const sel = $('purSupplier');
     if (!sel) return;
+    const prev = sel.value;
     sel.innerHTML = '<option value="">Cash / Direct</option>';
     suppliers.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id; opt.innerText = s.name;
         sel.appendChild(opt);
     });
+    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 function updateInventoryDatalist() {
     const dl = $('inventoryList');
@@ -2793,14 +2865,32 @@ function renderExpenseTable() {
 }
 
 /* ============================================================
-   SUPPLIERS & PURCHASES
+   SUPPLIERS & PURCHASES (add + EDIT)
    ============================================================ */
+function clearSupplierForm() {
+    editingSupId = null;
+    ['supName', 'supPhone', 'supGstin', 'supAddress'].forEach(id => { $(id).value = ''; });
+    $('saveSupplierBtn').innerText = 'Save Supplier';
+    $('cancelSupEditBtn').style.display = 'none';
+}
 function saveSupplier() {
     const name = $('supName').value.trim();
     if (!name) { toast('Supplier ka naam daalo'); return; }
-    suppliers.push({ id: uid(), name, phone: $('supPhone').value.trim(), gstin: $('supGstin').value.trim(), address: $('supAddress').value.trim() });
-    ['supName', 'supPhone', 'supGstin', 'supAddress'].forEach(id => { $(id).value = ''; });
-    saveAll(); populateSupplierDropdown(); renderSupplierTable(); toast('Supplier save ho gaya');
+    const obj = { name, phone: $('supPhone').value.trim(), gstin: $('supGstin').value.trim().toUpperCase(), address: $('supAddress').value.trim() };
+    if (editingSupId) {
+        const s = suppliers.find(x => x.id === editingSupId);
+        if (s) {
+            const oldName = s.name;
+            Object.assign(s, obj);
+            if (oldName !== name) purchases.forEach(p => { if (p.supplierId === s.id) p.supplier = name; });
+        }
+        toast('Supplier update ho gaya');
+    } else {
+        suppliers.push(Object.assign({ id: uid() }, obj));
+        toast('Supplier save ho gaya');
+    }
+    clearSupplierForm();
+    saveAll(); populateSupplierDropdown(); renderSupplierTable(); renderPurchaseTable();
 }
 function renderSupplierTable() {
     const tb = $('supplierTableBody');
@@ -2810,16 +2900,54 @@ function renderSupplierTable() {
         const bal = purchases.filter(p => p.supplierId === s.id).reduce((a, p) => a + p.balance, 0);
         const tr = document.createElement('tr');
         tr.innerHTML = `<td class="left">${esc(s.name)}</td><td>${esc(s.phone)}</td><td>${esc(s.gstin)}</td><td style="color:${bal > 0 ? 'red' : 'green'}; font-weight:bold;">${money(bal)}</td>
-            <td><button type="button" class="btn-info btn-sm st">📋 Statement</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
+            <td><button type="button" class="btn-info btn-sm st">📋 Statement</button> <button type="button" class="btn-warning btn-sm e">Edit</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
         tr.querySelector('.st').addEventListener('click', () => showSupplierStatement(s));
+        tr.querySelector('.e').addEventListener('click', () => {
+            editingSupId = s.id;
+            $('supName').value = s.name || ''; $('supPhone').value = s.phone || ''; $('supGstin').value = s.gstin || ''; $('supAddress').value = s.address || '';
+            $('saveSupplierBtn').innerText = 'Update Supplier';
+            $('cancelSupEditBtn').style.display = 'inline-block';
+            window.scrollTo(0, 0);
+        });
         tr.querySelector('.d').addEventListener('click', () => {
             if (purchases.some(p => p.supplierId === s.id)) { toast('Is supplier ki purchase entries hain, pehle wo delete karo'); return; }
             if (!confirm('Supplier delete karein?')) return;
-            suppliers = suppliers.filter(x => x.id !== s.id); saveAll(); populateSupplierDropdown(); renderSupplierTable();
+            suppliers = suppliers.filter(x => x.id !== s.id);
+            if (editingSupId === s.id) clearSupplierForm();
+            saveAll(); populateSupplierDropdown(); renderSupplierTable();
         });
         tb.appendChild(tr);
     });
     if (!suppliers.length) tb.innerHTML = '<tr><td colspan="5">Abhi koi supplier nahi</td></tr>';
+}
+
+function clearPurchaseForm() {
+    editingPurId = null;
+    ['purBillNo', 'purDesc', 'purTaxable'].forEach(id => { $(id).value = ''; });
+    $('purPaid').value = 0; $('purPaid').disabled = false; $('purMode').disabled = false;
+    $('purDate').value = today();
+    $('purSupplier').value = '';
+    $('purEditHint').style.display = 'none';
+    $('savePurchaseBtn').innerText = 'Save Purchase';
+    $('cancelPurEditBtn').style.display = 'none';
+}
+function editPurchase(id) {
+    const p = purchases.find(x => x.id === id);
+    if (!p) return;
+    editingPurId = id;
+    $('purDate').value = p.date || today();
+    if ([...$('purFirm').options].some(o => o.value === p.firm)) $('purFirm').value = p.firm;
+    populateSupplierDropdown();
+    $('purSupplier').value = p.supplierId || '';
+    $('purBillNo').value = p.billNo || '';
+    $('purDesc').value = p.desc || '';
+    $('purTaxable').value = p.taxable;
+    $('purGst').value = String(p.gstRate);
+    $('purPaid').value = p.received; $('purPaid').disabled = true; $('purMode').disabled = true;
+    $('purEditHint').style.display = 'block';
+    $('savePurchaseBtn').innerText = 'Update Purchase';
+    $('cancelPurEditBtn').style.display = 'inline-block';
+    $('purEditHint').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 function savePurchase() {
     const taxable = parseFloat($('purTaxable').value);
@@ -2828,18 +2956,40 @@ function savePurchase() {
     const supId = $('purSupplier').value;
     const sup = suppliers.find(s => s.id === supId);
     const tax = round2(taxable * gst / 100);
+    const newTotal = round2(taxable + tax);
+
+    if (editingPurId) {
+        const p = purchases.find(x => x.id === editingPurId);
+        if (!p) { clearPurchaseForm(); return; }
+        if (p.received > newTotal + 0.01 && !confirm(`Is bill par ₹${money(p.received)} diya ja chuka hai, jo naye total (₹${money(newTotal)}) se zyada hai. Phir bhi update karein?`)) return;
+        p.date = $('purDate').value || p.date;
+        p.firm = $('purFirm').value;
+        p.supplierId = supId;
+        p.supplier = sup ? sup.name : 'Cash / Direct';
+        p.billNo = $('purBillNo').value.trim();
+        p.desc = $('purDesc').value.trim();
+        p.taxable = round2(taxable);
+        p.gstRate = gst;
+        p.tax = tax;
+        p.total = newTotal;
+        recalcPay(p);
+        clearPurchaseForm();
+        saveAll(); renderSupplierTable(); renderPurchaseTable(); updateReports();
+        toast('Purchase update ho gayi');
+        return;
+    }
+
     const rec = {
         id: uid(), date: $('purDate').value || today(), firm: $('purFirm').value,
         supplierId: supId, supplier: sup ? sup.name : 'Cash / Direct',
         billNo: $('purBillNo').value.trim(), desc: $('purDesc').value.trim(),
-        taxable: round2(taxable), gstRate: gst, tax, total: round2(taxable + tax), payments: []
+        taxable: round2(taxable), gstRate: gst, tax, total: newTotal, payments: []
     };
     const paid = parseFloat($('purPaid').value) || 0;
     if (paid > 0) rec.payments.push({ date: rec.date, amount: round2(paid), mode: $('purMode').value, note: 'Bill ke saath' });
     recalcPay(rec);
     purchases.push(rec);
-    ['purBillNo', 'purDesc', 'purTaxable'].forEach(id => { $(id).value = ''; });
-    $('purPaid').value = 0;
+    clearPurchaseForm();
     saveAll(); renderSupplierTable(); renderPurchaseTable(); updateReports(); toast('Purchase save ho gayi');
 }
 function renderPurchaseTable() {
@@ -2850,12 +3000,15 @@ function renderPurchaseTable() {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${fmtDate(p.date)}</td><td>${esc(p.firm)}</td><td>${esc(p.supplier)}</td><td>${esc(p.billNo)}</td><td class="left">${esc(p.desc)}</td>
             <td>${money(p.total)}</td><td>${money(p.received)}</td><td style="color:${p.balance > 0 ? 'red' : 'green'}; font-weight:bold;">${money(p.balance)}</td>
-            <td><button type="button" class="btn-success btn-sm pay">+ Payment</button> <button type="button" class="btn-info btn-sm h">History</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
+            <td><button type="button" class="btn-warning btn-sm e">Edit</button> <button type="button" class="btn-success btn-sm pay">+ Payment</button> <button type="button" class="btn-info btn-sm h">History</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
+        tr.querySelector('.e').addEventListener('click', () => editPurchase(p.id));
         tr.querySelector('.pay').addEventListener('click', () => openPayModal('pur', p.id));
         tr.querySelector('.h').addEventListener('click', () => showPaymentHistory(p, `Payments — Bill ${p.billNo || '-'}`));
         tr.querySelector('.d').addEventListener('click', () => {
             if (!confirm('Purchase entry delete karein?')) return;
-            purchases = purchases.filter(x => x.id !== p.id); saveAll(); renderSupplierTable(); renderPurchaseTable(); updateReports();
+            purchases = purchases.filter(x => x.id !== p.id);
+            if (editingPurId === p.id) clearPurchaseForm();
+            saveAll(); renderSupplierTable(); renderPurchaseTable(); updateReports();
         });
         tb.appendChild(tr);
     });
