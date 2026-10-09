@@ -3366,3 +3366,108 @@ function saveProduct() {
 </script>
 </body>
 </html>
+<script>
+/* ===== PATCH: har firm ki Report aur GSTR-1 alag-alag ===== */
+
+// 1) Report ke Firm dropdown se "Sab Firms" hata diya (pehli firm default rahegi)
+function populateFirmDropdowns() {
+    fillFirmSelect('activeFirmSelect', false);
+    fillFirmSelect('repFirm', false);
+    fillFirmSelect('expFirm', false);
+    fillFirmSelect('purFirm', false);
+}
+
+// 2) Report par kaunsi firm dikh rahi hai, uska label
+function showRepFirmInfo(firmObj, f, t, orphans) {
+    let el = $('repFirmInfo');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'repFirmInfo';
+        el.style.cssText = 'background:#e8f0fe; border:1px solid #b6ccf7; border-radius:5px; padding:8px 12px; margin-bottom:10px; font-size:13px; line-height:1.6;';
+        const cards = $('repCards');
+        if (cards && cards.parentNode) cards.parentNode.insertBefore(el, cards);
+    }
+    let h = '<b>Firm:</b> ' + esc(firmObj.name || '') + ' &nbsp;|&nbsp; <b>GSTIN:</b> ' + esc(firmObj.gstin || 'N/A') +
+        ' &nbsp;|&nbsp; <b>Period:</b> ' + (f ? fmtDate(f) : 'shuru se') + ' se ' + (t ? fmtDate(t) : 'aaj tak');
+    if (orphans > 0) h += '<br><span style="color:#b30000;">⚠️ ' + orphans + ' record ki firm ka naam kisi firm se match nahi hota, isliye wo kisi report mein nahi aaye.</span>';
+    el.innerHTML = h;
+}
+
+// 3) Report ab sirf chuni hui ek firm ki banegi
+function computeReport() {
+    const f = $('repFrom').value, t = $('repTo').value;
+    let firm = $('repFirm').value;
+    if (!firm && companies.length) firm = companies[0].name;
+    const firmObj = companies.find(c => c.name === firm) || {};
+    const inR = d => (!f || d >= f) && (!t || d <= t);
+    const firmOk = n => n === firm;
+    const invs = invoices.filter(i => inR(i.date) && firmOk(i.firm));
+    const cns = creditNotes.filter(c => inR(c.date) && firmOk(c.firm));
+    const purs = purchases.filter(p => inR(p.date) && firmOk(p.firm));
+    const exps = expenses.filter(e => inR(e.date) && firmOk(e.firm));
+    const R = { invs, cns, purs, exps, sales: 0, received: 0, pending: 0, taxable: 0, outTax: 0, cnTotal: 0, hsn: {}, register: [], firm, firmObj };
+    const addHsn = (r, sign) => {
+        const k = r.hsn + '|' + r.rate;
+        if (!R.hsn[k]) R.hsn[k] = { hsn: r.hsn, rate: r.rate, taxable: 0, cgst: 0, sgst: 0, igst: 0 };
+        const m = R.hsn[k];
+        m.taxable += sign * r.taxable; m.cgst += sign * r.cgst; m.sgst += sign * r.sgst; m.igst += sign * r.igst;
+    };
+    invs.forEach(inv => {
+        const tb = taxBreakup(inv);
+        R.sales += inv.grandTotal; R.received += inv.received; R.pending += inv.balance;
+        R.taxable += tb.taxable; R.outTax += tb.tax;
+        let cg = 0, sg = 0, ig = 0;
+        tb.rows.forEach(r => { addHsn(r, 1); cg += r.cgst; sg += r.sgst; ig += r.igst; });
+        R.register.push({ inv, taxable: tb.taxable, cgst: cg, sgst: sg, igst: ig });
+    });
+    cns.forEach(cn => {
+        const tb = taxBreakup(cn);
+        R.sales -= cn.grandTotal; R.cnTotal += cn.grandTotal;
+        R.taxable -= tb.taxable; R.outTax -= tb.tax;
+        let cg = 0, sg = 0, ig = 0;
+        tb.rows.forEach(r => { addHsn(r, -1); cg += r.cgst; sg += r.sgst; ig += r.igst; });
+        R.register.push({
+            inv: { invNumber: cn.cnNumber, date: cn.date, firm: cn.firm, customer: cn.customer, gstin: cn.gstin, pos: cn.pos, grandTotal: -cn.grandTotal, received: 0, balance: 0 },
+            taxable: -tb.taxable, cgst: -cg, sgst: -sg, igst: -ig
+        });
+    });
+    R.purTaxable = purs.reduce((s, p) => s + p.taxable, 0);
+    R.inTax = purs.reduce((s, p) => s + p.tax, 0);
+    R.purTotal = purs.reduce((s, p) => s + p.total, 0);
+    R.expTotal = exps.reduce((s, e) => s + e.amount, 0);
+    R.profit = R.taxable - R.purTaxable - R.expTotal;
+    R.gstPayable = R.outTax - R.inTax;
+
+    const names = companies.map(c => c.name);
+    const orphans = [].concat(invoices, creditNotes, purchases, expenses).filter(x => !names.includes(x.firm)).length;
+    showRepFirmInfo(firmObj, f, t, orphans);
+    return R;
+}
+
+// 4) CSV mein firm ka naam, GSTIN aur period upar likha aayega; file ke naam mein bhi firm ka naam
+function repFileTag(R) {
+    return String((R.firmObj && R.firmObj.name) || R.firm || 'firm').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 25);
+}
+function repCsvHead(R) {
+    const fo = R.firmObj || {};
+    return [['Firm', fo.name || ''], ['GSTIN', fo.gstin || ''], ['Period', ($('repFrom').value || 'start') + ' to ' + ($('repTo').value || 'end')]]
+        .map(r => r.map(csvCell).join(',')).join('\n') + '\n\n';
+}
+function exportGstr1Csv() {
+    const R = computeReport();
+    let csv = repCsvHead(R) + ['HSN/SAC', 'GST Rate %', 'Taxable Value', 'CGST', 'SGST', 'IGST', 'Total Tax'].map(csvCell).join(',') + '\n';
+    Object.values(R.hsn).forEach(m => {
+        csv += [m.hsn, m.rate, m.taxable.toFixed(2), m.cgst.toFixed(2), m.sgst.toFixed(2), m.igst.toFixed(2), (m.cgst + m.sgst + m.igst).toFixed(2)].map(csvCell).join(',') + '\n';
+    });
+    downloadFile('GSTR1-HSN-' + repFileTag(R) + '-' + today() + '.csv', '\ufeff' + csv, 'text/csv;charset=utf-8');
+}
+function exportRegisterCsv() {
+    const R = computeReport();
+    let csv = repCsvHead(R) + ['Invoice / CN No', 'Date', 'Firm', 'Customer', 'Customer GSTIN', 'Place of Supply', 'Taxable Value', 'CGST', 'SGST', 'IGST', 'Total', 'Received', 'Balance'].map(csvCell).join(',') + '\n';
+    R.register.forEach(r => {
+        const i = r.inv;
+        csv += [i.invNumber, i.date, i.firm, i.customer, i.gstin || '', i.pos, r.taxable.toFixed(2), r.cgst.toFixed(2), r.sgst.toFixed(2), r.igst.toFixed(2), i.grandTotal.toFixed(2), i.received.toFixed(2), i.balance.toFixed(2)].map(csvCell).join(',') + '\n';
+    });
+    downloadFile('Sales-Register-' + repFileTag(R) + '-' + today() + '.csv', '\ufeff' + csv, 'text/csv;charset=utf-8');
+}
+</script>
