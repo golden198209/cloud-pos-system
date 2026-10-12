@@ -3576,3 +3576,147 @@ function exportRegisterCsv() {
     downloadFile('Sales-Register-' + repFileTag(R) + '-' + today() + '.csv', '\ufeff' + csv, 'text/csv;charset=utf-8');
 }
 </script>
+<script>
+/* ===== PATCH: GSTIN daalte hi State / PAN apne aap bhare, galat GSTIN ki warning ===== */
+(function () {
+    const GCHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const STATES = {
+        '01': 'Jammu & Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh', '05': 'Uttarakhand',
+        '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan', '09': 'Uttar Pradesh', '10': 'Bihar', '11': 'Sikkim',
+        '12': 'Arunachal Pradesh', '13': 'Nagaland', '14': 'Manipur', '15': 'Mizoram', '16': 'Tripura',
+        '17': 'Meghalaya', '18': 'Assam', '19': 'West Bengal', '20': 'Jharkhand', '21': 'Odisha',
+        '22': 'Chhattisgarh', '23': 'Madhya Pradesh', '24': 'Gujarat', '26': 'Dadra & Nagar Haveli and Daman & Diu',
+        '27': 'Maharashtra', '29': 'Karnataka', '30': 'Goa', '31': 'Lakshadweep', '32': 'Kerala', '33': 'Tamil Nadu',
+        '34': 'Puducherry', '35': 'Andaman & Nicobar Islands', '36': 'Telangana', '37': 'Andhra Pradesh', '38': 'Ladakh',
+        '97': 'Other Territory'
+    };
+    const PAN_TYPE = { P: 'Individual', C: 'Company', H: 'HUF', F: 'Firm / LLP', A: 'AOP', T: 'Trust', B: 'BOI', L: 'Local Authority', J: 'Artificial Juridical Person', G: 'Government' };
+    const PORTAL = 'https://services.gst.gov.in/services/searchtp';
+
+    function ensureStateOptions() {
+        const dl = document.getElementById('stateList');
+        if (!dl) return;
+        Object.keys(STATES).forEach(c => {
+            if (![...dl.options].some(o => o.value.startsWith(c + '-'))) {
+                const o = document.createElement('option');
+                o.value = c + '-' + STATES[c];
+                dl.appendChild(o);
+            }
+        });
+    }
+
+    function checkChar(g14) {
+        let sum = 0;
+        for (let i = 0; i < 14; i++) {
+            const v = GCHARS.indexOf(g14[i]);
+            const p = v * (i % 2 === 0 ? 1 : 2);
+            sum += Math.floor(p / 36) + (p % 36);
+        }
+        return GCHARS[(36 - (sum % 36)) % 36];
+    }
+
+    // Result: { empty, partial, ok, msg, state, pan, type }
+    function gstCheck(raw) {
+        const g = String(raw || '').trim().toUpperCase();
+        if (!g || g === 'UNREGISTERED') return { empty: true, ok: true };
+        if (g.length < 15) return { partial: true, ok: false, msg: 'GSTIN 15 character ka hota hai (abhi ' + g.length + ' likhe hain)' };
+        if (g.length > 15) return { ok: false, msg: 'GSTIN 15 character se zyada ho gaya (' + g.length + ' character)' };
+        const m = /^(\d{2})([A-Z]{5}\d{4}[A-Z])([1-9A-Z])Z([0-9A-Z])$/.exec(g);
+        if (!m) return { ok: false, msg: 'Format galat hai. Sahi format: 2 number + 5 letter + 4 number + 1 letter + 1 + Z + 1' };
+        if (!STATES[m[1]]) return { ok: false, msg: 'Shuru ke 2 number (' + m[1] + ') kisi state ka code nahi hain' };
+        if (checkChar(g.slice(0, 14)) !== g[14]) return { ok: false, msg: 'Aakhri (check) character match nahi hua. Number dobara dekho, koi akshar ya number galat ho sakta hai' };
+        const pan = m[2];
+        return { ok: true, state: m[1] + '-' + STATES[m[1]], pan, type: PAN_TYPE[pan[3]] || '' };
+    }
+    window.gstCheck = gstCheck;
+
+    const FORMS = [
+        { gst: 'newCustGstin', state: 'newCustState', pan: null },
+        { gst: 'busGstin', state: 'busState', pan: 'busPan' },
+        { gst: 'supGstin', state: null, pan: null }
+    ];
+    FORMS.forEach(f => { f.last = null; f.autoState = ''; f.autoPan = ''; f.hint = null; });
+
+    function getHint(f) {
+        if (f.hint && document.body.contains(f.hint)) return f.hint;
+        const inp = document.getElementById(f.gst);
+        if (!inp) return null;
+        const d = document.createElement('div');
+        d.style.cssText = 'font-size:12px; line-height:1.6; margin:-4px 0 8px 0;';
+        inp.insertAdjacentElement('afterend', d);
+        f.hint = d;
+        return d;
+    }
+
+    function update(f) {
+        const inp = document.getElementById(f.gst);
+        if (!inp) return;
+        const val = inp.value;
+        if (val === f.last) return;
+        f.last = val;
+        const r = gstCheck(val);
+        const h = getHint(f);
+        if (!h) return;
+        if (r.empty) { h.innerHTML = ''; f.autoState = ''; f.autoPan = ''; return; }
+        let html = '';
+        if (r.ok) {
+            html = '<span style="color:#1e7e34;">✅ GSTIN sahi lag raha hai</span> | State: <b>' + r.state + '</b> | PAN: <b>' + r.pan + '</b>' + (r.type ? ' (' + r.type + ')' : '');
+            if (f.state) {
+                const s = document.getElementById(f.state);
+                if (s && (!s.value || s.value === f.autoState)) { s.value = r.state; f.autoState = r.state; }
+            }
+            if (f.pan) {
+                const p = document.getElementById(f.pan);
+                if (p && (!p.value || p.value === f.autoPan)) { p.value = r.pan; f.autoPan = r.pan; }
+            }
+        } else {
+            html = '<span style="color:' + (r.partial ? '#777' : '#b30000') + ';">' + (r.partial ? '✏️ ' : '⚠️ ') + r.msg + '</span>';
+        }
+        if (String(val).trim().length >= 15) {
+            html += '<br><a href="' + PORTAL + '" target="_blank" rel="noopener">🔎 GST portal par is GSTIN ka naam / address dekho</a> <span style="color:#777;">(wahan se copy karke daalo)</span>';
+        }
+        h.innerHTML = html;
+    }
+
+    // Typing ke waqt capital + space hatao
+    function bindInput() {
+        FORMS.forEach(f => {
+            const inp = document.getElementById(f.gst);
+            if (!inp || inp.dataset.gstBound) return;
+            inp.dataset.gstBound = '1';
+            inp.setAttribute('maxlength', '20');
+            inp.addEventListener('input', () => {
+                const cleaned = inp.value.toUpperCase().replace(/\s+/g, '');
+                if (cleaned !== inp.value) {
+                    const pos = inp.selectionStart;
+                    inp.value = cleaned;
+                    try { inp.setSelectionRange(pos, pos); } catch (e) {}
+                }
+                update(f);
+            });
+        });
+    }
+
+    // Edit button se jo values aati hain unke liye bhi hint chale
+    setInterval(() => { bindInput(); FORMS.forEach(update); }, 500);
+    ensureStateOptions();
+
+    // Save se pehle galat GSTIN par warning (rokta nahi, sirf poochta hai)
+    function wrapGuard(fnName, gstId, who) {
+        const orig = window[fnName];
+        if (typeof orig !== 'function') return;
+        window[fnName] = function () {
+            const inp = document.getElementById(gstId);
+            const v = ((inp && inp.value) || '').trim();
+            const r = gstCheck(v);
+            if (!r.empty && !r.ok && !confirm('⚠️ ' + who + ' ka GSTIN galat lag raha hai:\n' + r.msg + '\n\nPhir bhi save karein?')) return;
+            return orig.apply(this, arguments);
+        };
+    }
+    wrapGuard('saveCustomer', 'newCustGstin', 'Customer');
+    wrapGuard('saveBusinessProfile', 'busGstin', 'Firm');
+    wrapGuard('saveSupplier', 'supGstin', 'Supplier');
+})();
+</script>
+</body>
+</html>
