@@ -3718,5 +3718,187 @@ function exportRegisterCsv() {
     wrapGuard('saveSupplier', 'supGstin', 'Supplier');
 })();
 </script>
+<script>
+/* ===== PATCH: Visiting Card (banao, download karo, customer ko WhatsApp / share karo) ===== */
+(function () {
+    const THEMES = {
+        navy:  { name: 'Navy + Gold',  bg: '#1a365d', fg: '#ffffff', ac: '#f6c453', mu: '#cbd5e0' },
+        light: { name: 'Safed + Neela', bg: '#ffffff', fg: '#1a202c', ac: '#2b6cb0', mu: '#4a5568' },
+        green: { name: 'Hara',          bg: '#0f3d2e', fg: '#ffffff', ac: '#7be0a6', mu: '#c6e6d4' },
+        black: { name: 'Black + Yellow', bg: '#111111', fg: '#ffffff', ac: '#ffc107', mu: '#bbbbbb' }
+    };
+    const g = id => document.getElementById(id);
+    const d10 = v => String(v || '').replace(/\D/g, '').slice(-10);
+    const FIELDS = ['vcPerson', 'vcTitle', 'vcTagline', 'vcPhone', 'vcWa', 'vcEmail', 'vcWeb', 'vcAddress'];
+
+    // ---- Tab button + panel ----
+    const nav = document.querySelector('.nav-tabs');
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn'; btn.dataset.tab = 'card'; btn.textContent = '🪪 Visiting Card';
+    nav.appendChild(btn);
+
+    g('settingsPanel').insertAdjacentHTML('afterend', `
+    <div id="cardPanel" class="panel">
+        <h3>🪪 Visiting Card</h3>
+        <div style="display:flex; gap:15px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:280px;" class="box-section">
+                <label style="font-size:12px;"><b>Firm</b></label>
+                <select id="vcFirm" class="input-field"></select>
+                <input type="text" id="vcPerson" class="input-field" placeholder="Aapka naam">
+                <input type="text" id="vcTitle" class="input-field" placeholder="Designation (jaise Proprietor)">
+                <input type="text" id="vcTagline" class="input-field" placeholder="Tagline (jaise Quality Furniture & Fittings)">
+                <input type="text" id="vcPhone" class="input-field" placeholder="Phone">
+                <input type="text" id="vcWa" class="input-field" placeholder="WhatsApp (khali = Phone wala)">
+                <input type="text" id="vcEmail" class="input-field" placeholder="Email">
+                <input type="text" id="vcWeb" class="input-field" placeholder="Website (optional)">
+                <textarea id="vcAddress" class="input-field" rows="2" placeholder="Address"></textarea>
+                <label style="font-size:12px;"><b>Colour</b></label>
+                <select id="vcTheme" class="input-field"></select>
+                <label style="font-size:12px;"><b>QR code</b></label>
+                <select id="vcQr" class="input-field">
+                    <option value="wa">WhatsApp par message</option>
+                    <option value="vcard">Contact save karo (vCard)</option>
+                    <option value="none">QR nahi chahiye</option>
+                </select>
+                <label style="font-size:13px; display:block; margin-bottom:8px;"><input type="checkbox" id="vcGst" checked> GSTIN dikhao</label>
+                <button type="button" id="vcSaveBtn" class="btn-success" style="width:100%;">💾 Card ki details save karo</button>
+            </div>
+            <div style="flex:2; min-width:300px;">
+                <div style="overflow-x:auto; padding-bottom:6px;"><div id="vcPreview" style="width:525px;"></div></div>
+                <div class="box-section" style="margin-top:10px;">
+                    <label style="font-size:12px;"><b>Customer ka mobile (WhatsApp ke liye)</b></label>
+                    <input type="text" id="vcSendTo" class="input-field" placeholder="10 digit number">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button type="button" id="vcWaBtn" class="btn-success" style="background:#25D366; flex:1;">💬 WhatsApp / Share</button>
+                        <button type="button" id="vcDlBtn" class="btn-grey" style="flex:1;">📥 Image Download</button>
+                        <button type="button" id="vcPrintBtn" class="btn-warning" style="flex:1;">🖨️ Print</button>
+                    </div>
+                    <p style="font-size:11px; color:#666; margin-bottom:0;">Mobile par "WhatsApp / Share" card ki image seedha WhatsApp mein bhejta hai. Computer par image download hogi aur chat khulegi, wahan image attach kar do.</p>
+                </div>
+            </div>
+        </div>
+    </div>`);
+
+    g('vcTheme').innerHTML = Object.keys(THEMES).map(k => `<option value="${k}">${THEMES[k].name}</option>`).join('');
+
+    // ---- Data ----
+    const firm = () => companies[+g('vcFirm').value] || companies[0] || {};
+    function collect() {
+        const c = { theme: g('vcTheme').value, qr: g('vcQr').value, gst: g('vcGst').checked };
+        FIELDS.forEach(id => { c[id] = g(id).value.trim(); });
+        return c;
+    }
+    function loadFirm() {
+        const f = firm(), c = f.card || {};
+        const def = { vcPerson: (typeof CONTACT !== 'undefined' && CONTACT.name) || '', vcTitle: 'Proprietor', vcTagline: '', vcPhone: f.phone || '', vcWa: '', vcEmail: (typeof CONTACT !== 'undefined' && CONTACT.email) || '', vcWeb: '', vcAddress: f.address || '' };
+        FIELDS.forEach(id => { g(id).value = c[id] !== undefined ? c[id] : def[id]; });
+        g('vcTheme').value = c.theme || 'navy';
+        g('vcQr').value = c.qr || 'wa';
+        g('vcGst').checked = c.gst !== false;
+        render();
+    }
+    function fillFirms() {
+        const sel = g('vcFirm'), prev = sel.value;
+        sel.innerHTML = companies.map((c, i) => `<option value="${i}">${esc(c.name)}</option>`).join('');
+        if (prev && sel.options[prev]) sel.value = prev;
+        loadFirm();
+    }
+
+    // ---- Card ----
+    function qrImage(f, c) {
+        if (c.qr === 'none' || typeof qrcode === 'undefined') return '';
+        const phone = d10(c.vcWa || c.vcPhone);
+        let data = '';
+        if (c.qr === 'wa') { if (phone.length < 10) return ''; data = 'https://wa.me/91' + phone; }
+        else data = ['BEGIN:VCARD', 'VERSION:3.0', 'FN:' + (c.vcPerson || f.name), 'ORG:' + (f.name || ''), 'TITLE:' + (c.vcTitle || ''),
+            'TEL;TYPE=CELL:' + (c.vcPhone || ''), 'EMAIL:' + (c.vcEmail || ''), 'URL:' + (c.vcWeb || ''), 'ADR:;;' + (c.vcAddress || '').replace(/\n/g, ' ') + ';;;;', 'END:VCARD'].join('\n');
+        try { const q = qrcode(0, 'M'); q.addData(data); q.make(); return q.createDataURL(4, 2); } catch (e) { return ''; }
+    }
+    function render() {
+        const f = firm(), c = collect(), T = THEMES[c.theme] || THEMES.navy;
+        const qr = qrImage(f, c);
+        const line = (ic, t) => t ? `<div style="margin-top:4px;">${ic} ${esc(t)}</div>` : '';
+        g('vcPreview').innerHTML = `
+        <div id="vcCard" style="width:525px; height:300px; box-sizing:border-box; position:relative; overflow:hidden; background:${T.bg}; color:${T.fg}; border-radius:10px; font-family:'Segoe UI',Arial,sans-serif; display:flex; box-shadow:0 2px 8px rgba(0,0,0,.25);">
+            <div style="width:8px; background:${T.ac};"></div>
+            <div style="flex:1; padding:20px 18px 16px 20px; display:flex; flex-direction:column; min-width:0;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    ${f.logo ? `<img src="${f.logo}" alt="" style="max-height:44px; max-width:80px; background:#fff; border-radius:4px; padding:2px;">` : ''}
+                    <div style="font-size:20px; font-weight:800; color:${T.ac}; line-height:1.15;">${esc(f.name || '')}</div>
+                </div>
+                ${c.vcTagline ? `<div style="font-size:11px; color:${T.mu}; margin-top:3px; font-style:italic;">${esc(c.vcTagline)}</div>` : ''}
+                <div style="margin-top:14px;">
+                    <div style="font-size:17px; font-weight:700;">${esc(c.vcPerson)}</div>
+                    <div style="font-size:12px; color:${T.mu};">${esc(c.vcTitle)}</div>
+                </div>
+                <div style="font-size:12px; margin-top:10px; line-height:1.35;">
+                    ${line('📞', c.vcPhone)}${line('✉️', c.vcEmail)}${line('🌐', c.vcWeb)}${line('📍', c.vcAddress)}
+                </div>
+                ${c.gst && f.gstin ? `<div style="margin-top:auto; font-size:11px; color:${T.mu};">GSTIN: <b style="color:${T.fg};">${esc(f.gstin)}</b></div>` : ''}
+            </div>
+            ${qr ? `<div style="width:130px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding-right:14px;">
+                <img src="${qr}" alt="QR" style="width:104px; height:104px; background:#fff; padding:5px; border-radius:6px;">
+                <div style="font-size:10px; color:${T.mu}; margin-top:5px; text-align:center;">${c.qr === 'wa' ? 'WhatsApp par baat karein' : 'Contact save karein'}</div>
+            </div>` : ''}
+        </div>`;
+    }
+
+    // ---- Actions ----
+    async function cardBlob() {
+        if (typeof html2canvas === 'undefined') throw new Error('Image library load nahi hui (internet check karo)');
+        const canvas = await html2canvas(g('vcCard'), { scale: 3, backgroundColor: null, useCORS: true });
+        return new Promise(res => canvas.toBlob(res, 'image/png'));
+    }
+    const fileName = () => 'Visiting-Card-' + String(firm().name || 'card').replace(/[^\w]+/g, '_').slice(0, 25) + '.png';
+
+    async function downloadCard() {
+        try { downloadFile(fileName(), await cardBlob(), 'image/png'); toast('Visiting card download ho gaya'); }
+        catch (e) { toast('❌ ' + e.message); }
+    }
+    async function shareCard() {
+        const f = firm(), c = collect();
+        const msg = `Namaste,\n${f.name}${c.vcPerson ? ' (' + c.vcPerson + ')' : ''}\n${c.vcPhone ? '📞 ' + c.vcPhone + '\n' : ''}${c.vcAddress ? '📍 ' + c.vcAddress + '\n' : ''}Humari visiting card ye rahi. Dhanyavaad!`;
+        try {
+            const blob = await cardBlob();
+            const file = new File([blob], fileName(), { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try { await navigator.share({ files: [file], text: msg, title: f.name }); return; }
+                catch (e) { if (e && e.name === 'AbortError') return; }
+            }
+            downloadFile(fileName(), blob, 'image/png');
+            const ok = openWhatsApp(g('vcSendTo').value || '', msg);
+            if (ok !== false) toast('Card download ho gaya. WhatsApp chat mein image attach kar do.');
+        } catch (e) { toast('❌ ' + e.message); }
+    }
+    function printCard() {
+        let st = g('vcPrintStyle');
+        if (!st) { st = document.createElement('style'); st.id = 'vcPrintStyle'; document.head.appendChild(st); }
+        st.textContent = '@media print { body[data-print="card"] > :not(#cardPanel) { display:none !important; } body[data-print="card"] #cardPanel > :not(div) { display:none !important; } body[data-print="card"] #cardPanel .box-section, body[data-print="card"] #cardPanel h3 { display:none !important; } }';
+        printMode('card');
+    }
+
+    // ---- Wire up ----
+    FIELDS.concat(['vcTheme', 'vcQr', 'vcGst']).forEach(id => { g(id).addEventListener('input', render); g(id).addEventListener('change', render); });
+    g('vcFirm').addEventListener('change', loadFirm);
+    g('vcSaveBtn').addEventListener('click', () => {
+        const f = firm();
+        f.card = collect();
+        saveAll(); toast('Visiting card ki details save ho gayi');
+    });
+    g('vcWaBtn').addEventListener('click', shareCard);
+    g('vcDlBtn').addEventListener('click', downloadCard);
+    g('vcPrintBtn').addEventListener('click', printCard);
+
+    // tab khulne par firms bharo (login ke baad data aata hai)
+    const origSwitch = window.switchTab;
+    window.switchTab = function (tabID) {
+        origSwitch.apply(this, arguments);
+        if (tabID === 'card') {
+            fillFirms();
+            if (!g('vcSendTo').value) g('vcSendTo').value = g('wa-recipient').value || '';
+        }
+    };
+})();
+</script>
 </body>
 </html>
