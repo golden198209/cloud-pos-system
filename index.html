@@ -1,3 +1,6 @@
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3364,113 +3367,8 @@ function saveProduct() {
     toast('Product save ho gaya');
 }
 </script>
-    <script>
-/* ===== PATCH: har firm ki Report aur GSTR-1 alag-alag ===== */
 
-// 1) Report ke Firm dropdown se "Sab Firms" hata diya (pehli firm default rahegi)
-function populateFirmDropdowns() {
-    fillFirmSelect('activeFirmSelect', false);
-    fillFirmSelect('repFirm', false);
-    fillFirmSelect('expFirm', false);
-    fillFirmSelect('purFirm', false);
-}
 
-// 2) Report par kaunsi firm dikh rahi hai, uska label
-function showRepFirmInfo(firmObj, f, t, orphans) {
-    let el = $('repFirmInfo');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'repFirmInfo';
-        el.style.cssText = 'background:#e8f0fe; border:1px solid #b6ccf7; border-radius:5px; padding:8px 12px; margin-bottom:10px; font-size:13px; line-height:1.6;';
-        const cards = $('repCards');
-        if (cards && cards.parentNode) cards.parentNode.insertBefore(el, cards);
-    }
-    let h = '<b>Firm:</b> ' + esc(firmObj.name || '') + ' &nbsp;|&nbsp; <b>GSTIN:</b> ' + esc(firmObj.gstin || 'N/A') +
-        ' &nbsp;|&nbsp; <b>Period:</b> ' + (f ? fmtDate(f) : 'shuru se') + ' se ' + (t ? fmtDate(t) : 'aaj tak');
-    if (orphans > 0) h += '<br><span style="color:#b30000;">⚠️ ' + orphans + ' record ki firm ka naam kisi firm se match nahi hota, isliye wo kisi report mein nahi aaye.</span>';
-    el.innerHTML = h;
-}
-
-// 3) Report ab sirf chuni hui ek firm ki banegi
-function computeReport() {
-    const f = $('repFrom').value, t = $('repTo').value;
-    let firm = $('repFirm').value;
-    if (!firm && companies.length) firm = companies[0].name;
-    const firmObj = companies.find(c => c.name === firm) || {};
-    const inR = d => (!f || d >= f) && (!t || d <= t);
-    const firmOk = n => n === firm;
-    const invs = invoices.filter(i => inR(i.date) && firmOk(i.firm));
-    const cns = creditNotes.filter(c => inR(c.date) && firmOk(c.firm));
-    const purs = purchases.filter(p => inR(p.date) && firmOk(p.firm));
-    const exps = expenses.filter(e => inR(e.date) && firmOk(e.firm));
-    const R = { invs, cns, purs, exps, sales: 0, received: 0, pending: 0, taxable: 0, outTax: 0, cnTotal: 0, hsn: {}, register: [], firm, firmObj };
-    const addHsn = (r, sign) => {
-        const k = r.hsn + '|' + r.rate;
-        if (!R.hsn[k]) R.hsn[k] = { hsn: r.hsn, rate: r.rate, taxable: 0, cgst: 0, sgst: 0, igst: 0 };
-        const m = R.hsn[k];
-        m.taxable += sign * r.taxable; m.cgst += sign * r.cgst; m.sgst += sign * r.sgst; m.igst += sign * r.igst;
-    };
-    invs.forEach(inv => {
-        const tb = taxBreakup(inv);
-        R.sales += inv.grandTotal; R.received += inv.received; R.pending += inv.balance;
-        R.taxable += tb.taxable; R.outTax += tb.tax;
-        let cg = 0, sg = 0, ig = 0;
-        tb.rows.forEach(r => { addHsn(r, 1); cg += r.cgst; sg += r.sgst; ig += r.igst; });
-        R.register.push({ inv, taxable: tb.taxable, cgst: cg, sgst: sg, igst: ig });
-    });
-    cns.forEach(cn => {
-        const tb = taxBreakup(cn);
-        R.sales -= cn.grandTotal; R.cnTotal += cn.grandTotal;
-        R.taxable -= tb.taxable; R.outTax -= tb.tax;
-        let cg = 0, sg = 0, ig = 0;
-        tb.rows.forEach(r => { addHsn(r, -1); cg += r.cgst; sg += r.sgst; ig += r.igst; });
-        R.register.push({
-            inv: { invNumber: cn.cnNumber, date: cn.date, firm: cn.firm, customer: cn.customer, gstin: cn.gstin, pos: cn.pos, grandTotal: -cn.grandTotal, received: 0, balance: 0 },
-            taxable: -tb.taxable, cgst: -cg, sgst: -sg, igst: -ig
-        });
-    });
-    R.purTaxable = purs.reduce((s, p) => s + p.taxable, 0);
-    R.inTax = purs.reduce((s, p) => s + p.tax, 0);
-    R.purTotal = purs.reduce((s, p) => s + p.total, 0);
-    R.expTotal = exps.reduce((s, e) => s + e.amount, 0);
-    R.profit = R.taxable - R.purTaxable - R.expTotal;
-    R.gstPayable = R.outTax - R.inTax;
-
-    const names = companies.map(c => c.name);
-    const orphans = [].concat(invoices, creditNotes, purchases, expenses).filter(x => !names.includes(x.firm)).length;
-    showRepFirmInfo(firmObj, f, t, orphans);
-    return R;
-}
-
-// 4) CSV mein firm ka naam, GSTIN aur period upar likha aayega; file ke naam mein bhi firm ka naam
-function repFileTag(R) {
-    return String((R.firmObj && R.firmObj.name) || R.firm || 'firm').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 25);
-}
-function repCsvHead(R) {
-    const fo = R.firmObj || {};
-    return [['Firm', fo.name || ''], ['GSTIN', fo.gstin || ''], ['Period', ($('repFrom').value || 'start') + ' to ' + ($('repTo').value || 'end')]]
-        .map(r => r.map(csvCell).join(',')).join('\n') + '\n\n';
-}
-function exportGstr1Csv() {
-    const R = computeReport();
-    let csv = repCsvHead(R) + ['HSN/SAC', 'GST Rate %', 'Taxable Value', 'CGST', 'SGST', 'IGST', 'Total Tax'].map(csvCell).join(',') + '\n';
-    Object.values(R.hsn).forEach(m => {
-        csv += [m.hsn, m.rate, m.taxable.toFixed(2), m.cgst.toFixed(2), m.sgst.toFixed(2), m.igst.toFixed(2), (m.cgst + m.sgst + m.igst).toFixed(2)].map(csvCell).join(',') + '\n';
-    });
-    downloadFile('GSTR1-HSN-' + repFileTag(R) + '-' + today() + '.csv', '\ufeff' + csv, 'text/csv;charset=utf-8');
-}
-function exportRegisterCsv() {
-    const R = computeReport();
-    let csv = repCsvHead(R) + ['Invoice / CN No', 'Date', 'Firm', 'Customer', 'Customer GSTIN', 'Place of Supply', 'Taxable Value', 'CGST', 'SGST', 'IGST', 'Total', 'Received', 'Balance'].map(csvCell).join(',') + '\n';
-    R.register.forEach(r => {
-        const i = r.inv;
-        csv += [i.invNumber, i.date, i.firm, i.customer, i.gstin || '', i.pos, r.taxable.toFixed(2), r.cgst.toFixed(2), r.sgst.toFixed(2), r.igst.toFixed(2), i.grandTotal.toFixed(2), i.received.toFixed(2), i.balance.toFixed(2)].map(csvCell).join(',') + '\n';
-    });
-    downloadFile('Sales-Register-' + repFileTag(R) + '-' + today() + '.csv', '\ufeff' + csv, 'text/csv;charset=utf-8');
-}
-</script>
-</body>
-</html>
 <script>
 /* ===== PATCH: har firm ki Report aur GSTR-1 alag-alag ===== */
 
@@ -3900,5 +3798,139 @@ function exportRegisterCsv() {
     };
 })();
 </script>
+    <script>
+/* ===== PATCH: Transport / Gaadi details, Ship-To, E-way bill no. + JSON export ===== */
+(function () {
+    const g = id => document.getElementById(id);
+    const TF = ['trMode', 'trVehicle', 'trDriver', 'trDriverPh', 'trTransporter', 'trTransGstin', 'trLr', 'trDispDate', 'trKm', 'trEwbNo', 'trEwbDate', 'trFromPin', 'trToPin', 'trShipTo'];
+
+    g('invoiceNotes').parentElement.insertAdjacentHTML('afterend', `
+    <div class="no-print box-section" style="margin-top:8px;">
+        <b>🚚 Transport / E-way Bill details (optional)</b>
+        <div class="row-flex" style="margin-top:6px;">
+            <div><label>Gaadi kiski</label><select id="trMode" class="input-field"><option value="">-- Select --</option><option value="own">Apni gaadi</option><option value="transporter">Transporter</option><option value="customer">Customer le gaya</option></select></div>
+            <div><label>Vehicle No.</label><input id="trVehicle" class="input-field" placeholder="JK01AB1234"></div>
+            <div><label>Driver</label><input id="trDriver" class="input-field"></div>
+            <div><label>Driver mobile</label><input id="trDriverPh" class="input-field"></div>
+        </div>
+        <div class="row-flex">
+            <div><label>Transporter</label><input id="trTransporter" class="input-field"></div>
+            <div><label>Transporter GSTIN</label><input id="trTransGstin" class="input-field"></div>
+            <div><label>LR / GR No.</label><input id="trLr" class="input-field"></div>
+            <div><label>Dispatch date</label><input type="date" id="trDispDate" class="input-field"></div>
+            <div><label>Doori (km)</label><input type="number" id="trKm" class="input-field" min="0"></div>
+        </div>
+        <div class="row-flex">
+            <div><label>E-way Bill No.</label><input id="trEwbNo" class="input-field" placeholder="12 digit"></div>
+            <div><label>E-way valid till</label><input type="date" id="trEwbDate" class="input-field"></div>
+            <div><label>Bhejne wali jagah Pincode</label><input id="trFromPin" class="input-field" maxlength="6"></div>
+            <div><label>Pahunchne wali jagah Pincode</label><input id="trToPin" class="input-field" maxlength="6"></div>
+        </div>
+        <label style="font-size:12px;"><b>Ship To (alag address ho to, warna khali chhodo)</b></label>
+        <textarea id="trShipTo" class="input-field" rows="2" placeholder="Maal jahan bhejna hai uska naam aur address"></textarea>
+        <div id="trWarn" style="font-size:12px; color:#b30000; margin-bottom:6px;"></div>
+        <button type="button" id="trJsonBtn" class="btn-info btn-sm">⬇️ E-way Bill JSON (is bill ka)</button>
+    </div>`);
+
+    const collect = () => { const o = {}; TF.forEach(id => { o[id] = (g(id).value || '').trim(); }); return o; };
+    const has = o => o && TF.some(k => o[k]);
+    const fill = o => { TF.forEach(id => { g(id).value = (o && o[id]) || ''; }); warn(); };
+    function warn() {
+        const t = (g('grandTotal') || {}).innerText;
+        const tot = parseFloat(t) || 0;
+        g('trWarn').innerText = (tot > 50000 && !g('trEwbNo').value.trim()) ? '⚠️ Bill ₹50,000 se upar hai. Maal bhejne se pehle e-way bill ki zaroorat check kar lo (CA se confirm karein).' : '';
+    }
+    TF.forEach(id => { g(id).addEventListener('input', warn); });
+
+    // form <-> record
+    const oBuild = window.buildRecordFromForm;
+    window.buildRecordFromForm = function () { const r = oBuild.apply(this, arguments); r.tr = collect(); return r; };
+    const oFill = window.fillFormFromDoc;
+    window.fillFormFromDoc = function (doc) { oFill.apply(this, arguments); fill(doc.tr); };
+    const oReset = window.resetInvoiceForm;
+    window.resetInvoiceForm = function () { oReset.apply(this, arguments); fill(null); };
+    const oCalc = window.calculateTotals;
+    window.calculateTotals = function () { oCalc.apply(this, arguments); warn(); };
+
+    // print / PDF: Ship-To aur transport block
+    const oShow = window.showDocModal;
+    window.showDocModal = function (doc, type) {
+        oShow.apply(this, arguments);
+        const tr = doc && doc.tr;
+        if (!has(tr) || type !== 'TAX INVOICE') return;
+        if (tr.trShipTo) g('dShipTo').innerText = tr.trShipTo;
+        const row = (l, v) => v ? `<div><b>${l}:</b> ${esc(v)}</div>` : '';
+        const modeTxt = { own: 'Apni gaadi', transporter: 'Transporter', customer: 'Customer ka' }[tr.trMode] || '';
+        g('dNotes').innerHTML += `<div style="margin-top:8px; padding:8px; border:1px solid #cbd5e0; border-radius:6px; background:#f7fafc;">
+            <b style="color:#1a365d;">Transport Details</b>
+            ${row('Mode', modeTxt)}${row('Vehicle No', tr.trVehicle)}${row('Driver', tr.trDriver + (tr.trDriverPh ? ' (' + tr.trDriverPh + ')' : ''))}
+            ${row('Transporter', tr.trTransporter + (tr.trTransGstin ? ' / GSTIN ' + tr.trTransGstin : ''))}${row('LR/GR No', tr.trLr)}
+            ${row('Dispatch Date', tr.trDispDate ? fmtDate(tr.trDispDate) : '')}${row('Distance', tr.trKm ? tr.trKm + ' km' : '')}
+            ${row('E-way Bill No', tr.trEwbNo)}${row('E-way valid till', tr.trEwbDate ? fmtDate(tr.trEwbDate) : '')}</div>`;
+    };
+
+    // E-way bill bulk JSON
+    const dmy = d => String(d || '').split('-').reverse().join('/');
+    const sc = s => String(s || '').slice(0, 2);
+    function ewbJson(rec) {
+        const firm = companies.find(c => c.name === rec.firm) || {};
+        const tr = rec.tr || {}, t = taxBreakup(rec), f = t.f;
+        const cust = String(rec.custDetails || '').split('\n');
+        let tv = 0, cg = 0, sg = 0, ig = 0;
+        const list = rec.items.map(it => {
+            const tx = it.taxable * f, tax = it.tax * f;
+            tv += tx; if (rec.igst) ig += tax; else { cg += tax / 2; sg += tax / 2; }
+            return { productName: it.name, productDesc: it.name, hsnCode: parseInt(it.hsn) || 0, quantity: it.qty, qtyUnit: 'NOS', taxableAmount: round2(tx),
+                sgstRate: rec.igst ? 0 : it.gst / 2, cgstRate: rec.igst ? 0 : it.gst / 2, igstRate: rec.igst ? it.gst : 0, cessRate: 0 };
+        });
+        const posCode = sc(rec.pos), frCode = sc(firmState(firm));
+        return {
+            version: '1.0.0621',
+            billLists: [{
+                userGstin: firm.gstin || '', supplyType: 'O', subSupplyType: 1, subSupplyDesc: '', docType: 'INV', docNo: rec.invNumber, docDate: dmy(rec.date), transType: 1,
+                fromGstin: firm.gstin || '', fromTrdName: firm.name || '', fromAddr1: (firm.address || '').slice(0, 100), fromAddr2: '', fromPlace: '',
+                fromPincode: parseInt(tr.trFromPin) || 0, fromStateCode: parseInt(frCode) || 0, actualFromStateCode: parseInt(frCode) || 0,
+                toGstin: rec.gstin || 'URP', toTrdName: rec.customer, toAddr1: (tr.trShipTo || cust.slice(1, 2).join('')).slice(0, 100), toAddr2: '', toPlace: '',
+                toPincode: parseInt(tr.trToPin) || 0, toStateCode: parseInt(posCode) || 0, actualToStateCode: parseInt(posCode) || 0,
+                totalValue: round2(tv), cgstValue: round2(cg), sgstValue: round2(sg), igstValue: round2(ig), cessValue: 0, cessNonAdvolValue: 0,
+                otherValue: round2(rec.grandTotal - tv - cg - sg - ig), totInvValue: round2(rec.grandTotal),
+                transMode: 1, transDistance: String(parseInt(tr.trKm) || 0), transporterName: tr.trTransporter || '', transporterId: tr.trTransGstin || '',
+                transDocNo: tr.trLr || '', transDocDate: tr.trDispDate ? dmy(tr.trDispDate) : '', vehicleNo: (tr.trVehicle || '').replace(/\s+/g, '').toUpperCase(), vehicleType: 'R',
+                itemList: list
+            }]
+        };
+    }
+    function exportEwb(rec) {
+        rec.items = rec.items.filter(i => i.name);
+        if (!rec.items.length) { toast('Kam se kam ek item daalo'); return; }
+        finalizeTotals(rec);
+        const miss = [];
+        if (!(rec.tr && rec.tr.trFromPin)) miss.push('bhejne wala pincode');
+        if (!(rec.tr && rec.tr.trToPin)) miss.push('pahunchne wala pincode');
+        if (!(rec.tr && (rec.tr.trVehicle || rec.tr.trLr))) miss.push('vehicle no ya LR no');
+        if (miss.length) toast('Dhyan do: ' + miss.join(', ') + ' abhi khali hai. Portal par upload se pehle bhar lo.');
+        downloadFile('EWB-' + String(rec.invNumber).replace(/[^\w-]+/g, '_') + '.json', JSON.stringify(ewbJson(rec), null, 1), 'application/json');
+    }
+    g('trJsonBtn').addEventListener('click', () => exportEwb(buildRecordFromForm()));
+
+    // Invoice History mein bhi 🚚 button
+    const oHist = window.renderHistoryTable;
+    window.renderHistoryTable = function () {
+        oHist.apply(this, arguments);
+        const q = (g('historySearch').value || '').toLowerCase();
+        const list = [...invoices].reverse().filter(inv => !q || (inv.customer + ' ' + inv.invNumber + ' ' + inv.firm).toLowerCase().includes(q));
+        [...g('historyTableBody').rows].forEach((row, i) => {
+            const inv = list[i], cell = row.cells[row.cells.length - 1];
+            if (!inv || !cell) return;
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'btn-info btn-sm'; b.textContent = '🚚 EWB';
+            b.addEventListener('click', () => exportEwb(JSON.parse(JSON.stringify(inv))));
+            cell.appendChild(b);
+        });
+    };
+})();
+</script>
 </body>
 </html>
+
+
