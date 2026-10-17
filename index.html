@@ -3930,20 +3930,19 @@ function exportRegisterCsv() {
     };
 })();
 </script>
-    <script>
-/* ===== PATCH 4: Delivery Challan ===== */
+<script>
+/* ===== PATCH 4: Delivery Challan (with Edit) ===== */
 (function () {
     const g = id => document.getElementById(id);
     let challans = [];
+    let editingCh = null;
 
-    // challans ko baaki data ki tarah save / cloud sync / backup mein jodna
     COLL_KEYS.push('challans'); DATA_KEYS.push('challans');
     const oGet = window.getData;
     window.getData = function () { const d = oGet.apply(this, arguments); d.challans = challans; return d; };
     const oSet = window.setData;
     window.setData = function (d) { oSet.apply(this, arguments); challans = d.challans || []; };
 
-    // ---- Tab + panel ----
     const btn = document.createElement('button');
     btn.className = 'tab-btn'; btn.dataset.tab = 'challan'; btn.textContent = '🚚 Delivery Challan';
     document.querySelector('.nav-tabs').appendChild(btn);
@@ -3951,6 +3950,10 @@ function exportRegisterCsv() {
     g('settingsPanel').insertAdjacentHTML('afterend', `
     <div id="challanPanel" class="panel">
         <h3>🚚 Delivery Challan</h3>
+        <div id="chEditBanner" class="banner" style="display:none; background:#e2e3ff; border:1px solid #6c6cff; color:#2a2a8a;">
+            ✏️ <b>Challan edit ho raha hai:</b> <span id="chEditText"></span>
+            <button type="button" id="chCancelEdit" class="btn-danger btn-sm">Edit cancel karo</button>
+        </div>
         <div class="box-section">
             <div class="row-flex">
                 <div><label>Firm</label><select id="chFirm" class="input-field"></select></div>
@@ -3999,7 +4002,6 @@ function exportRegisterCsv() {
 
     let current = null;
 
-    // ---- Form ----
     function addRow(it) {
         it = it || {};
         const tr = document.createElement('tr');
@@ -4034,7 +4036,10 @@ function exportRegisterCsv() {
         return seqNumber(challans.filter(c => c.firm === f.name).map(c => c.chNumber), firmPrefix(f) + '/DC/' + fyLabel(date) + '/');
     }
     function resetForm() {
-        g('chDate').value = today(); g('chCust').value = '';
+        editingCh = null;
+        g('chEditBanner').style.display = 'none';
+        g('chSave').innerText = '💾 Challan Save + Print';
+        g('chDate').value = today(); g('chCust').value = ''; g('chPurpose').selectedIndex = 0; g('chStock').checked = true;
         ['chCustDetails', 'chShip', 'chVehicle', 'chDriver', 'chNotes'].forEach(id => { g(id).value = ''; });
         g('chRows').innerHTML = ''; addRow(); g('chNo').value = nextNo();
     }
@@ -4047,27 +4052,59 @@ function exportRegisterCsv() {
         renderList();
     }
 
-    // ---- Save ----
+    // ---- Edit: form mein purana challan bharo ----
+    function editChallan(id) {
+        const c = challans.find(x => x.id === id);
+        if (!c) return;
+        switchTab('challan');
+        editingCh = id;
+        const fi = companies.findIndex(f => f.name === c.firm);
+        if (fi >= 0) g('chFirm').value = fi;
+        g('chDate').value = c.date || today();
+        g('chNo').value = c.chNumber;
+        const opt = [...g('chPurpose').options].find(o => o.value === c.purpose);
+        if (opt) g('chPurpose').value = c.purpose;
+        g('chCust').value = '';
+        g('chCustDetails').value = c.custDetails || '';
+        g('chShip').value = c.shipTo || '';
+        g('chVehicle').value = c.vehicle || ''; g('chDriver').value = c.driver || ''; g('chNotes').value = c.notes || '';
+        g('chStock').checked = !!c.stockCut;
+        g('chRows').innerHTML = '';
+        c.items.forEach(it => addRow(it));
+        if (!c.items.length) addRow();
+        g('chEditText').innerText = '#' + c.chNumber + ' (' + c.customer + '). Stock purani quantity se wapas jodkar nayi se kata jaayega.';
+        g('chEditBanner').style.display = 'block';
+        g('chSave').innerText = '💾 Challan Update karo';
+        window.scrollTo(0, 0);
+    }
+
+    // ---- Save (naya ya update) ----
     function save() {
         const its = items();
         if (!its.length) { toast('Kam se kam ek item daalo'); return; }
         if (its.some(i => i.qty <= 0)) { toast('Quantity 0 nahi ho sakti'); return; }
         const details = g('chCustDetails').value.trim();
+        const old = editingCh ? challans.find(x => x.id === editingCh) : null;
         const doc = {
-            id: uid(), seq: nextSeq(), firm: firm().name || '', date: g('chDate').value || today(),
+            id: old ? old.id : uid(), seq: old ? old.seq : nextSeq(), firm: firm().name || '', date: g('chDate').value || today(),
             chNumber: g('chNo').value.trim() || nextNo(), purpose: g('chPurpose').value,
             custDetails: details, customer: (details.split('\n')[0] || '').trim() || 'Cash Customer',
             phone: parsePhone(details), gstin: parseGstin(details), shipTo: g('chShip').value.trim(),
             vehicle: g('chVehicle').value.trim().toUpperCase(), driver: g('chDriver').value.trim(), notes: g('chNotes').value.trim(),
             items: its, stockCut: g('chStock').checked, value: round2(its.reduce((s, i) => s + i.qty * i.rate, 0))
         };
-        if (challans.some(c => c.chNumber === doc.chNumber && c.firm === doc.firm) && !confirm('Ye challan number pehle se hai. Phir bhi save karein?')) return;
-        challans.push(doc);
+        if (challans.some(c => c.chNumber === doc.chNumber && c.firm === doc.firm && c.id !== doc.id) && !confirm('Ye challan number pehle se hai. Phir bhi save karein?')) return;
+
+        if (old) {
+            if (old.stockCut) changeStock(old.items, +1, 'Challan ' + old.chNumber + ' edited (wapas)');
+            challans[challans.indexOf(old)] = doc;
+        } else challans.push(doc);
         if (doc.stockCut) changeStock(doc.items, -1, 'Challan ' + doc.chNumber);
+
         saveAll(); renderAll(); resetForm(); renderList();
-        toast('Challan save ho gaya: ' + doc.chNumber);
         show(doc);
-        setTimeout(() => printMode('challan'), 350);
+        if (old) toast('Challan update ho gaya: ' + doc.chNumber);
+        else { toast('Challan save ho gaya: ' + doc.chNumber); setTimeout(() => printMode('challan'), 350); }
     }
 
     function renderList() {
@@ -4075,13 +4112,15 @@ function exportRegisterCsv() {
         [...challans].reverse().forEach(c => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${esc(c.chNumber)}</td><td>${fmtDate(c.date)}</td><td class="left">${esc(c.customer)}</td><td>${esc(c.purpose)}</td><td>${c.items.length}</td><td>${c.value ? money(c.value) : '-'}</td>
-                <td><button type="button" class="btn-warning btn-sm p">🖨️ View/Print</button> <button type="button" class="btn-success btn-sm w" style="background:#25D366;">💬</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
+                <td><button type="button" class="btn-warning btn-sm p">🖨️ View/Print</button> <button type="button" class="btn-info btn-sm e">✏️ Edit</button> <button type="button" class="btn-success btn-sm w" style="background:#25D366;">💬</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
             tr.querySelector('.p').addEventListener('click', () => show(c));
+            tr.querySelector('.e').addEventListener('click', () => editChallan(c.id));
             tr.querySelector('.w').addEventListener('click', () => waMsg(c));
             tr.querySelector('.d').addEventListener('click', () => {
                 if (!confirm('Challan ' + c.chNumber + ' delete karein?' + (c.stockCut ? ' Stock wapas add ho jaayega.' : ''))) return;
                 if (c.stockCut) changeStock(c.items, +1, 'Challan ' + c.chNumber + ' deleted');
                 challans = challans.filter(x => x.id !== c.id);
+                if (editingCh === c.id) resetForm();
                 saveAll(); renderAll(); renderList();
             });
             tb.appendChild(tr);
@@ -4089,7 +4128,6 @@ function exportRegisterCsv() {
         if (!challans.length) tb.innerHTML = '<tr><td colspan="7">Abhi koi challan nahi</td></tr>';
     }
 
-    // ---- Print view ----
     function show(c) {
         current = c;
         const f = companies.find(x => x.name === c.firm) || {};
@@ -4142,11 +4180,11 @@ function exportRegisterCsv() {
         } catch (e) { toast('❌ ' + e.message); }
     }
 
-    // ---- Wire up ----
     g('chAddRow').addEventListener('click', () => addRow());
     g('chSave').addEventListener('click', save);
-    g('chFirm').addEventListener('change', () => { g('chNo').value = nextNo(); });
-    g('chDate').addEventListener('change', () => { g('chNo').value = nextNo(); });
+    g('chCancelEdit').addEventListener('click', () => { resetForm(); toast('Edit cancel kar diya'); });
+    g('chFirm').addEventListener('change', () => { if (!editingCh) g('chNo').value = nextNo(); });
+    g('chDate').addEventListener('change', () => { if (!editingCh) g('chNo').value = nextNo(); });
     g('chCust').addEventListener('change', () => {
         const c = customers[g('chCust').value];
         if (c) g('chCustDetails').value = `${c.name}\n${c.address || ''}\nPhone: ${c.phone || 'N/A'}\nGSTIN: ${c.gstin || 'Unregistered'}\nState: ${c.state || ''}`;
@@ -4160,6 +4198,7 @@ function exportRegisterCsv() {
     window.switchTab = function (tabID) { oSwitch.apply(this, arguments); if (tabID === 'challan') init(); };
 })();
 </script>
+
 </body>
 </html>
 
