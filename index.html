@@ -4503,6 +4503,106 @@ function exportRegisterCsv() {
     apply();
 })();
 </script>
+    <script>
+/* ===== PATCH 7: Bill banate waqt expiry highlight + popup ===== */
+(function () {
+    const g = id => document.getElementById(id);
+    const dLeft = e => e ? Math.floor((new Date(e + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 864e5) : 99999;
+    const byExp = (a, b) => ((a.exp || '9999') < (b.exp || '9999') ? -1 : (a.exp || '9999') > (b.exp || '9999') ? 1 : 0);
+    const featOn = () => !document.body.classList.contains('off-batch');
+
+    // Bill ki har row ke liye dekho kaunsa batch katega (stock badle bina)
+    function scan() {
+        const res = [];
+        const old = editingId ? invoices.find(i => i.id === editingId) : null;
+        const pool = {};
+        const getPool = p => pool[p.name] || (pool[p.name] = (p.batches || []).map(b => ({ no: b.no, exp: b.exp || '', qty: b.qty })));
+        if (old) old.items.forEach(it => {
+            const p = findProduct(it);
+            if (!p || !p.track || !it.alloc) return;
+            const bs = getPool(p);
+            it.alloc.forEach(a => {
+                if (!a.b) return;
+                let b = bs.find(x => x.no === a.b);
+                if (!b) { b = { no: a.b, exp: a.exp || '', qty: 0 }; bs.push(b); }
+                b.qty += a.q;
+            });
+        });
+        document.querySelectorAll('#itemRows tr').forEach(tr => {
+            const name = tr.querySelector('.row-name').value.trim();
+            const q = parseFloat(tr.querySelector('.row-qty').value) || 0;
+            const r = { tr, name, used: [], exp: [], soon: [], level: 0 };
+            const p = name && findProduct({ name, barcode: tr.querySelector('.row-barcode').value });
+            if (p && p.track && q > 0) {
+                const bs = getPool(p);
+                const sel = tr.querySelector('.row-batch');
+                const pref = sel && sel.style.display !== 'none' ? sel.value : '';
+                let need = q;
+                const take = b => { if (need <= 0 || b.qty <= 0) return; const t = Math.min(b.qty, need); b.qty -= t; need -= t; r.used.push(b); };
+                if (pref) { const b = bs.find(x => x.no === pref); if (b) take(b); }
+                bs.filter(b => dLeft(b.exp) >= 0).sort(byExp).forEach(take);
+                bs.filter(b => dLeft(b.exp) < 0).sort(byExp).forEach(take);
+                r.exp = r.used.filter(b => b.exp && dLeft(b.exp) < 0);
+                r.soon = r.used.filter(b => b.exp && dLeft(b.exp) >= 0 && dLeft(b.exp) <= 30);
+                r.level = r.exp.length ? 2 : (r.soon.length ? 1 : 0);
+            }
+            res.push(r);
+        });
+        return res;
+    }
+
+    function highlight() {
+        if (!featOn()) {
+            document.querySelectorAll('#itemRows tr').forEach(tr => { tr.style.background = ''; const m = tr.querySelector('.row-exp-msg'); if (m) m.remove(); });
+            return;
+        }
+        scan().forEach(r => {
+            const tr = r.tr;
+            let m = tr.querySelector('.row-exp-msg');
+            if (!r.level) { tr.style.background = ''; if (m) m.remove(); return; }
+            if (!m) {
+                m = document.createElement('div');
+                m.className = 'row-exp-msg';
+                m.style.cssText = 'font-size:11px; font-weight:bold; margin-top:3px; white-space:normal;';
+                tr.querySelector('.row-name').parentElement.appendChild(m);
+            }
+            if (r.level === 2) {
+                tr.style.background = '#ffdede'; m.style.color = '#b30000';
+                m.textContent = '❌ Expire ho chuka maal: ' + r.exp.map(b => b.no + ' (' + Math.abs(dLeft(b.exp)) + ' din pehle)').join(', ') + ' bill mein jaa raha hai!';
+            } else {
+                tr.style.background = '#fff1d6'; m.style.color = '#b8860b';
+                m.textContent = '⚠️ Jaldi expire: ' + r.soon.map(b => b.no + ' (' + dLeft(b.exp) + ' din baaki)').join(', ');
+            }
+        });
+    }
+
+    const oCalc = window.calculateTotals;
+    window.calculateTotals = function () { oCalc.apply(this, arguments); highlight(); };
+
+    const oAdd = window.addItemRowWithProduct;
+    window.addItemRowWithProduct = function () {
+        oAdd.apply(this, arguments);
+        const tr = g('itemRows').lastElementChild;
+        if (tr) tr.querySelector('.row-name').addEventListener('change', () => setTimeout(highlight, 50));
+        setTimeout(highlight, 50);
+    };
+
+    // Save par popup (expire hua maal ho to)
+    const oSave = window.saveInvoice;
+    window.saveInvoice = function () {
+        if (featOn()) {
+            const bad = scan().filter(r => r.level === 2);
+            if (bad.length) {
+                const msg = '❌ EXPIRE HUA MAAL BILL MEIN HAI!\n\n' +
+                    bad.map(r => '• ' + r.name + ' → batch ' + r.exp.map(b => b.no + ' (exp ' + fmtDate(b.exp) + ')').join(', ')).join('\n') +
+                    '\n\nExpire hua maal bechna sahi nahi hai.\nPhir bhi bill banana hai?';
+                if (!confirm(msg)) return null;
+            }
+        }
+        return oSave.apply(this, arguments);
+    };
+})();
+</script>
 </body>
 </html>
 
