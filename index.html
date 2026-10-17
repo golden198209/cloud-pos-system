@@ -3930,6 +3930,236 @@ function exportRegisterCsv() {
     };
 })();
 </script>
+    <script>
+/* ===== PATCH 4: Delivery Challan ===== */
+(function () {
+    const g = id => document.getElementById(id);
+    let challans = [];
+
+    // challans ko baaki data ki tarah save / cloud sync / backup mein jodna
+    COLL_KEYS.push('challans'); DATA_KEYS.push('challans');
+    const oGet = window.getData;
+    window.getData = function () { const d = oGet.apply(this, arguments); d.challans = challans; return d; };
+    const oSet = window.setData;
+    window.setData = function (d) { oSet.apply(this, arguments); challans = d.challans || []; };
+
+    // ---- Tab + panel ----
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn'; btn.dataset.tab = 'challan'; btn.textContent = '🚚 Delivery Challan';
+    document.querySelector('.nav-tabs').appendChild(btn);
+
+    g('settingsPanel').insertAdjacentHTML('afterend', `
+    <div id="challanPanel" class="panel">
+        <h3>🚚 Delivery Challan</h3>
+        <div class="box-section">
+            <div class="row-flex">
+                <div><label>Firm</label><select id="chFirm" class="input-field"></select></div>
+                <div><label>Date</label><input type="date" id="chDate" class="input-field"></div>
+                <div><label>Challan No.</label><input id="chNo" class="input-field"></div>
+                <div><label>Maal kyun bhej rahe ho</label>
+                    <select id="chPurpose" class="input-field"><option>Job Work</option><option>Sample</option><option>Approval (pasand ke liye)</option><option>Stock Transfer</option><option>Sale ke liye (invoice baad mein)</option><option>Repair / Return</option><option>Other</option></select></div>
+            </div>
+            <div class="row-flex">
+                <div><label>Customer chuno</label><select id="chCust" class="input-field"></select></div>
+                <div style="flex:2;"><label>Customer details</label><textarea id="chCustDetails" class="input-field" rows="3" placeholder="Naam, address, phone, GSTIN"></textarea></div>
+                <div style="flex:2;"><label>Ship To (alag ho to)</label><textarea id="chShip" class="input-field" rows="3" placeholder="Khali = Customer wala address"></textarea></div>
+            </div>
+            <div class="row-flex">
+                <div><label>Vehicle No.</label><input id="chVehicle" class="input-field"></div>
+                <div><label>Driver</label><input id="chDriver" class="input-field"></div>
+                <div style="flex:2;"><label>Notes</label><input id="chNotes" class="input-field"></div>
+            </div>
+            <div class="table-wrap"><table class="items-table">
+                <thead><tr><th>#</th><th class="left">Item</th><th>HSN</th><th>Qty</th><th>Unit</th><th>Rate (₹, optional)</th><th>Act</th></tr></thead>
+                <tbody id="chRows"></tbody></table></div>
+            <button type="button" id="chAddRow" class="btn-success" style="margin-top:8px;">+ Item</button>
+            <label style="display:block; margin:10px 0; font-size:13px;"><input type="checkbox" id="chStock" checked> Maal stock se ghatao</label>
+            <button type="button" id="chSave" class="btn-success" style="width:100%;">💾 Challan Save + Print</button>
+        </div>
+        <div class="table-wrap"><table class="items-table">
+            <thead><tr><th>Challan No.</th><th>Date</th><th>Customer</th><th>Purpose</th><th>Items</th><th>Value (₹)</th><th>Action</th></tr></thead>
+            <tbody id="chList"></tbody></table></div>
+    </div>`);
+
+    document.body.insertAdjacentHTML('beforeend', `
+    <div id="chOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.6); z-index:3400; overflow-y:auto;">
+        <div style="width:800px; max-width:100%; margin:20px auto;">
+            <div id="chSheet" style="background:#fff; padding:28px; border-radius:6px; font-family:'Segoe UI',Arial,sans-serif; font-size:12px; border-top:6px solid #1a365d;"></div>
+            <div class="no-print" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; padding-bottom:20px;">
+                <button type="button" id="chPrintBtn" class="btn-success" style="flex:1; padding:10px;">🖨️ Print</button>
+                <button type="button" id="chPdfBtn" class="btn-grey" style="flex:1; padding:10px;">📥 PDF</button>
+                <button type="button" id="chWaBtn" class="btn-success" style="flex:1; padding:10px; background:#25D366;">💬 WhatsApp</button>
+                <button type="button" id="chCloseBtn" class="btn-danger" style="flex:1; padding:10px;">Close</button>
+            </div>
+        </div>
+    </div>`);
+    const st = document.createElement('style');
+    st.textContent = '@media print { body[data-print="challan"] > :not(#chOverlay) { display:none !important; } #chOverlay { position:static !important; background:none !important; overflow:visible !important; height:auto !important; } #chOverlay > div { margin:0 auto !important; width:100% !important; } }';
+    document.head.appendChild(st);
+
+    let current = null;
+
+    // ---- Form ----
+    function addRow(it) {
+        it = it || {};
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td></td>
+            <td class="left"><input class="input-field ch-name" list="inventoryList" value="${esc(it.name || '')}" style="margin-bottom:0; min-width:150px;"></td>
+            <td><input class="input-field ch-hsn" value="${esc(it.hsn || '')}" style="margin-bottom:0; width:80px;"></td>
+            <td><input type="number" class="input-field ch-qty" min="0" step="any" value="${it.qty || 1}" style="margin-bottom:0; width:70px;"></td>
+            <td><select class="input-field ch-unit" style="margin-bottom:0;"><option>Nos</option><option>Kg</option><option>Mtr</option><option>Box</option><option>Set</option><option>Pcs</option></select></td>
+            <td><input type="number" class="input-field ch-rate" min="0" step="0.01" value="${it.rate || ''}" style="margin-bottom:0; width:90px;"></td>
+            <td><button type="button" class="btn-danger btn-sm">X</button></td>`;
+        if (it.unit) tr.querySelector('.ch-unit').value = it.unit;
+        tr.querySelector('.ch-name').addEventListener('change', function () {
+            const p = inventory.find(x => x.name.toLowerCase() === this.value.trim().toLowerCase());
+            if (p) { tr.querySelector('.ch-hsn').value = p.hsn || ''; tr.querySelector('.ch-rate').value = p.price || ''; }
+        });
+        tr.querySelector('button').addEventListener('click', () => { tr.remove(); number(); });
+        g('chRows').appendChild(tr); number();
+    }
+    const number = () => [...g('chRows').rows].forEach((r, i) => { r.cells[0].innerText = i + 1; });
+    const items = () => [...g('chRows').rows].map(r => ({
+        name: r.querySelector('.ch-name').value.trim(), hsn: r.querySelector('.ch-hsn').value.trim(),
+        qty: parseFloat(r.querySelector('.ch-qty').value) || 0, unit: r.querySelector('.ch-unit').value,
+        rate: parseFloat(r.querySelector('.ch-rate').value) || 0
+    })).filter(i => i.name);
+    const firm = () => companies[+g('chFirm').value] || companies[0] || {};
+    function nextNo() {
+        const f = firm(), date = g('chDate').value || today();
+        if (f.numFormat === 'simple') {
+            let max = 0; challans.forEach(c => { const n = parseInt(String(c.chNumber).replace(/\D/g, '')); if (n > max) max = n; });
+            return 'DC-' + String(max + 1).padStart(3, '0');
+        }
+        return seqNumber(challans.filter(c => c.firm === f.name).map(c => c.chNumber), firmPrefix(f) + '/DC/' + fyLabel(date) + '/');
+    }
+    function resetForm() {
+        g('chDate').value = today(); g('chCust').value = '';
+        ['chCustDetails', 'chShip', 'chVehicle', 'chDriver', 'chNotes'].forEach(id => { g(id).value = ''; });
+        g('chRows').innerHTML = ''; addRow(); g('chNo').value = nextNo();
+    }
+    function init() {
+        const fs = g('chFirm'), prev = fs.value;
+        fs.innerHTML = companies.map((c, i) => `<option value="${i}">${esc(c.name)}</option>`).join('');
+        if (prev && fs.options[prev]) fs.value = prev;
+        g('chCust').innerHTML = '<option value="">-- Select Customer --</option>' + customers.map((c, i) => `<option value="${i}">${esc(c.name)}</option>`).join('');
+        if (!g('chRows').rows.length) resetForm();
+        renderList();
+    }
+
+    // ---- Save ----
+    function save() {
+        const its = items();
+        if (!its.length) { toast('Kam se kam ek item daalo'); return; }
+        if (its.some(i => i.qty <= 0)) { toast('Quantity 0 nahi ho sakti'); return; }
+        const details = g('chCustDetails').value.trim();
+        const doc = {
+            id: uid(), seq: nextSeq(), firm: firm().name || '', date: g('chDate').value || today(),
+            chNumber: g('chNo').value.trim() || nextNo(), purpose: g('chPurpose').value,
+            custDetails: details, customer: (details.split('\n')[0] || '').trim() || 'Cash Customer',
+            phone: parsePhone(details), gstin: parseGstin(details), shipTo: g('chShip').value.trim(),
+            vehicle: g('chVehicle').value.trim().toUpperCase(), driver: g('chDriver').value.trim(), notes: g('chNotes').value.trim(),
+            items: its, stockCut: g('chStock').checked, value: round2(its.reduce((s, i) => s + i.qty * i.rate, 0))
+        };
+        if (challans.some(c => c.chNumber === doc.chNumber && c.firm === doc.firm) && !confirm('Ye challan number pehle se hai. Phir bhi save karein?')) return;
+        challans.push(doc);
+        if (doc.stockCut) changeStock(doc.items, -1, 'Challan ' + doc.chNumber);
+        saveAll(); renderAll(); resetForm(); renderList();
+        toast('Challan save ho gaya: ' + doc.chNumber);
+        show(doc);
+        setTimeout(() => printMode('challan'), 350);
+    }
+
+    function renderList() {
+        const tb = g('chList'); tb.innerHTML = '';
+        [...challans].reverse().forEach(c => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${esc(c.chNumber)}</td><td>${fmtDate(c.date)}</td><td class="left">${esc(c.customer)}</td><td>${esc(c.purpose)}</td><td>${c.items.length}</td><td>${c.value ? money(c.value) : '-'}</td>
+                <td><button type="button" class="btn-warning btn-sm p">🖨️ View/Print</button> <button type="button" class="btn-success btn-sm w" style="background:#25D366;">💬</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
+            tr.querySelector('.p').addEventListener('click', () => show(c));
+            tr.querySelector('.w').addEventListener('click', () => waMsg(c));
+            tr.querySelector('.d').addEventListener('click', () => {
+                if (!confirm('Challan ' + c.chNumber + ' delete karein?' + (c.stockCut ? ' Stock wapas add ho jaayega.' : ''))) return;
+                if (c.stockCut) changeStock(c.items, +1, 'Challan ' + c.chNumber + ' deleted');
+                challans = challans.filter(x => x.id !== c.id);
+                saveAll(); renderAll(); renderList();
+            });
+            tb.appendChild(tr);
+        });
+        if (!challans.length) tb.innerHTML = '<tr><td colspan="7">Abhi koi challan nahi</td></tr>';
+    }
+
+    // ---- Print view ----
+    function show(c) {
+        current = c;
+        const f = companies.find(x => x.name === c.firm) || {};
+        const cell = 'padding:6px; border:1px solid #cbd5e0;';
+        let rows = '', qty = 0;
+        c.items.forEach((it, i) => {
+            qty += it.qty;
+            rows += `<tr><td style="${cell} text-align:center;">${i + 1}</td><td style="${cell}">${esc(it.name)}</td><td style="${cell} text-align:center;">${esc(it.hsn)}</td>
+                <td style="${cell} text-align:center;">${it.qty}</td><td style="${cell} text-align:center;">${esc(it.unit)}</td>
+                <td style="${cell} text-align:right;">${it.rate ? it.rate.toFixed(2) : '-'}</td><td style="${cell} text-align:right;">${it.rate ? (it.qty * it.rate).toFixed(2) : '-'}</td></tr>`;
+        });
+        const box = (t, body) => `<div style="width:48%; background:#f8fafc; padding:10px; border:1px solid #cbd5e0; border-left:4px solid #3182ce; border-radius:6px;"><b style="color:#2c5282;">${t}</b><div style="white-space:pre-line; margin-top:4px; line-height:1.5;">${esc(body)}</div></div>`;
+        const tr = [c.vehicle && 'Vehicle No: <b>' + esc(c.vehicle) + '</b>', c.driver && 'Driver: <b>' + esc(c.driver) + '</b>'].filter(Boolean).join(' &nbsp;|&nbsp; ');
+        g('chSheet').innerHTML = `
+            <div style="display:flex; justify-content:space-between; gap:10px; border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:14px;">
+                <div>${f.logo ? `<img src="${f.logo}" alt="" style="max-height:55px; max-width:170px; display:block; margin-bottom:4px;">` : ''}
+                    <h1 style="margin:0; font-size:24px; color:#1a365d;">DELIVERY CHALLAN</h1>
+                    <h3 style="margin:5px 0 2px 0; color:#2b6cb0; font-size:17px;">${esc(c.firm)}</h3>
+                    <div style="font-size:11px; color:#4a5568; line-height:1.5;">${esc(f.address || '')}<br>Phone: ${esc(f.phone || '')} | GSTIN: ${esc(f.gstin || '')}</div></div>
+                <div style="text-align:right; background:#f7fafc; padding:10px; border:1px solid #e2e8f0; border-radius:6px; white-space:nowrap; height:fit-content;">
+                    <div><b>Challan No:</b> <span style="color:#2b6cb0; font-weight:bold;">${esc(c.chNumber)}</span></div>
+                    <div style="margin-top:3px;"><b>Date:</b> ${fmtDate(c.date)}</div>
+                    <div style="margin-top:3px;"><b>Purpose:</b> ${esc(c.purpose)}</div></div></div>
+            <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:14px;">${box('Deliver To', c.custDetails || 'Cash Customer')}${box('Ship To', c.shipTo || c.custDetails || 'Cash Customer')}</div>
+            ${tr ? `<div style="margin-bottom:10px;">${tr}</div>` : ''}
+            <table style="width:100%; border-collapse:collapse;"><thead><tr style="background:#1a365d; color:#fff;">
+                <th style="padding:7px; width:40px;">S.NO.</th><th style="padding:7px; text-align:left;">ITEMS</th><th style="padding:7px;">HSN</th><th style="padding:7px;">QTY</th><th style="padding:7px;">UNIT</th><th style="padding:7px; text-align:right;">RATE (₹)</th><th style="padding:7px; text-align:right;">VALUE (₹)</th></tr></thead>
+                <tbody>${rows}<tr style="font-weight:bold; background:#f1f3f5;"><td colspan="3" style="${cell} text-align:right;">Total</td><td style="${cell} text-align:center;">${qty}</td><td style="${cell}"></td><td style="${cell}"></td><td style="${cell} text-align:right;">${c.value ? '₹' + money(c.value) : '-'}</td></tr></tbody></table>
+            ${c.notes ? `<div style="margin-top:10px;"><b>Notes:</b> ${esc(c.notes)}</div>` : ''}
+            <div style="margin-top:12px; font-size:11px; background:#fffbea; border:1px solid #f6e05e; padding:8px; border-radius:6px;">Ye maal <b>${esc(c.purpose)}</b> ke liye bheja ja raha hai. Ye tax invoice nahi hai. Kripya maal mile par ginti aur halat check kar lein.</div>
+            <div style="margin-top:40px; display:flex; justify-content:space-between;">
+                <div style="text-align:center; width:200px; border-top:1px solid #4a5568; padding-top:5px; font-weight:bold;">Receiver's Signature</div>
+                <div style="text-align:center;"><div style="margin-bottom:34px; font-weight:bold; color:#1a365d;">For ${esc(c.firm)}</div><div style="border-top:1px solid #4a5568; padding-top:5px; font-weight:bold; width:200px;">Authorised Signatory</div></div></div>`;
+        g('chOverlay').style.display = 'block'; g('chOverlay').scrollTop = 0;
+    }
+    function waMsg(c) {
+        openWhatsApp(c.phone, `Namaste ${c.customer},\n${c.firm} ki taraf se Delivery Challan #${c.chNumber} (${fmtDate(c.date)})\nMaal: ${c.items.map(i => i.qty + ' ' + i.unit + ' ' + i.name).join(', ')}${c.vehicle ? '\nGaadi: ' + c.vehicle : ''}\nDhanyavaad!`);
+    }
+    async function pdf() {
+        try {
+            if (typeof html2canvas === 'undefined' || !window.jspdf) throw new Error('PDF library load nahi hui (internet check karo)');
+            toast('PDF ban rahi hai...');
+            const canvas = await html2canvas(g('chSheet'), { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+            const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
+            const pw = 210, ph = 297, h = canvas.height * pw / canvas.width, img = canvas.toDataURL('image/jpeg', 0.92);
+            let left = h, pos = 0;
+            doc.addImage(img, 'JPEG', 0, pos, pw, h); left -= ph;
+            while (left > 0) { pos -= ph; doc.addPage(); doc.addImage(img, 'JPEG', 0, pos, pw, h); left -= ph; }
+            downloadFile('Challan-' + String(current.chNumber).replace(/[^\w-]+/g, '_') + '.pdf', doc.output('blob'), 'application/pdf');
+        } catch (e) { toast('❌ ' + e.message); }
+    }
+
+    // ---- Wire up ----
+    g('chAddRow').addEventListener('click', () => addRow());
+    g('chSave').addEventListener('click', save);
+    g('chFirm').addEventListener('change', () => { g('chNo').value = nextNo(); });
+    g('chDate').addEventListener('change', () => { g('chNo').value = nextNo(); });
+    g('chCust').addEventListener('change', () => {
+        const c = customers[g('chCust').value];
+        if (c) g('chCustDetails').value = `${c.name}\n${c.address || ''}\nPhone: ${c.phone || 'N/A'}\nGSTIN: ${c.gstin || 'Unregistered'}\nState: ${c.state || ''}`;
+    });
+    g('chPrintBtn').addEventListener('click', () => printMode('challan'));
+    g('chPdfBtn').addEventListener('click', pdf);
+    g('chWaBtn').addEventListener('click', () => current && waMsg(current));
+    g('chCloseBtn').addEventListener('click', () => { g('chOverlay').style.display = 'none'; });
+
+    const oSwitch = window.switchTab;
+    window.switchTab = function (tabID) { oSwitch.apply(this, arguments); if (tabID === 'challan') init(); };
+})();
+</script>
 </body>
 </html>
 
