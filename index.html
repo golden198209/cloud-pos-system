@@ -4198,7 +4198,311 @@ function exportRegisterCsv() {
     window.switchTab = function (tabID) { oSwitch.apply(this, arguments); if (tabID === 'challan') init(); };
 })();
 </script>
+<script>
+/* ===== PATCH 5 + 6: Batch + Expiry (full) aur Features on/off switches ===== */
 
+/* ---------- PATCH 5: Batch + Expiry ---------- */
+(function () {
+    const g = id => document.getElementById(id);
+    const r3 = n => Math.round((+n || 0) * 1000) / 1000;
+    const dLeft = e => e ? Math.floor((new Date(e + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 864e5) : 99999;
+    const isExp = e => !!e && dLeft(e) < 0;
+    const byExp = (a, b) => ((a.exp || '9999') < (b.exp || '9999') ? -1 : (a.exp || '9999') > (b.exp || '9999') ? 1 : 0);
+    const prodOf = it => (typeof findProduct === 'function') ? findProduct(it) : null;
+
+    // product form mein checkbox
+    g('prodStock').insertAdjacentHTML('afterend',
+        '<label style="display:block; font-size:13px; margin-bottom:8px;"><input type="checkbox" id="prodTrack"> 📦 Is product ka Batch + Expiry track karo (dawai, khane ka saaman, cosmetics)</label>');
+
+    // ---------- STOCK LOGIC (batch layer) ----------
+    function allocate(p, q, pref) {
+        const bs = p.batches || (p.batches = []);
+        let need = q; const out = []; let usedExp = false;
+        const take = b => {
+            if (need <= 0 || b.qty <= 0) return;
+            const t = Math.min(b.qty, need);
+            b.qty = r3(b.qty - t); need = r3(need - t);
+            out.push({ b: b.no, exp: b.exp || '', q: t });
+            if (isExp(b.exp)) usedExp = true;
+        };
+        if (pref) { const b = bs.find(x => x.no === pref); if (b) take(b); }
+        [...bs].filter(b => !isExp(b.exp)).sort(byExp).forEach(take);
+        [...bs].filter(b => isExp(b.exp)).sort(byExp).forEach(take);
+        if (need > 0) out.push({ b: '', exp: '', q: need });
+        return { out, usedExp };
+    }
+    function restore(p, it, q) {
+        const bs = p.batches || (p.batches = []);
+        const add = (no, exp, n) => {
+            let b = bs.find(x => x.no === no);
+            if (!b) { b = { no, exp: exp || '', qty: 0 }; bs.push(b); }
+            b.qty = r3(b.qty + n);
+        };
+        if (it.alloc && it.alloc.length) it.alloc.forEach(a => { if (a.b) add(a.b, a.exp, a.q); });
+        else add(it.batch || 'RETURNED', '', q);
+    }
+    const oCS = window.changeStock;
+    window.changeStock = function (items, sign) {
+        let warnExp = false;
+        items.forEach(it => {
+            const p = prodOf(it);
+            if (!p || !p.track) return;
+            const q = parseFloat(it.qty) || 0;
+            if (sign < 0) { const r = allocate(p, q, it.batch); it.alloc = r.out; if (r.usedExp) warnExp = true; }
+            else restore(p, it, q);
+        });
+        if (warnExp) toast('⚠️ Dhyan do: expire ho chuka batch bill mein use hua');
+        return oCS.apply(this, arguments);
+    };
+
+    // ---------- INVOICE ROW: batch chunna ----------
+    function refreshRow(tr, keep) {
+        const sel = tr.querySelector('.row-batch'); if (!sel) return;
+        const name = tr.querySelector('.row-name').value.trim().toLowerCase();
+        const p = inventory.find(x => x.name.toLowerCase() === name);
+        if (!p || !p.track) { sel.style.display = 'none'; sel.innerHTML = ''; return; }
+        const cur = keep !== undefined ? keep : sel.value;
+        let h = '<option value="">Auto (sabse pehle expire hone wala)</option>';
+        (p.batches || []).filter(b => b.qty > 0 || b.no === cur).sort(byExp).forEach(b => {
+            h += `<option value="${esc(b.no)}">${esc(b.no)} | ${b.exp ? 'Exp ' + fmtDate(b.exp) : 'No exp'}${isExp(b.exp) ? ' ❌EXPIRED' : ''} | ${b.qty}</option>`;
+        });
+        sel.innerHTML = h; sel.value = cur || ''; sel.style.display = 'block';
+    }
+    const oAdd = window.addItemRowWithProduct;
+    window.addItemRowWithProduct = function (prod) {
+        oAdd.apply(this, arguments);
+        const tr = g('itemRows').lastElementChild;
+        if (!tr || tr.querySelector('.row-batch')) return;
+        const td = tr.querySelector('.row-name').parentElement;
+        td.insertAdjacentHTML('beforeend', '<select class="row-batch" style="display:none; width:100%; margin-top:3px; font-size:11px;"></select>');
+        tr.querySelector('.row-batch').addEventListener('change', () => calculateTotals());
+        tr.querySelector('.row-name').addEventListener('change', () => refreshRow(tr));
+        refreshRow(tr);
+    };
+    const oBuild = window.buildRecordFromForm;
+    window.buildRecordFromForm = function () {
+        const r = oBuild.apply(this, arguments);
+        document.querySelectorAll('#itemRows tr').forEach((tr, i) => {
+            const s = tr.querySelector('.row-batch');
+            if (r.items[i] && s && s.style.display !== 'none') r.items[i].batch = s.value;
+        });
+        return r;
+    };
+    const oFill = window.fillFormFromDoc;
+    window.fillFormFromDoc = function (doc) {
+        oFill.apply(this, arguments);
+        document.querySelectorAll('#itemRows tr').forEach((tr, i) => {
+            const it = doc.items && doc.items[i];
+            if (it) refreshRow(tr, it.batch || '');
+        });
+    };
+
+    // ---------- PRINT: batch + expiry invoice par ----------
+    const oShow = window.showDocModal;
+    window.showDocModal = function (doc) {
+        oShow.apply(this, arguments);
+        if (!doc || !doc.items) return;
+        [...g('dItems').rows].forEach((row, i) => {
+            const it = doc.items[i];
+            if (!it || !it.alloc) return;
+            const t = it.alloc.filter(a => a.b).map(a => `Batch ${esc(a.b)}${a.exp ? ' (Exp ' + fmtDate(a.exp) + ')' : ''}`).join(', ');
+            if (t) row.cells[1].insertAdjacentHTML('beforeend', `<div style="font-size:10px; color:#4a5568; font-weight:normal;">${t}</div>`);
+        });
+    };
+
+    // ---------- PRODUCT SAVE: track + batches bachao ----------
+    const oSP = window.saveProduct;
+    window.saveProduct = function () {
+        const idx = editingProdIdx, n = inventory.length, track = g('prodTrack').checked;
+        const old = idx !== null ? inventory[idx] : null;
+        const keep = old ? (old.batches || []) : [];
+        oSP.apply(this, arguments);
+        const p = idx !== null ? inventory[idx] : (inventory.length > n ? inventory[inventory.length - 1] : null);
+        if (!p) return;
+        p.track = track; p.batches = track ? keep : [];
+        if (track) {
+            const diff = r3((parseFloat(p.stock) || 0) - p.batches.reduce((s, b) => s + b.qty, 0));
+            if (diff !== 0) {
+                let ob = p.batches.find(b => b.no === 'OPENING');
+                if (!ob) { ob = { no: 'OPENING', exp: '', qty: 0 }; p.batches.push(ob); }
+                ob.qty = Math.max(0, r3(ob.qty + diff));
+            }
+        }
+        saveAll(); renderInventoryTable(); checkLowStock();
+    };
+    const oClear = window.clearProductForm;
+    window.clearProductForm = function () { oClear.apply(this, arguments); g('prodTrack').checked = false; };
+
+    // ---------- BATCH WINDOW ----------
+    function openBatches(p) {
+        const bs = (p.batches || []).slice().sort(byExp);
+        let h = `<p style="font-size:13px;"><b>${esc(p.name)}</b> | Kul stock: <b>${p.stock}</b></p>
+        <table class="items-table"><thead><tr><th>Batch No.</th><th>Expiry</th><th>Din baaki</th><th>Qty</th><th>Action</th></tr></thead><tbody>`;
+        bs.forEach(b => {
+            const d = dLeft(b.exp), col = !b.exp ? '#555' : d < 0 ? '#b30000' : d <= 30 ? '#d9480f' : d <= 90 ? '#b8860b' : '#2b8a3e';
+            h += `<tr><td>${esc(b.no)}</td><td>${b.exp ? fmtDate(b.exp) : '-'}</td><td style="color:${col}; font-weight:bold;">${!b.exp ? '-' : d < 0 ? 'Expired (' + (-d) + ' din)' : d + ' din'}</td><td><b>${b.qty}</b></td>
+                <td><button type="button" class="btn-info btn-sm bq" data-n="${esc(b.no)}">Qty badlo</button> <button type="button" class="btn-danger btn-sm bd" data-n="${esc(b.no)}">Delete</button></td></tr>`;
+        });
+        if (!bs.length) h += '<tr><td colspan="5">Abhi koi batch nahi</td></tr>';
+        h += `</tbody></table><div class="box-section" style="margin-top:10px;"><b>+ Naya batch / maal aaya</b>
+            <div class="row-flex" style="margin-top:6px;"><div><label>Batch No.</label><input id="nbNo" class="input-field"></div>
+            <div><label>Expiry date</label><input type="date" id="nbExp" class="input-field"></div>
+            <div><label>Qty</label><input type="number" id="nbQty" class="input-field" min="0" step="any"></div>
+            <div><button type="button" id="nbAdd" class="btn-success">Add</button></div></div></div>`;
+        showInfo('📦 Batches — ' + p.name, h);
+        const log = (ch, why) => stockLog.push({ date: today(), product: p.name, change: ch, balance: p.stock, reason: why });
+        const done = () => { saveAll(); renderInventoryTable(); checkLowStock(); openBatches(p); };
+        g('nbAdd').addEventListener('click', () => {
+            const no = g('nbNo').value.trim(), q = parseFloat(g('nbQty').value);
+            if (!no) { toast('Batch number daalo'); return; }
+            if (!(q > 0)) { toast('Sahi quantity daalo'); return; }
+            const exp = g('nbExp').value;
+            p.batches = p.batches || [];
+            let b = p.batches.find(x => x.no === no);
+            if (b) { b.qty = r3(b.qty + q); if (exp) b.exp = exp; } else p.batches.push({ no, exp, qty: q });
+            p.stock = r3((parseFloat(p.stock) || 0) + q);
+            log(q, 'Batch ' + no + ' aaya'); done();
+        });
+        document.querySelectorAll('#infoBody .bq').forEach(btn => btn.addEventListener('click', () => {
+            const b = p.batches.find(x => x.no === btn.dataset.n); if (!b) return;
+            const nq = parseFloat(prompt('Batch ' + b.no + ' ki sahi quantity kitni hai?', b.qty));
+            if (isNaN(nq) || nq < 0) return;
+            const diff = r3(nq - b.qty); b.qty = nq; p.stock = r3((parseFloat(p.stock) || 0) + diff);
+            if (diff) log(diff, 'Batch ' + b.no + ' correction'); done();
+        }));
+        document.querySelectorAll('#infoBody .bd').forEach(btn => btn.addEventListener('click', () => {
+            const b = p.batches.find(x => x.no === btn.dataset.n); if (!b) return;
+            if (!confirm('Batch ' + b.no + ' delete karein? Uski ' + b.qty + ' quantity stock se ghat jaayegi.')) return;
+            p.stock = r3((parseFloat(p.stock) || 0) - b.qty);
+            p.batches = p.batches.filter(x => x !== b);
+            if (b.qty) log(-b.qty, 'Batch ' + b.no + ' hataya'); done();
+        }));
+    }
+
+    // ---------- STOCK TAB: expiry alerts + batch button ----------
+    g('inventoryTableBody').closest('.table-wrap').insertAdjacentHTML('beforebegin', '<div id="expBox" class="box-section" style="display:none;"></div>');
+    function expList() {
+        const list = [];
+        inventory.forEach(p => { if (p.track) (p.batches || []).forEach(b => { if (b.qty > 0 && b.exp && dLeft(b.exp) <= 90) list.push({ p, b, d: dLeft(b.exp) }); }); });
+        return list.sort((a, b) => a.d - b.d);
+    }
+    function renderExpBox() {
+        const box = g('expBox'), list = expList();
+        if (!list.length) { box.style.display = 'none'; return; }
+        const gone = list.filter(x => x.d < 0), soon = list.filter(x => x.d >= 0);
+        const loss = gone.reduce((s, x) => s + x.b.qty * (+x.p.price || 0), 0);
+        let h = `<h4 style="margin:0 0 6px 0;">⏳ Expiry Alerts</h4><p style="font-size:12px; margin:0 0 6px 0;"><b style="color:#b30000;">${gone.length}</b> batch expire ho chuke (bikri bhaav se ₹${money(loss)} ka maal) | <b style="color:#d9480f;">${soon.length}</b> batch 90 din mein expire honge</p>
+            <div class="table-wrap"><table class="items-table"><thead><tr><th class="left">Product</th><th>Batch</th><th>Expiry</th><th>Din</th><th>Qty</th></tr></thead><tbody>`;
+        list.forEach(x => {
+            const col = x.d < 0 ? '#b30000' : x.d <= 30 ? '#d9480f' : '#b8860b';
+            h += `<tr><td class="left">${esc(x.p.name)}</td><td>${esc(x.b.no)}</td><td>${fmtDate(x.b.exp)}</td><td style="color:${col}; font-weight:bold;">${x.d < 0 ? 'Expired' : x.d + ' din'}</td><td>${x.b.qty}</td></tr>`;
+        });
+        box.innerHTML = h + '</tbody></table></div>'; box.style.display = 'block';
+    }
+    const oRI = window.renderInventoryTable;
+    window.renderInventoryTable = function () {
+        oRI.apply(this, arguments);
+        [...g('inventoryTableBody').rows].forEach((row, i) => {
+            const p = inventory[i]; if (!p || row.cells.length < 7) return;
+            row.querySelector('.e').addEventListener('click', () => { g('prodTrack').checked = !!p.track; });
+            if (!p.track) return;
+            const live = (p.batches || []).filter(b => b.qty > 0).sort(byExp);
+            const near = live.find(b => b.exp);
+            row.cells[5].insertAdjacentHTML('beforeend', `<br><small style="color:${near && dLeft(near.exp) < 0 ? '#b30000' : '#555'};">${live.length} batch${near ? ' | pehla exp ' + fmtDate(near.exp) : ''}</small>`);
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'btn-warning btn-sm'; b.textContent = '📦 Batches';
+            b.addEventListener('click', () => openBatches(p));
+            row.cells[6].appendChild(b);
+        });
+        renderExpBox();
+    };
+    const oLS = window.checkLowStock;
+    window.checkLowStock = function () {
+        oLS.apply(this, arguments);
+        const list = expList(), bn = g('lowStockBanner');
+        if (!bn || !list.length) return;
+        const gone = list.filter(x => x.d < 0).length, soon = list.length - gone;
+        bn.innerHTML += (bn.style.display === 'block' ? '<br>' : '') + `⏳ <b>Expiry:</b> ${gone} batch expire ho chuke, ${soon} batch 90 din mein expire honge (Stock tab dekho)`;
+        bn.style.display = 'block';
+    };
+})();
+
+/* ---------- PATCH 6: Features on/off switches (Patch 5 ke baad chalna zaroori hai) ---------- */
+(function () {
+    const g = id => document.getElementById(id);
+    const LIST = [
+        ['batch',     '📦 Batch + Expiry', 'Dawai, khane ka saaman, cosmetics ke liye'],
+        ['transport', '🚚 Transport / E-way Bill', 'Gaadi, driver, e-way bill JSON (wholesale, furniture)'],
+        ['challan',   '🚚 Delivery Challan', 'Bina bill ke maal bhejne ke liye'],
+        ['card',      '🪪 Visiting Card', 'Visiting card banana aur bhejna']
+    ];
+    const DEF = { batch: true, transport: true, challan: true, card: true };
+    const feat = () => Object.assign({}, DEF, settings.features || {});
+
+    const tag = (el, c) => { if (el) el.classList.add(c); };
+    tag(g('prodTrack') && g('prodTrack').parentElement, 'f-batch');
+    tag(g('trMode') && g('trMode').closest('.box-section'), 'f-transport');
+    const st = document.createElement('style');
+    st.textContent = 'body.off-batch .f-batch, body.off-batch #expBox, body.off-batch .row-batch { display:none !important; }' +
+        'body.off-transport .f-transport { display:none !important; }' +
+        'body.off-challan [data-tab="challan"], body.off-card [data-tab="card"] { display:none !important; }';
+    document.head.appendChild(st);
+
+    function apply() {
+        const f = feat();
+        LIST.forEach(x => document.body.classList.toggle('off-' + x[0], !f[x[0]]));
+    }
+
+    g('settingsPanel').insertAdjacentHTML('beforeend', `
+    <div class="box-section">
+        <h4 style="margin-top:0;">🎛️ Features on / off</h4>
+        <p style="font-size:12px; color:#555;">Jo features aapke kaam ke nahi hain unhe band kar do, app saaf dikhega. Kabhi bhi wapas chalu kar sakte ho. Data kabhi delete nahi hota.</p>
+        ${LIST.map(x => `<label style="display:block; margin-bottom:6px; font-size:13px;"><input type="checkbox" class="feat-chk" data-k="${x[0]}"> <b>${x[1]}</b> <span style="color:#777;">- ${x[2]}</span></label>`).join('')}
+    </div>`);
+    document.querySelectorAll('.feat-chk').forEach(c => c.addEventListener('change', () => {
+        settings.features = Object.assign(feat(), { [c.dataset.k]: c.checked });
+        saveSettings(); apply();
+        if (typeof renderInventoryTable === 'function') renderInventoryTable();
+        if (typeof renderHistoryTable === 'function') renderHistoryTable();
+        if (typeof checkLowStock === 'function') checkLowStock();
+        toast('Feature setting save ho gayi');
+    }));
+    const oRS = window.renderSettings;
+    window.renderSettings = function () {
+        oRS.apply(this, arguments);
+        const f = feat();
+        document.querySelectorAll('.feat-chk').forEach(c => { c.checked = !!f[c.dataset.k]; });
+    };
+
+    const oRI = window.renderInventoryTable;
+    window.renderInventoryTable = function () {
+        oRI.apply(this, arguments);
+        if (feat().batch) return;
+        [...g('inventoryTableBody').rows].forEach(r => {
+            [...r.querySelectorAll('button')].forEach(b => { if (/Batches/.test(b.textContent)) b.remove(); });
+            if (r.cells[5]) r.cells[5].querySelectorAll('small').forEach(s => s.remove());
+        });
+    };
+    const oRH = window.renderHistoryTable;
+    window.renderHistoryTable = function () {
+        oRH.apply(this, arguments);
+        if (feat().transport) return;
+        [...g('historyTableBody').querySelectorAll('button')].forEach(b => { if (/EWB/.test(b.textContent)) b.remove(); });
+    };
+    const oLS = window.checkLowStock;
+    window.checkLowStock = function () {
+        oLS.apply(this, arguments);
+        if (feat().batch) return;
+        const bn = g('lowStockBanner');
+        if (!bn) return;
+        const parts = bn.innerHTML.split('<br>').filter(s => !s.includes('⏳'));
+        bn.innerHTML = parts.join('<br>');
+        if (!parts.join('').trim()) bn.style.display = 'none';
+    };
+
+    apply();
+})();
+</script>
 </body>
 </html>
 
