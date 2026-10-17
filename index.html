@@ -4603,6 +4603,312 @@ function exportRegisterCsv() {
     };
 })();
 </script>
+    <script>
+/* ===== PATCH 8: Dukaan ka type (presets) + Serial / IMEI number ===== */
+(function () {
+    const g = id => document.getElementById(id);
+    const KEYS = ['batch', 'transport', 'challan', 'card', 'serial'];
+    const PRESETS = {
+        furniture: { n: '🪑 Furniture / Hardware', d: 'Transport, Challan, Visiting Card', f: { batch: 0, transport: 1, challan: 1, card: 1, serial: 0 } },
+        medical:   { n: '💊 Medical / Pharmacy', d: 'Batch + Expiry, Visiting Card', f: { batch: 1, transport: 0, challan: 0, card: 1, serial: 0 } },
+        kirana:    { n: '🛒 Kirana / Food / Cosmetics', d: 'Batch + Expiry, Visiting Card', f: { batch: 1, transport: 0, challan: 0, card: 1, serial: 0 } },
+        mobile:    { n: '📱 Mobile / Electronics', d: 'Serial / IMEI, Challan, Visiting Card', f: { batch: 0, transport: 0, challan: 1, card: 1, serial: 1 } },
+        garments:  { n: '👕 Kapde / Jootay', d: 'Challan, Visiting Card', f: { batch: 0, transport: 0, challan: 1, card: 1, serial: 0 } },
+        other:     { n: '🏬 Sab kuch (Other)', d: 'Saare features chalu', f: { batch: 1, transport: 1, challan: 1, card: 1, serial: 1 } }
+    };
+    const cur = () => Object.assign({ batch: true, transport: true, challan: true, card: true, serial: true }, settings.features || {});
+    const paint = () => { const f = cur(); KEYS.forEach(k => document.body.classList.toggle('off-' + k, !f[k])); };
+    const sOn = () => !document.body.classList.contains('off-serial');
+    const refresh = () => { try { renderSettings(); renderInventoryTable(); renderHistoryTable(); checkLowStock(); calculateTotals(); } catch (e) {} };
+    function setFeatures(o) { settings.features = Object.assign(cur(), o); saveSettings(); paint(); refresh(); }
+
+    const st = document.createElement('style');
+    st.textContent = 'body.off-serial .f-serial { display:none !important; }';
+    document.head.appendChild(st);
+    paint();
+
+    /* ---------- DUKAAN KA TYPE ---------- */
+    const opts = Object.keys(PRESETS).map(k => `<option value="${k}">${PRESETS[k].n}</option>`).join('');
+
+    // signup screen par type chunna
+    g('authFirmRow').insertAdjacentHTML('beforeend', `<label style="font-size:12px;"><b>Dukaan ka type</b></label><select id="authShopType" class="input-field">${opts}</select>`);
+    const oAS = window.authSubmit;
+    window.authSubmit = function () {
+        if (authMode === 'signup') localStorage.setItem('gs_pending_type', g('authShopType').value);
+        const r = oAS.apply(this, arguments);
+        Promise.resolve(r).then(() => { if (!(auth && auth.currentUser)) localStorage.removeItem('gs_pending_type'); });
+        return r;
+    };
+
+    // pehli baar type chunne wali screen
+    document.body.insertAdjacentHTML('beforeend', `
+    <div id="shopChooser" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(26,54,93,.97); z-index:9000; overflow-y:auto; justify-content:center; align-items:center;">
+        <div class="auth-box" style="width:420px; margin:20px 0;">
+            <h3 style="margin:0 0 4px 0;">Aapki dukaan kis type ki hai?</h3>
+            <p style="font-size:12px; color:#666; margin:0 0 12px 0;">Isse app mein sirf aapke kaam ke features dikhenge. Baad mein Settings mein kabhi bhi badal sakte ho.</p>
+            ${Object.keys(PRESETS).map(k => `<button type="button" class="btn-success shop-pick" data-t="${k}" style="width:100%; margin-bottom:8px; text-align:left; padding:10px;">${PRESETS[k].n}<br><small style="font-weight:normal;">${PRESETS[k].d}</small></button>`).join('')}
+        </div>
+    </div>`);
+    function choose(t) {
+        const p = PRESETS[t]; if (!p) return;
+        const o = {}; Object.keys(p.f).forEach(k => { o[k] = !!p.f[k]; });
+        settings.shopType = t;
+        setFeatures(o);
+        g('shopChooser').style.display = 'none';
+        toast('Dukaan type set: ' + p.n);
+    }
+    document.querySelectorAll('.shop-pick').forEach(b => b.addEventListener('click', () => choose(b.dataset.t)));
+
+    let started = false;
+    const oSM = window.startMain;
+    window.startMain = function () {
+        oSM.apply(this, arguments);
+        if (started) return; started = true;
+        const pt = localStorage.getItem('gs_pending_type');
+        if (pt && PRESETS[pt]) { localStorage.removeItem('gs_pending_type'); choose(pt); }
+        else if (!settings.shopType) g('shopChooser').style.display = 'flex';
+    };
+
+    // settings mein type + serial switch
+    g('settingsPanel').insertAdjacentHTML('beforeend', `
+    <div class="box-section">
+        <h4 style="margin-top:0;">🏬 Dukaan ka type</h4>
+        <p id="shopTypeNow" style="font-size:13px;"></p>
+        <select id="shopTypeSel" class="input-field">${opts}</select>
+        <button type="button" id="shopTypeApply" class="btn-success">Is type ke hisaab se features lagao</button>
+        <p style="font-size:12px; color:#555;">Type chunne ke baad bhi upar "Features on / off" se koi switch haath se badal sakte ho.</p>
+        <label style="display:block; font-size:13px;"><input type="checkbox" id="featSerial"> <b>🔢 Serial / IMEI number</b> <span style="color:#777;">- Mobile, electronics, appliances ke liye</span></label>
+    </div>`);
+    g('shopTypeApply').addEventListener('click', () => choose(g('shopTypeSel').value));
+    g('featSerial').addEventListener('change', e => { setFeatures({ serial: e.target.checked }); toast('Feature setting save ho gayi'); });
+    const oRS = window.renderSettings;
+    window.renderSettings = function () {
+        oRS.apply(this, arguments);
+        const t = settings.shopType;
+        g('shopTypeNow').innerHTML = (t && PRESETS[t]) ? 'Abhi ka type: <b>' + PRESETS[t].n + '</b>' : 'Type abhi chuna nahi gaya.';
+        if (t && PRESETS[t]) g('shopTypeSel').value = t;
+        g('featSerial').checked = !!cur().serial;
+    };
+
+    /* ---------- SERIAL / IMEI ---------- */
+    const parseSerials = s => [...new Set(String(s || '').split(/[\s,;]+/).map(x => x.trim().toUpperCase()).filter(Boolean))];
+
+    // product form
+    g('prodStock').insertAdjacentHTML('afterend',
+        '<label class="f-serial" style="display:block; font-size:13px; margin-bottom:8px;"><input type="checkbox" id="prodSerial"> 🔢 Is product ka Serial / IMEI number track karo (mobile, electronics)</label>');
+    const oSP = window.saveProduct;
+    window.saveProduct = function () {
+        const idx = editingProdIdx, n = inventory.length, flag = g('prodSerial').checked;
+        const keep = idx !== null && inventory[idx] ? (inventory[idx].serials || []) : [];
+        oSP.apply(this, arguments);
+        const p = idx !== null ? inventory[idx] : (inventory.length > n ? inventory[inventory.length - 1] : null);
+        if (!p) return;
+        p.serial = flag; p.serials = flag ? keep : [];
+        saveAll(); renderInventoryTable();
+    };
+    const oClear = window.clearProductForm;
+    window.clearProductForm = function () { oClear.apply(this, arguments); g('prodSerial').checked = false; };
+
+    // invoice row: serial box
+    function refreshSer(tr) {
+        const inp = tr.querySelector('.row-serial'); if (!inp) return;
+        const name = tr.querySelector('.row-name').value.trim().toLowerCase();
+        const p = inventory.find(x => x.name.toLowerCase() === name);
+        const show = !!(p && p.serial);
+        inp.style.display = show ? 'block' : 'none';
+        if (!show) inp.value = '';
+    }
+    const oAdd = window.addItemRowWithProduct;
+    window.addItemRowWithProduct = function () {
+        oAdd.apply(this, arguments);
+        const tr = g('itemRows').lastElementChild;
+        if (!tr || tr.querySelector('.row-serial')) return;
+        tr.querySelector('.row-name').parentElement.insertAdjacentHTML('beforeend',
+            '<input type="text" class="row-serial f-serial" placeholder="IMEI / Serial (Enter ya comma se alag)" style="display:none; width:100%; margin-top:3px; font-size:11px; box-sizing:border-box;">');
+        const inp = tr.querySelector('.row-serial');
+        inp.addEventListener('keydown', e => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const v = inp.value.trim();
+            if (v && !/[,;]$/.test(v)) { inp.value = v + ', '; inp.dispatchEvent(new Event('input')); }
+        });
+        inp.addEventListener('input', () => {
+            const l = parseSerials(inp.value);
+            if (l.length) tr.querySelector('.row-qty').value = l.length;
+            calculateTotals();
+        });
+        tr.querySelector('.row-name').addEventListener('change', () => refreshSer(tr));
+        refreshSer(tr);
+    };
+    const oBuild = window.buildRecordFromForm;
+    window.buildRecordFromForm = function () {
+        const r = oBuild.apply(this, arguments);
+        document.querySelectorAll('#itemRows tr').forEach((tr, i) => {
+            const inp = tr.querySelector('.row-serial');
+            if (r.items[i] && inp && inp.style.display !== 'none') r.items[i].serials = parseSerials(inp.value);
+        });
+        return r;
+    };
+    const oFill = window.fillFormFromDoc;
+    window.fillFormFromDoc = function (doc) {
+        oFill.apply(this, arguments);
+        document.querySelectorAll('#itemRows tr').forEach((tr, i) => {
+            const it = doc.items && doc.items[i];
+            refreshSer(tr);
+            const inp = tr.querySelector('.row-serial');
+            if (inp && it && it.serials && it.serials.length && inp.style.display !== 'none') inp.value = it.serials.join(', ');
+        });
+        calculateTotals();
+    };
+
+    // save se pehle jaanch
+    function checkSerials(rec) {
+        const old = editingId ? invoices.find(i => i.id === editingId) : null;
+        const oldSet = new Set();
+        if (old) old.items.forEach(it => (it.serials || []).forEach(s => oldSet.add(s)));
+        const seen = new Set();
+        for (const it of rec.items) {
+            if (!it.name) continue;
+            const p = findProduct(it);
+            if (!p || !p.serial) continue;
+            const l = it.serials || [];
+            if (l.length !== it.qty) return it.name + ': qty ' + it.qty + ' hai par ' + l.length + ' serial/IMEI daale.';
+            for (const s of l) {
+                if (seen.has(s)) return 'Serial ' + s + ' bill mein do baar aaya.';
+                seen.add(s);
+                const e = (p.serials || []).find(x => x.no === s);
+                if (!e) return it.name + ': serial ' + s + ' stock list mein nahi hai. Pehle Stock tab mein 🔢 Serials se add karo.';
+                if (e.st !== 'in' && !oldSet.has(s)) return it.name + ': serial ' + s + ' pehle hi bik chuka hai' + (e.inv ? ' (Invoice ' + e.inv + ')' : '') + '.';
+            }
+        }
+        return '';
+    }
+    const oSave = window.saveInvoice;
+    window.saveInvoice = function () {
+        if (sOn()) {
+            const err = checkSerials(buildRecordFromForm());
+            if (err) { toast('❌ ' + err); return null; }
+        }
+        return oSave.apply(this, arguments);
+    };
+
+    // stock ke saath serial ki status bhi badlo
+    const oCS = window.changeStock;
+    window.changeStock = function (items, sign, reason) {
+        if (sOn()) items.forEach(it => {
+            if (!it.serials || !it.serials.length) return;
+            const p = findProduct(it);
+            if (!p || !p.serial) return;
+            p.serials = p.serials || [];
+            it.serials.forEach(s => {
+                let e = p.serials.find(x => x.no === s);
+                if (!e) { e = { no: s }; p.serials.push(e); }
+                if (sign < 0) { e.st = 'sold'; e.inv = String(reason || '').replace(/^Invoice /, ''); e.date = today(); }
+                else { e.st = 'in'; e.inv = ''; e.date = ''; }
+            });
+        });
+        return oCS.apply(this, arguments);
+    };
+
+    // invoice par serial chhapna
+    const oShow = window.showDocModal;
+    window.showDocModal = function (doc) {
+        oShow.apply(this, arguments);
+        if (!doc || !doc.items) return;
+        [...g('dItems').rows].forEach((row, i) => {
+            const it = doc.items[i];
+            if (it && it.serials && it.serials.length)
+                row.cells[1].insertAdjacentHTML('beforeend', '<div style="font-size:10px; color:#4a5568; font-weight:normal; word-break:break-all;">IMEI/Serial: ' + it.serials.map(esc).join(', ') + '</div>');
+        });
+    };
+
+    // serial window
+    function openSerials(p) {
+        const ls = p.serials || (p.serials = []);
+        const ins = ls.filter(e => e.st === 'in'), sold = ls.filter(e => e.st !== 'in');
+        const warn = ins.length !== (parseFloat(p.stock) || 0)
+            ? `<p style="font-size:12px; color:#b30000;">⚠️ Stock (${p.stock}) aur serial list (${ins.length}) barabar nahi hain. Credit note, challan ya haath se stock badalne par aisa hota hai. Neeche list theek kar lo.</p>` : '';
+        let h = `<p style="font-size:13px;"><b>${esc(p.name)}</b> | Stock: <b>${p.stock}</b> | Serial list mein: <b>${ins.length}</b> | Bik chuke: <b>${sold.length}</b></p>${warn}
+            <div class="box-section"><b>+ Naye serial / IMEI aaye</b>
+            <textarea id="srTxt" class="input-field" rows="3" placeholder="Har serial nayi line mein ya comma se alag likho (scanner se bhi chalega)" style="margin-top:6px;"></textarea>
+            <button type="button" id="srAdd" class="btn-success">Add (stock bhi badhega)</button></div>
+            <h4 style="margin:10px 0 4px 0;">Stock mein</h4><div style="max-height:200px; overflow-y:auto;"><table class="items-table"><tbody>`;
+        ins.forEach(e => { h += `<tr><td class="left">${esc(e.no)}</td><td><button type="button" class="btn-danger btn-sm srDel" data-n="${esc(e.no)}">Hatao</button></td></tr>`; });
+        if (!ins.length) h += '<tr><td colspan="2">Koi serial stock mein nahi</td></tr>';
+        h += `</tbody></table></div><h4 style="margin:10px 0 4px 0;">Bik chuke</h4><div style="max-height:200px; overflow-y:auto;"><table class="items-table"><tbody>`;
+        sold.forEach(e => { h += `<tr><td class="left">${esc(e.no)}</td><td>${esc(e.inv || '')}</td><td>${e.date ? fmtDate(e.date) : ''}</td><td><button type="button" class="btn-warning btn-sm srBack" data-n="${esc(e.no)}">↩ Wapas lo</button></td></tr>`; });
+        if (!sold.length) h += '<tr><td colspan="4">Abhi koi nahi bika</td></tr>';
+        h += '</tbody></table></div><p style="font-size:11px; color:#666;">"Wapas lo" sirf serial ko stock list mein wapas karta hai, stock quantity nahi badalta. Pehle Credit Note banao (stock add ke saath), phir yahan wapas lo.</p>';
+        showInfo('🔢 Serial / IMEI — ' + p.name, h);
+
+        const log = (c, why) => stockLog.push({ date: today(), product: p.name, change: c, balance: p.stock, reason: why });
+        const body = g('infoBody');
+        g('srAdd').addEventListener('click', () => {
+            const list = parseSerials(g('srTxt').value);
+            if (!list.length) { toast('Serial / IMEI daalo'); return; }
+            let added = 0, skipped = 0;
+            list.forEach(s => {
+                if (inventory.some(x => (x.serials || []).some(e => e.no === s))) { skipped++; return; }
+                p.serials.push({ no: s, st: 'in', inv: '', date: '' }); added++;
+            });
+            if (added) { p.stock = (parseFloat(p.stock) || 0) + added; log(added, added + ' serial aaye'); }
+            saveAll(); renderInventoryTable(); checkLowStock(); openSerials(p);
+            toast(added + ' serial add hue' + (skipped ? ', ' + skipped + ' pehle se maujood the' : ''));
+        });
+        body.querySelectorAll('.srDel').forEach(b => b.addEventListener('click', () => {
+            const s = b.dataset.n;
+            if (!confirm('Serial ' + s + ' hataayein? Stock bhi 1 ghatega.')) return;
+            p.serials = p.serials.filter(e => e.no !== s);
+            p.stock = (parseFloat(p.stock) || 0) - 1; log(-1, 'Serial ' + s + ' hataya');
+            saveAll(); renderInventoryTable(); checkLowStock(); openSerials(p);
+        }));
+        body.querySelectorAll('.srBack').forEach(b => b.addEventListener('click', () => {
+            const e = p.serials.find(x => x.no === b.dataset.n); if (!e) return;
+            if (!confirm('Serial ' + e.no + ' wapas stock list mein daalein?')) return;
+            e.st = 'in'; e.inv = ''; e.date = '';
+            saveAll(); renderInventoryTable(); openSerials(p);
+        }));
+    }
+
+    // stock tab: serial dhundo + button
+    g('inventoryTableBody').closest('.table-wrap').insertAdjacentHTML('beforebegin', `
+    <div class="box-section f-serial">
+        <b>🔎 Serial / IMEI dhundo</b> <span style="font-size:12px; color:#666;">(kis customer ko bika, kab bika)</span>
+        <div style="display:flex; gap:6px; margin-top:6px;"><input id="serSearch" class="input-field" placeholder="IMEI / Serial number" style="margin-bottom:0;"><button type="button" id="serSearchBtn" class="btn-info">Dhundo</button></div>
+    </div>`);
+    function searchSerial() {
+        const q = g('serSearch').value.trim().toUpperCase();
+        if (q.length < 3) { toast('Kam se kam 3 akshar likho'); return; }
+        const hits = [];
+        inventory.forEach(p => (p.serials || []).forEach(e => { if (e.no.includes(q)) hits.push({ p, e }); }));
+        let h = '<table class="items-table"><thead><tr><th>Serial</th><th class="left">Product</th><th>Status</th><th>Invoice</th><th class="left">Customer</th><th>Date</th></tr></thead><tbody>';
+        hits.slice(0, 50).forEach(x => {
+            const inv = x.e.st === 'in' ? null : invoices.find(i => i.invNumber === x.e.inv);
+            h += `<tr><td>${esc(x.e.no)}</td><td class="left">${esc(x.p.name)}</td><td style="color:${x.e.st === 'in' ? 'green' : '#b30000'}; font-weight:bold;">${x.e.st === 'in' ? 'Stock mein' : 'Bik gaya'}</td><td>${esc(x.e.inv || '-')}</td><td class="left">${inv ? esc(inv.customer) : '-'}</td><td>${x.e.date ? fmtDate(x.e.date) : '-'}</td></tr>`;
+        });
+        if (!hits.length) h += '<tr><td colspan="6">Koi serial nahi mila</td></tr>';
+        showInfo('🔎 Serial search: ' + q, h + '</tbody></table>');
+    }
+    g('serSearchBtn').addEventListener('click', searchSerial);
+    g('serSearch').addEventListener('keypress', e => { if (e.key === 'Enter') searchSerial(); });
+
+    const oRI = window.renderInventoryTable;
+    window.renderInventoryTable = function () {
+        oRI.apply(this, arguments);
+        [...g('inventoryTableBody').rows].forEach((row, i) => {
+            const p = inventory[i]; if (!p || row.cells.length < 7) return;
+            row.querySelector('.e').addEventListener('click', () => { g('prodSerial').checked = !!p.serial; });
+            if (!p.serial || !sOn()) return;
+            const n = (p.serials || []).filter(e => e.st === 'in').length;
+            row.cells[5].insertAdjacentHTML('beforeend', `<br><small style="color:#555;">${n} serial</small>`);
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'btn-warning btn-sm'; b.textContent = '🔢 Serials';
+            b.addEventListener('click', () => openSerials(p));
+            row.cells[6].appendChild(b);
+        });
+    };
+})();
+</script>
 </body>
 </html>
 
