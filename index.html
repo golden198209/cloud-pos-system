@@ -4909,6 +4909,218 @@ function exportRegisterCsv() {
     };
 })();
 </script>
+    <script>
+/* ===== PATCH 10: Kharid bhaav + Analysis / Dashboard ===== */
+(function () {
+    const g = id => document.getElementById(id);
+    const dd = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5);
+    const ago = n => ymd(new Date(Date.now() - n * 864e5));
+
+    /* ---------- KHARID BHAAV (cost) ---------- */
+    g('prodPrice').insertAdjacentHTML('afterend', '<input type="number" id="prodCost" class="input-field" placeholder="Kharid bhaav ₹ (munafa nikalne ke liye, optional)" min="0" step="0.01">');
+    const oSP = window.saveProduct;
+    window.saveProduct = function () {
+        const idx = editingProdIdx, n = inventory.length, c = parseFloat(g('prodCost').value) || 0;
+        oSP.apply(this, arguments);
+        const p = idx !== null ? inventory[idx] : (inventory.length > n ? inventory[inventory.length - 1] : null);
+        if (!p) return;
+        p.cost = c; saveAll(); renderInventoryTable();
+    };
+    const oCl = window.clearProductForm;
+    window.clearProductForm = function () { oCl.apply(this, arguments); g('prodCost').value = ''; };
+    const oRI = window.renderInventoryTable;
+    window.renderInventoryTable = function () {
+        oRI.apply(this, arguments);
+        [...g('inventoryTableBody').rows].forEach((row, i) => {
+            const p = inventory[i]; if (!p || row.cells.length < 7) return;
+            if (p.cost > 0) row.cells[3].insertAdjacentHTML('beforeend', '<br><small style="color:#777;">Kharid ₹' + p.cost + '</small>');
+            const e = row.querySelector('.e');
+            if (e) e.addEventListener('click', () => { g('prodCost').value = p.cost || ''; });
+        });
+    };
+    // bill banate waqt har item ka kharid bhaav save (edit par purana bhaav bacha rahe)
+    const oBuild = window.buildRecordFromForm;
+    window.buildRecordFromForm = function () {
+        const r = oBuild.apply(this, arguments);
+        const old = editingId ? invoices.find(i => i.id === editingId) : null;
+        r.items.forEach(it => {
+            const o = old && old.items.find(x => x.name === it.name && x.cost > 0);
+            const p = findProduct(it);
+            const c = o ? o.cost : (p && p.cost > 0 ? p.cost : 0);
+            if (c > 0) it.cost = c;
+        });
+        return r;
+    };
+
+    /* ---------- ANALYSIS TAB ---------- */
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn'; btn.dataset.tab = 'analysis'; btn.textContent = '📈 Analysis';
+    document.querySelector('.nav-tabs').appendChild(btn);
+    g('settingsPanel').insertAdjacentHTML('afterend', `
+    <div id="analysisPanel" class="panel">
+        <h3>📈 Business Analysis</h3>
+        <div class="box-section">
+            <div class="row-flex">
+                <div><label>From</label><input type="date" id="anFrom" class="input-field" style="margin-bottom:0;"></div>
+                <div><label>To</label><input type="date" id="anTo" class="input-field" style="margin-bottom:0;"></div>
+                <div><label>Firm</label><select id="anFirm" class="input-field" style="margin-bottom:0;"></select></div>
+            </div>
+            <div style="margin-top:8px; display:flex; gap:5px; flex-wrap:wrap;">
+                <button type="button" class="btn-grey btn-sm an-r" data-r="7">Pichle 7 din</button>
+                <button type="button" class="btn-grey btn-sm an-r" data-r="month">Is Mahine</button>
+                <button type="button" class="btn-grey btn-sm an-r" data-r="lastmonth">Pichla Mahina</button>
+                <button type="button" class="btn-grey btn-sm an-r" data-r="fy">Is Financial Year</button>
+                <button type="button" class="btn-grey btn-sm an-r" data-r="all">Sab</button>
+            </div>
+        </div>
+        <div id="anBody"></div>
+    </div>`);
+    const setR = k => {
+        const n = new Date(); let f = '', t = '';
+        if (k === '7') { f = ago(6); t = today(); }
+        else if (k === 'month') { f = ymd(new Date(n.getFullYear(), n.getMonth(), 1)); t = ymd(new Date(n.getFullYear(), n.getMonth() + 1, 0)); }
+        else if (k === 'lastmonth') { f = ymd(new Date(n.getFullYear(), n.getMonth() - 1, 1)); t = ymd(new Date(n.getFullYear(), n.getMonth(), 0)); }
+        else if (k === 'fy') { const y = n.getMonth() >= 3 ? n.getFullYear() : n.getFullYear() - 1; f = y + '-04-01'; t = (y + 1) + '-03-31'; }
+        g('anFrom').value = f; g('anTo').value = t; render();
+    };
+    document.querySelectorAll('.an-r').forEach(b => b.addEventListener('click', () => setR(b.dataset.r)));
+    ['anFrom', 'anTo', 'anFirm'].forEach(id => g(id).addEventListener('change', () => render()));
+
+    const costOf = it => { if (it.cost > 0) return it.cost; const p = findProduct(it); return p && p.cost > 0 ? p.cost : 0; };
+
+    function calc(from, to, firm, monthly) {
+        const inR = d => (!from || d >= from) && (!to || d <= to), fo = n => !firm || n === firm;
+        const R = { rev: 0, tax: 0, n: 0, items: {}, cust: {}, days: {} };
+        const dk = d => monthly ? d.slice(0, 7) : d;
+        invoices.filter(i => inR(i.date) && fo(i.firm)).forEach(inv => {
+            const t = taxBreakup(inv); R.n++; R.rev += t.taxable; R.tax += t.tax;
+            R.days[dk(inv.date)] = (R.days[dk(inv.date)] || 0) + t.taxable;
+            inv.items.forEach(it => {
+                const a = R.items[it.name] || (R.items[it.name] = { qty: 0, rev: 0, cost: 0, crev: 0 });
+                const rev = it.taxable * t.f, c = costOf(it);
+                a.qty += it.qty; a.rev += rev;
+                if (c > 0) { a.cost += it.qty * c; a.crev += rev; }
+            });
+            const k = inv.customer.toLowerCase(), c = R.cust[k] || (R.cust[k] = { name: inv.customer, rev: 0, n: 0 });
+            c.rev += t.taxable; c.n++;
+        });
+        creditNotes.filter(c => inR(c.date) && fo(c.firm)).forEach(cn => {
+            const t = taxBreakup(cn); R.rev -= t.taxable; R.tax -= t.tax;
+            R.days[dk(cn.date)] = (R.days[dk(cn.date)] || 0) - t.taxable;
+            cn.items.forEach(it => {
+                const a = R.items[it.name] || (R.items[it.name] = { qty: 0, rev: 0, cost: 0, crev: 0 });
+                const c = costOf(it);
+                a.qty -= it.qty; a.rev -= it.taxable;
+                if (c > 0) { a.cost -= it.qty * c; a.crev -= it.taxable; }
+            });
+            const k = cn.customer.toLowerCase(); if (R.cust[k]) R.cust[k].rev -= t.taxable;
+        });
+        R.cost = 0; R.crev = 0;
+        Object.values(R.items).forEach(a => { R.cost += a.cost; R.crev += a.crev; });
+        R.profit = R.crev - R.cost;
+        return R;
+    }
+
+    const tbl = (h, rows) => '<div class="table-wrap"><table class="items-table"><thead><tr>' + h.map(x => '<th>' + x + '</th>').join('') + '</tr></thead><tbody>' +
+        (rows.length ? rows.join('') : '<tr><td colspan="' + h.length + '">Koi data nahi</td></tr>') + '</tbody></table></div>';
+    const td = (v, l) => '<td' + (l ? ' class="left"' : '') + '>' + v + '</td>';
+
+    function render() {
+        const body = g('anBody'); if (!body) return;
+        const fs = g('anFirm');
+        if (!fs.options.length || fs.options.length !== companies.length + 1) {
+            fs.innerHTML = '<option value="">Sab Firms</option>' + companies.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+        }
+        const from = g('anFrom').value, to = g('anTo').value, firm = fs.value;
+        let span = 999;
+        if (from && to) span = dd(from, to) + 1;
+        else if (invoices.length) span = dd(invoices.map(i => i.date).sort()[0], today()) + 1;
+        const monthly = span > 62;
+        const R = calc(from, to, firm, monthly);
+        const card = (h, v, c) => `<div class="stat-card"><h4>${h}</h4><div style="color:${c || '#222'};">${v}</div></div>`;
+        const insight = [];
+
+        // pichhla period se tulna
+        let cmp = '';
+        if (from && to) {
+            const pt = ymd(new Date(new Date(from + 'T00:00:00').getTime() - 864e5)), pf = ymd(new Date(new Date(pt + 'T00:00:00').getTime() - (span - 1) * 864e5));
+            const P = calc(pf, pt, firm, monthly);
+            if (P.rev > 0) {
+                const ch = (R.rev - P.rev) / P.rev * 100;
+                cmp = `<div style="font-size:11px; color:${ch >= 0 ? 'green' : '#b30000'};">${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch).toFixed(1)}% pichhle ${span} din se</div>`;
+                insight.push('Bikri pichhle ' + span + ' din ke mukable ' + Math.abs(ch).toFixed(1) + '% ' + (ch >= 0 ? 'badhi' : 'ghati') + ' hai.');
+            }
+        }
+        const cover = R.rev > 0 ? R.crev / R.rev * 100 : 0;
+
+        // udhaar (abhi tak ka, firm filter ke saath)
+        const U = {};
+        invoices.filter(i => !firm || i.firm === firm).forEach(i => {
+            const k = i.customer.toLowerCase(), u = U[k] || (U[k] = { name: i.customer, pend: 0, old: 0, dsum: 0, damt: 0 });
+            if (i.balance > 0) { u.pend += i.balance; u.old = Math.max(u.old, dd(i.date, today())); }
+            (i.payments || []).forEach(p => { if (p.amount > 0 && p.date) { u.dsum += Math.max(0, dd(i.date, p.date)) * p.amount; u.damt += p.amount; } });
+        });
+
+        // stock salaah
+        const s30 = {}, s60 = {};
+        invoices.forEach(i => i.items.forEach(it => {
+            if (i.date >= ago(30)) s30[it.name] = (s30[it.name] || 0) + it.qty;
+            if (i.date >= ago(60)) s60[it.name] = (s60[it.name] || 0) + it.qty;
+        }));
+        creditNotes.forEach(c => c.items.forEach(it => { if (c.date >= ago(30)) s30[it.name] = (s30[it.name] || 0) - it.qty; if (c.date >= ago(60)) s60[it.name] = (s60[it.name] || 0) - it.qty; }));
+        const fc = inventory.map(p => ({ p, d: (s30[p.name] || 0) / 30 })).filter(x => x.d > 0).map(x => ({ p: x.p, d: x.d, left: (parseFloat(x.p.stock) || 0) / x.d })).sort((a, b) => a.left - b.left);
+        const low = fc.filter(x => x.left <= 15);
+        const dead = inventory.filter(p => (parseFloat(p.stock) || 0) > 0 && (s60[p.name] || 0) <= 0);
+        const deadVal = dead.reduce((s, p) => s + (parseFloat(p.stock) || 0) * (p.cost > 0 ? p.cost : (+p.price || 0)), 0);
+
+        const items = Object.entries(R.items).map(([n, a]) => ({ n, ...a, pr: a.crev - a.cost })).filter(a => a.qty > 0 || a.rev > 0);
+        const top = [...items].sort((a, b) => b.rev - a.rev);
+        const custs = Object.values(R.cust).sort((a, b) => b.rev - a.rev);
+        const risky = Object.values(U).filter(u => u.pend > 0 && (u.old > 60 || (u.damt > 0 && u.dsum / u.damt > 30))).sort((a, b) => b.pend - a.pend);
+        if (top[0]) insight.push('Sabse zyada bikri: ' + top[0].n + ' (₹' + money(top[0].rev) + ').');
+        const bestP = items.filter(a => a.cost > 0).sort((a, b) => b.pr - a.pr)[0];
+        if (bestP) insight.push('Sabse zyada munafa: ' + bestP.n + ' (₹' + money(bestP.pr) + ').');
+        if (custs[0]) insight.push('Sabse bada customer: ' + custs[0].name + ' (₹' + money(custs[0].rev) + ').');
+        if (risky.length) insight.push(risky.length + ' customer ka udhaar 60 din se purana ya der se milne wala hai.');
+        if (low.length) insight.push(low.length + ' item ka stock 15 din se kam chalega, order karne ka time hai.');
+        if (dead.length) insight.push(dead.length + ' item 60 din se nahi bike (₹' + money(deadVal) + ' ka maal atka hai).');
+
+        // trend graph
+        const keys = Object.keys(R.days).sort(), mx = Math.max(1, ...keys.map(k => R.days[k]));
+        const bars = keys.map(k => `<div style="flex:1; min-width:${monthly ? 28 : 10}px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center;" title="${k}: ₹${money(R.days[k])}"><div style="width:100%; background:#007bff; border-radius:3px 3px 0 0; height:${Math.max(2, Math.round(Math.max(0, R.days[k]) / mx * 110))}px;"></div><div style="font-size:9px; color:#666;">${monthly ? k.slice(5) + '/' + k.slice(2, 4) : k.slice(8)}</div></div>`).join('');
+
+        body.innerHTML = `
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+                <div class="stat-card"><h4>Bikri (bina GST, return ke baad)</h4><div>₹${money(R.rev)}</div>${cmp}</div>
+                ${card('Bill ki ginti', R.n)}${card('Average bill', '₹' + money(R.n ? R.rev / R.n : 0))}
+                ${card('Munafa (jahan kharid bhaav hai)', R.crev > 0 ? '₹' + money(R.profit) : '-', R.profit >= 0 ? 'green' : 'red')}
+                ${card('Margin', R.crev > 0 ? (R.profit / R.crev * 100).toFixed(1) + '%' : '-')}
+                ${card('GST (becha)', '₹' + money(R.tax))}
+            </div>
+            ${R.rev > 0 && cover < 99.5 ? `<p style="font-size:12px; color:#b8860b;">⚠️ Bikri ke sirf ${cover.toFixed(0)}% hisse ka kharid bhaav maloom hai. Munafa sirf usi hisse ka hai. Baaki products mein "Kharid bhaav" bharo (Stock tab).</p>` : ''}
+            <div class="box-section"><h4 style="margin:0 0 6px 0;">💡 Seedhi baatein</h4>${insight.length ? '<ul style="margin:0; padding-left:18px; font-size:13px; line-height:1.8;">' + insight.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<span style="font-size:13px; color:#777;">Is period mein abhi koi data nahi.</span>'}</div>
+            <h4>Bikri ka trend (${monthly ? 'mahine-wise' : 'din-wise'})</h4>
+            <div style="display:flex; gap:3px; align-items:flex-end; height:140px; overflow-x:auto; border-bottom:1px solid #ccc; padding-bottom:2px;">${bars || '<span style="font-size:12px; color:#777;">Koi data nahi</span>'}</div>
+            <h4 style="margin-top:20px;">Sabse zyada bikne wale items</h4>
+            ${tbl(['Item', 'Qty', 'Bikri (₹)', 'Munafa (₹)', 'Margin'], top.slice(0, 15).map(a => '<tr>' + td(esc(a.n), 1) + td(a.qty) + td(money(a.rev)) + td(a.cost > 0 ? money(a.pr) : '-') + td(a.cost > 0 && a.crev > 0 ? (a.pr / a.crev * 100).toFixed(1) + '%' : '-') + '</tr>'))}
+            <h4 style="margin-top:20px;">Top customers</h4>
+            ${tbl(['Customer', 'Bill', 'Bikri (₹)'], custs.slice(0, 10).map(c => '<tr>' + td(esc(c.name), 1) + td(c.n) + td(money(c.rev)) + '</tr>'))}
+            <h4 style="margin-top:20px;">⚠️ Udhaar ka khatra (abhi tak ka)</h4>
+            ${tbl(['Customer', 'Abhi baaki (₹)', 'Sabse purana', 'Paise dene mein ausat'], risky.slice(0, 10).map(u => '<tr>' + td(esc(u.name), 1) + td('<b style="color:#b30000;">' + money(u.pend) + '</b>') + td(u.old + ' din') + td(u.damt > 0 ? Math.round(u.dsum / u.damt) + ' din' : '-') + '</tr>'))}
+            <h4 style="margin-top:20px;">📦 Stock jaldi khatam hoga (pichhle 30 din ki bikri ke hisaab se)</h4>
+            ${tbl(['Item', 'Stock', 'Roz bikta', 'Kitne din chalega'], low.slice(0, 15).map(x => '<tr>' + td(esc(x.p.name), 1) + td(x.p.stock) + td(x.d.toFixed(2)) + td('<b style="color:' + (x.left <= 7 ? '#b30000' : '#d9480f') + ';">' + Math.floor(x.left) + ' din</b>') + '</tr>'))}
+            <h4 style="margin-top:20px;">🐌 Dheeme items (60 din se nahi bike)</h4>
+            ${tbl(['Item', 'Stock', 'Maal ki keemat (₹)'], dead.slice(0, 15).map(p => '<tr>' + td(esc(p.name), 1) + td(p.stock) + td(money((parseFloat(p.stock) || 0) * (p.cost > 0 ? p.cost : (+p.price || 0)))) + '</tr>'))}
+            <p style="font-size:11px; color:#777;">Ye sab aankde aapke bills, credit notes aur stock se seedhe nikle hain. Stock ki salaah sirf andaza hai, mausam ya tyohaar ka asar ismein nahi.</p>`;
+    }
+
+    const oSw = window.switchTab;
+    window.switchTab = function (tabID) {
+        oSw.apply(this, arguments);
+        if (tabID === 'analysis') { if (!g('anFrom').value && !g('anTo').value) setR('month'); else render(); }
+    };
+})();
+</script>
 </body>
 </html>
 
