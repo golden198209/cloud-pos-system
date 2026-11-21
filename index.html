@@ -5121,6 +5121,100 @@ function exportRegisterCsv() {
     };
 })();
 </script>
+    <script>
+/* ===== PATCH 11: Credit Note bina maal wapas (sirf paise ka credit / discount) ===== */
+(function () {
+    const g = id => document.getElementById(id);
+
+    g('cnInfo').insertAdjacentHTML('afterend', '<div class="no-print" style="margin:6px 0;"><button type="button" id="cnValueBtn" class="btn-info btn-sm">💸 Maal wapas nahi aaya? Sirf credit / discount dene ke liye yahan dabao</button></div>');
+    g('cnValueBtn').addEventListener('click', () => {
+        if (!cnCtx) return;
+        const inv = cnCtx.inv;
+        g('cnOverlay').style.display = 'none';
+        openValueCn(inv);
+    });
+
+    function openValueCn(inv) {
+        const remaining = round2(inv.grandTotal - (inv.creditTotal || 0));
+        if (remaining <= 0.01) { toast('Is invoice par aur credit nahi diya ja sakta'); return; }
+        showInfo('💸 Credit Note (bina maal wapas) — Invoice #' + inv.invNumber, `
+            <p style="font-size:13px;"><b>${esc(inv.customer)}</b> | Bill total ₹${money(inv.grandTotal)} | Credit ho chuka ₹${money(inv.creditTotal || 0)} | Mil chuka ₹${money(inv.received)}<br>Zyada se zyada credit: <b>₹${money(remaining)}</b></p>
+            <div class="row-flex">
+                <div><label>Credit amount (GST ke saath) ₹</label><input type="number" id="vcnAmt" class="input-field" min="0" step="0.01"></div>
+                <div><label>Date</label><input type="date" id="vcnDate" class="input-field" value="${today()}"></div>
+                <div><label>Wajah</label><select id="vcnType" class="input-field"><option>Discount (bikri ke baad)</option><option>Rate ka farak</option><option>Kam maal pahuncha</option><option>Maal kharab (maal wapas nahi liya)</option><option>Anya</option></select></div>
+            </div>
+            <input type="text" id="vcnNote" class="input-field" placeholder="Note (optional)">
+            <div class="row-flex">
+                <div><label>Customer ko refund diya (₹)</label><input type="number" id="vcnRefund" class="input-field" min="0" step="0.01" value="0"></div>
+                <div><label>Refund mode</label><select id="vcnMode" class="input-field"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
+            </div>
+            <p id="vcnHint" style="font-size:12px; color:#555;"></p>
+            <button type="button" id="vcnSave" class="btn-success" style="width:100%;">Credit Note Save karo</button>`);
+
+        let touched = false;
+        const amt = () => round2(parseFloat(g('vcnAmt').value) || 0);
+        g('vcnRefund').addEventListener('input', () => { touched = true; });
+        g('vcnAmt').addEventListener('input', () => {
+            const a = amt();
+            const excess = Math.max(0, round2(inv.received - (inv.grandTotal - (inv.creditTotal || 0) - a)));
+            if (!touched) g('vcnRefund').value = excess;
+            g('vcnHint').innerText = a <= 0 ? '' : (excess > 0
+                ? 'Customer ne ₹' + money(inv.received) + ' de rakhe hain, isliye ₹' + money(excess) + ' wapas karna banta hai. Abhi wapas nahi kiya to refund 0 rakho (tab ye customer ka credit rahega, jo aapko alag se yaad rakhna padega).'
+                : 'Ye amount invoice ke baaki udhaar se kat jaayega.');
+        });
+
+        g('vcnSave').addEventListener('click', () => {
+            const A = amt();
+            if (!(A > 0)) { toast('Credit amount daalo'); return; }
+            if (A > remaining + 0.01) { toast('Credit ₹' + money(remaining) + ' se zyada nahi ho sakta'); return; }
+            const refund = round2(parseFloat(g('vcnRefund').value) || 0);
+            if (refund > inv.received + 0.01) { toast('Refund jitna mila hai usse zyada nahi ho sakta (₹' + money(inv.received) + ')'); return; }
+
+            // amount ko invoice ke items par unke hisse ke hisaab se baanto, taaki GST rate wahi rahe
+            const t = taxBreakup(inv), f = t.f;
+            const w = inv.items.map(it => it.total * f), sw = w.reduce((s, x) => s + x, 0);
+            if (!(sw > 0)) { toast('Is invoice ke items se amount baanta nahi ja sakta'); return; }
+            const items = [];
+            inv.items.forEach((it, i) => {
+                const share = A * w[i] / sw;
+                if (!(share > 0)) return;
+                const taxable = share / (1 + (+it.gst || 0) / 100);
+                items.push({ name: it.name, barcode: '', hsn: it.hsn || '', qty: 0, price: 0, gst: it.gst, taxable, tax: share - taxable, total: share });
+            });
+            const date = g('vcnDate').value || today();
+            const reason = g('vcnType').value + (g('vcnNote').value.trim() ? ' - ' + g('vcnNote').value.trim() : '');
+            const cn = {
+                id: uid(), seq: nextSeq(), firm: inv.firm, cnNumber: nextCnNumber(inv.firm, date), date,
+                invoiceId: inv.id, invNumber: inv.invNumber, invDate: inv.date,
+                customer: inv.customer, custDetails: inv.custDetails, phone: inv.phone || '', gstin: inv.gstin || '',
+                pos: inv.pos, igst: inv.igst, priceMode: inv.priceMode,
+                items, discount: 0, transport: 0, transportGst: 0, reason, restock: false, type: 'value'
+            };
+            finalizeTotals(cn);
+            creditNotes.push(cn);
+            if (refund > 0) inv.payments.push({ date, amount: -refund, mode: g('vcnMode').value, note: 'Refund ' + cn.cnNumber, cnId: cn.id });
+            applyCredits(); saveAll();
+            g('infoOverlay').style.display = 'none';
+            renderAll();
+            toast('Credit Note ban gayi: ' + cn.cnNumber);
+            showDocModal(cn, 'CREDIT NOTE');
+        });
+    }
+
+    // print: qty / rate ki jagah "-", aur note
+    const oShow = window.showDocModal;
+    window.showDocModal = function (doc, type) {
+        oShow.apply(this, arguments);
+        if (!doc || type !== 'CREDIT NOTE' || doc.type !== 'value') return;
+        [...g('dItems').rows].forEach(row => {
+            row.cells[3].innerText = '-'; row.cells[4].innerText = '-';
+            row.cells[1].insertAdjacentText('afterbegin', 'Credit: ');
+        });
+        g('dNotes').innerHTML += '<div style="margin-top:6px;"><b>Note:</b> Ye credit sirf paise / discount ke liye hai. Maal wapas nahi aaya.</div>';
+    };
+})();
+</script>
 </body>
 </html>
 
