@@ -5215,6 +5215,325 @@ function exportRegisterCsv() {
     };
 })();
 </script>
+    <script>
+/* ===== PATCH 12: Projects / Orders (cost tracking) ===== */
+(function () {
+    const g = id => document.getElementById(id);
+    const CATS = ['Material', 'Labour / Mazdoori', 'Transport', 'Machine / Tools', 'Packing', 'Other'];
+    const STAT = ['Chal raha', 'Complete', 'Band / Cancel'];
+    let projects = [], curId = null, editE = null, editP = null, filt = '';
+
+    COLL_KEYS.push('projects'); DATA_KEYS.push('projects');
+    const oGet = window.getData;
+    window.getData = function () { const d = oGet.apply(this, arguments); d.projects = projects; return d; };
+    const oSet = window.setData;
+    window.setData = function (d) { oSet.apply(this, arguments); projects = d.projects || []; };
+
+    const pOn = () => !(settings.features && settings.features.project === false);
+    const applyP = () => document.body.classList.toggle('off-project', !pOn());
+    const cur = () => projects.find(p => p.id === curId);
+    const sum = (a, f) => (a || []).reduce((s, x) => s + f(x), 0);
+    const S = p => {
+        const cost = sum(p.entries, e => e.amount), out = sum((p.entries || []).filter(e => e.paid), e => e.amount), rec = sum(p.adv, a => a.amount), val = +p.value || 0;
+        return { cost, owe: cost - out, rec, val, profit: val - cost, due: val - rec, margin: val > 0 ? (val - cost) / val * 100 : 0 };
+    };
+
+    const st = document.createElement('style');
+    st.textContent = 'body.off-project [data-tab="project"] { display:none !important; } .pbar { height:10px; background:#007bff; border-radius:5px; }';
+    document.head.appendChild(st);
+
+    const tabBtn = document.createElement('button');
+    tabBtn.className = 'tab-btn'; tabBtn.dataset.tab = 'project'; tabBtn.textContent = '🏗️ Projects / Orders';
+    document.querySelector('.nav-tabs').appendChild(tabBtn);
+
+    const catOpts = CATS.map(c => `<option>${c}</option>`).join('');
+    g('settingsPanel').insertAdjacentHTML('afterend', `
+    <div id="projectPanel" class="panel">
+      <div id="pList">
+        <h3>🏗️ Projects / Orders (kharcha aur munafa)</h3>
+        <div class="row-flex" style="margin-bottom:8px;">
+            <div><button type="button" id="pNew" class="btn-success" style="width:100%; padding:10px;">+ Naya Project / Order</button></div>
+            <div><select id="pFilt" class="input-field" style="margin-bottom:0;"><option value="">Sab projects</option>${STAT.map(s => `<option>${s}</option>`).join('')}</select></div>
+        </div>
+        <div id="pForm" class="box-section" style="display:none;">
+            <h4 id="pFormTitle" style="margin-top:0;">Naya Project</h4>
+            <div class="row-flex">
+                <div style="flex:2;"><label>Project / Order ka naam</label><input id="pfName" class="input-field" placeholder="Jaise: Sharma ji ka kitchen, 10 office table"></div>
+                <div><label>Customer</label><input id="pfCust" class="input-field" list="pCustList"></div>
+                <div><label>Phone</label><input id="pfPhone" class="input-field"></div>
+            </div>
+            <div class="row-flex">
+                <div><label>Shuru date</label><input type="date" id="pfStart" class="input-field"></div>
+                <div><label>Dene ki date</label><input type="date" id="pfDue" class="input-field"></div>
+                <div><label>Order ki keemat ₹ (jo customer se milegi)</label><input type="number" id="pfValue" class="input-field" min="0" step="0.01"></div>
+                <div><label>Status</label><select id="pfStatus" class="input-field">${STAT.map(s => `<option>${s}</option>`).join('')}</select></div>
+            </div>
+            <input id="pfNote" class="input-field" placeholder="Note (optional)">
+            <button type="button" id="pfSave" class="btn-success">💾 Save</button> <button type="button" id="pfCancel" class="btn-grey">Cancel</button>
+        </div>
+        <datalist id="pCustList"></datalist>
+        <div id="pCards" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;"></div>
+        <div class="table-wrap"><table class="items-table"><thead><tr><th class="left">Project</th><th>Customer</th><th>Status</th><th>Order (₹)</th><th>Kharcha (₹)</th><th>Munafa (₹)</th><th>Mila (₹)</th><th>Action</th></tr></thead><tbody id="pBody"></tbody></table></div>
+      </div>
+
+      <div id="pDetail" style="display:none;">
+        <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:center;">
+            <h3 id="pdTitle" style="margin:0;"></h3>
+            <div><button type="button" id="pdBack" class="btn-grey">← Sab projects</button> <button type="button" id="pdEdit" class="btn-info">✏️ Project edit</button> <button type="button" id="pdPrint" class="btn-warning">🖨️ Report</button></div>
+        </div>
+        <p id="pdSub" style="font-size:13px; color:#555; margin:6px 0;"></p>
+        <div id="pdCards" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;"></div>
+
+        <div class="box-section">
+            <h4 id="peTitle" style="margin-top:0;">+ Kharcha jodo</h4>
+            <div class="row-flex">
+                <div><label>Date</label><input type="date" id="peDate" class="input-field"></div>
+                <div><label>Category</label><select id="peCat" class="input-field">${catOpts}</select></div>
+                <div style="flex:2;"><label>Item / Kaam (material stock se chuno ya likho)</label><input id="peItem" class="input-field" list="inventoryList"></div>
+            </div>
+            <div class="row-flex">
+                <div><label>Qty</label><input type="number" id="peQty" class="input-field" min="0" step="any"></div>
+                <div><label>Rate ₹</label><input type="number" id="peRate" class="input-field" min="0" step="0.01"></div>
+                <div><label>Amount ₹</label><input type="number" id="peAmt" class="input-field" min="0" step="0.01"></div>
+                <div><label>Kisko (supplier / mazdoor)</label><input id="peParty" class="input-field"></div>
+            </div>
+            <label style="font-size:13px; margin-right:14px;"><input type="checkbox" id="pePaid"> Paisa de diya (paid)</label>
+            <label id="peStockRow" style="font-size:13px; display:none;"><input type="checkbox" id="peStock"> Ye maal apne <b>stock se</b> ghatao</label><br>
+            <button type="button" id="peAdd" class="btn-success" style="margin-top:6px;">Add</button> <button type="button" id="peCancel" class="btn-grey" style="display:none;">Edit cancel</button>
+        </div>
+
+        <h4>Kharcha category ke hisaab se</h4><div id="pdBreak"></div>
+        <h4 style="margin-top:16px;">Saare kharche</h4>
+        <div class="table-wrap"><table class="items-table"><thead><tr><th>Date</th><th>Category</th><th class="left">Item / Kaam</th><th>Qty × Rate</th><th>Amount (₹)</th><th>Kisko</th><th>Paid?</th><th>Action</th></tr></thead><tbody id="pdEntries"></tbody></table></div>
+
+        <div class="box-section" style="margin-top:16px;">
+            <h4 style="margin-top:0;">💰 Customer se paisa mila (advance / payment)</h4>
+            <div class="row-flex">
+                <div><label>Amount ₹</label><input type="number" id="paAmt" class="input-field" min="0" step="0.01"></div>
+                <div><label>Date</label><input type="date" id="paDate" class="input-field"></div>
+                <div><label>Mode</label><select id="paMode" class="input-field"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
+                <div><label>Note</label><input id="paNote" class="input-field"></div>
+                <div><button type="button" id="paAdd" class="btn-success">Add</button></div>
+            </div>
+            <div class="table-wrap"><table class="items-table"><tbody id="paBody"></tbody></table></div>
+        </div>
+      </div>
+    </div>`);
+
+    /* ---------- LIST ---------- */
+    function list() {
+        curId = null;
+        g('pList').style.display = 'block'; g('pDetail').style.display = 'none';
+        g('pCustList').innerHTML = customers.map(c => `<option value="${esc(c.name)}">`).join('');
+        const arr = projects.filter(p => !filt || p.status === filt).sort((a, b) => (b.seq || 0) - (a.seq || 0));
+        let tv = 0, tc = 0, tr = 0;
+        arr.forEach(p => { const s = S(p); tv += s.val; tc += s.cost; tr += s.rec; });
+        const card = (h, v, c) => `<div class="stat-card"><h4>${h}</h4><div style="color:${c || '#222'};">${v}</div></div>`;
+        g('pCards').innerHTML = card('Projects', arr.length) + card('Order ki keemat', '₹' + money(tv)) + card('Kul kharcha', '₹' + money(tc), '#b30000') + card('Munafa (approx.)', '₹' + money(tv - tc), tv - tc >= 0 ? 'green' : 'red') + card('Customer se mila', '₹' + money(tr), 'green');
+        const tb = g('pBody'); tb.innerHTML = '';
+        arr.forEach(p => {
+            const s = S(p), tr_ = document.createElement('tr');
+            tr_.innerHTML = `<td class="left"><b>${esc(p.name)}</b><br><small style="color:#666;">${p.start ? fmtDate(p.start) : ''}</small></td><td>${esc(p.customer)}</td><td>${esc(p.status)}</td><td>${money(s.val)}</td><td>${money(s.cost)}</td>
+                <td style="color:${s.profit >= 0 ? 'green' : '#b30000'}; font-weight:bold;">${money(s.profit)}${s.val > 0 ? '<br><small>' + s.margin.toFixed(0) + '%</small>' : ''}</td><td>${money(s.rec)}</td>
+                <td><button type="button" class="btn-info btn-sm o">Kholo</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
+            tr_.querySelector('.o').addEventListener('click', () => openP(p.id));
+            tr_.querySelector('.d').addEventListener('click', () => delP(p));
+            tb.appendChild(tr_);
+        });
+        if (!arr.length) tb.innerHTML = '<tr><td colspan="8">Abhi koi project nahi. "+ Naya Project / Order" dabao.</td></tr>';
+    }
+    function delP(p) {
+        const stk = (p.entries || []).filter(e => e.stock && e.sitem);
+        if (!confirm('Project "' + p.name + '" delete karein? Uske saare kharche bhi hat jaayenge.' + (stk.length ? ' Stock se liya hua maal stock mein wapas aa jaayega.' : ''))) return;
+        stk.forEach(e => changeStock([e.sitem], +1, 'Project ' + p.name + ' deleted'));
+        projects = projects.filter(x => x.id !== p.id);
+        saveAll(); try { renderInventoryTable(); checkLowStock(); } catch (e) {}
+        list();
+    }
+
+    /* ---------- PROJECT FORM ---------- */
+    function openForm(p) {
+        editP = p ? p.id : null;
+        g('pFormTitle').innerText = p ? 'Project edit' : 'Naya Project';
+        g('pfName').value = p ? p.name : ''; g('pfCust').value = p ? p.customer : ''; g('pfPhone').value = p ? p.phone || '' : '';
+        g('pfStart').value = p ? p.start || '' : today(); g('pfDue').value = p ? p.due || '' : '';
+        g('pfValue').value = p ? p.value || '' : ''; g('pfStatus').value = p ? p.status : STAT[0]; g('pfNote').value = p ? p.note || '' : '';
+        g('pList').style.display = 'block'; g('pDetail').style.display = 'none';
+        g('pForm').style.display = 'block'; g('pfName').focus();
+    }
+    function saveForm() {
+        const name = g('pfName').value.trim();
+        if (!name) { toast('Project ka naam daalo'); return; }
+        const o = { name, customer: g('pfCust').value.trim(), phone: g('pfPhone').value.trim(), start: g('pfStart').value, due: g('pfDue').value, value: parseFloat(g('pfValue').value) || 0, status: g('pfStatus').value, note: g('pfNote').value.trim() };
+        let p;
+        if (editP) { p = projects.find(x => x.id === editP); Object.assign(p, o); }
+        else { p = Object.assign({ id: uid(), seq: nextSeq(), entries: [], adv: [] }, o); projects.push(p); }
+        saveAll(); g('pForm').style.display = 'none';
+        toast('Project save ho gaya'); openP(p.id);
+    }
+
+    /* ---------- DETAIL ---------- */
+    function openP(id) {
+        curId = id; resetEntry();
+        g('pList').style.display = 'none'; g('pDetail').style.display = 'block';
+        g('paDate').value = today(); g('paAmt').value = ''; g('paNote').value = '';
+        detail();
+    }
+    function detail() {
+        const p = cur(); if (!p) return;
+        const s = S(p);
+        g('pdTitle').innerText = p.name;
+        g('pdSub').innerHTML = `Customer: <b>${esc(p.customer || '-')}</b>${p.phone ? ' | ' + esc(p.phone) : ''} | Status: <b>${esc(p.status)}</b> | Shuru: ${p.start ? fmtDate(p.start) : '-'} | Dene ki date: ${p.due ? fmtDate(p.due) : '-'}${p.note ? '<br>' + esc(p.note) : ''}`;
+        const card = (h, v, c) => `<div class="stat-card"><h4>${h}</h4><div style="color:${c || '#222'};">${v}</div></div>`;
+        g('pdCards').innerHTML = card('Order ki keemat', '₹' + money(s.val)) + card('Kul kharcha', '₹' + money(s.cost), '#b30000') +
+            card('Munafa', '₹' + money(s.profit) + (s.val > 0 ? ' (' + s.margin.toFixed(1) + '%)' : ''), s.profit >= 0 ? 'green' : 'red') +
+            card('Customer se mila', '₹' + money(s.rec), 'green') + card('Customer se aur milna', '₹' + money(Math.max(0, s.due)), s.due > 0 ? '#b30000' : 'green') +
+            card('Aapko dena baaki (kharche)', '₹' + money(s.owe), s.owe > 0 ? '#d9480f' : 'green');
+
+        const cat = {}; (p.entries || []).forEach(e => { cat[e.cat] = (cat[e.cat] || 0) + e.amount; });
+        const mx = Math.max(1, ...Object.values(cat));
+        g('pdBreak').innerHTML = Object.keys(cat).length ? '<table class="items-table" style="max-width:560px;"><tbody>' + Object.keys(cat).sort((a, b) => cat[b] - cat[a]).map(k =>
+            `<tr><td class="left" style="width:150px;">${esc(k)}</td><td class="right" style="width:110px;">₹${money(cat[k])}</td><td style="width:60px;">${(cat[k] / s.cost * 100).toFixed(0)}%</td><td style="text-align:left;"><div class="pbar" style="width:${Math.round(cat[k] / mx * 100)}%;"></div></td></tr>`).join('') + '</tbody></table>' : '<span style="font-size:12px; color:#777;">Abhi koi kharcha nahi</span>';
+
+        const tb = g('pdEntries'); tb.innerHTML = '';
+        [...(p.entries || [])].sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(e => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${fmtDate(e.date)}</td><td>${esc(e.cat)}</td><td class="left">${esc(e.item)}${e.stock ? ' <small style="color:#2b6cb0;">(stock se)</small>' : ''}</td><td>${e.qty ? e.qty + ' × ' + (e.rate ? money(e.rate) : '-') : '-'}</td><td><b>${money(e.amount)}</b></td><td>${esc(e.party || '')}</td>
+                <td><button type="button" class="btn-sm tg" style="border:none; border-radius:4px; cursor:pointer; color:#fff; background:${e.paid ? '#28a745' : '#d9480f'};">${e.paid ? 'Paid' : 'Baaki'}</button></td>
+                <td><button type="button" class="btn-warning btn-sm e">Edit</button> <button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
+            tr.querySelector('.tg').addEventListener('click', () => { e.paid = !e.paid; saveAll(); detail(); });
+            tr.querySelector('.e').addEventListener('click', () => editEntry(e));
+            tr.querySelector('.d').addEventListener('click', () => {
+                if (!confirm('Ye kharcha delete karein?' + (e.stock ? ' Stock wapas add ho jaayega.' : ''))) return;
+                if (e.stock && e.sitem) { changeStock([e.sitem], +1, 'Project ' + p.name + ' (kharcha hataya)'); try { renderInventoryTable(); checkLowStock(); } catch (x) {} }
+                p.entries = p.entries.filter(x => x.id !== e.id); saveAll(); detail();
+            });
+            tb.appendChild(tr);
+        });
+        if (!(p.entries || []).length) tb.innerHTML = '<tr><td colspan="8">Abhi koi kharcha nahi</td></tr>';
+
+        const ab = g('paBody'); ab.innerHTML = '';
+        (p.adv || []).forEach((a, i) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${fmtDate(a.date)}</td><td><b>₹${money(a.amount)}</b></td><td>${esc(a.mode)}</td><td class="left">${esc(a.note || '')}</td><td><button type="button" class="btn-danger btn-sm">Delete</button></td>`;
+            tr.querySelector('button').addEventListener('click', () => { if (!confirm('Ye entry delete karein?')) return; p.adv.splice(i, 1); saveAll(); detail(); });
+            ab.appendChild(tr);
+        });
+        if (!(p.adv || []).length) ab.innerHTML = '<tr><td>Abhi koi payment nahi mili</td></tr>';
+    }
+
+    /* ---------- KHARCHA ENTRY ---------- */
+    const prodOf = n => inventory.find(x => x.name.toLowerCase() === String(n || '').trim().toLowerCase());
+    function stockRow() {
+        const p = prodOf(g('peItem').value);
+        g('peStockRow').style.display = (p && g('peCat').value === 'Material') ? 'inline' : 'none';
+        if (!(p && g('peCat').value === 'Material')) g('peStock').checked = false;
+    }
+    function resetEntry() {
+        editE = null;
+        g('peTitle').innerText = '+ Kharcha jodo'; g('peAdd').innerText = 'Add'; g('peCancel').style.display = 'none';
+        g('peDate').value = today(); g('peCat').value = CATS[0];
+        ['peItem', 'peQty', 'peRate', 'peAmt', 'peParty'].forEach(id => { g(id).value = ''; });
+        g('pePaid').checked = false; g('peStock').checked = false; g('peStockRow').style.display = 'none';
+    }
+    function editEntry(e) {
+        editE = e.id;
+        g('peTitle').innerText = '✏️ Kharcha edit'; g('peAdd').innerText = 'Update'; g('peCancel').style.display = 'inline-block';
+        g('peDate').value = e.date; g('peCat').value = e.cat; g('peItem').value = e.item; g('peQty').value = e.qty || ''; g('peRate').value = e.rate || '';
+        g('peAmt').value = e.amount; g('peParty').value = e.party || ''; g('pePaid').checked = !!e.paid;
+        stockRow(); g('peStock').checked = !!e.stock;
+        g('peTitle').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    function saveEntry() {
+        const p = cur(); if (!p) return;
+        const item = g('peItem').value.trim(), cat = g('peCat').value, qty = parseFloat(g('peQty').value) || 0, rate = parseFloat(g('peRate').value) || 0;
+        let amount = parseFloat(g('peAmt').value) || 0;
+        if (!amount && qty > 0 && rate > 0) amount = round2(qty * rate);
+        if (!item) { toast('Item / kaam ka naam daalo'); return; }
+        if (!(amount > 0)) { toast('Amount daalo (ya Qty aur Rate)'); return; }
+        const old = editE ? p.entries.find(x => x.id === editE) : null;
+        const prod = prodOf(item);
+        const useStock = !!(prod && cat === 'Material' && g('peStock').checked && qty > 0);
+        if (g('peStock').checked && !useStock) { toast('Stock se ghatane ke liye Material category, stock ka item aur Qty chahiye'); return; }
+        if (useStock) {
+            const avail = (parseFloat(prod.stock) || 0) + (old && old.stock && old.sitem && old.sitem.name === prod.name ? old.sitem.qty : 0);
+            if (avail < qty && !confirm('Stock mein sirf ' + avail + ' hai. Phir bhi ' + qty + ' ghatayein?')) return;
+        }
+        if (old && old.stock && old.sitem) changeStock([old.sitem], +1, 'Project ' + p.name + ' (kharcha badla)');
+        let sitem = null;
+        if (useStock) { sitem = { name: prod.name, barcode: prod.barcode || '', qty }; changeStock([sitem], -1, 'Project ' + p.name); }
+        const e = { id: old ? old.id : uid(), date: g('peDate').value || today(), cat, item, qty, rate, amount: round2(amount), party: g('peParty').value.trim(), paid: g('pePaid').checked, stock: useStock, sitem };
+        if (old) p.entries[p.entries.indexOf(old)] = e; else p.entries.push(e);
+        saveAll();
+        if (old || useStock) { try { renderInventoryTable(); checkLowStock(); } catch (x) {} }
+        resetEntry(); detail(); toast(old ? 'Kharcha update ho gaya' : 'Kharcha add ho gaya');
+    }
+
+    /* ---------- REPORT ---------- */
+    function report() {
+        const p = cur(); if (!p) return;
+        const s = S(p), cat = {};
+        (p.entries || []).forEach(e => { cat[e.cat] = (cat[e.cat] || 0) + e.amount; });
+        let h = `<p style="font-size:13px;"><b>${esc(p.name)}</b> | Customer: ${esc(p.customer || '-')} | Status: ${esc(p.status)}<br>Shuru: ${p.start ? fmtDate(p.start) : '-'} | Dene ki date: ${p.due ? fmtDate(p.due) : '-'}</p>
+        <table class="items-table"><tbody>
+        <tr><td class="left">Order ki keemat</td><td class="right">₹${money(s.val)}</td></tr>
+        <tr><td class="left">Kul kharcha</td><td class="right">₹${money(s.cost)}</td></tr>
+        <tr style="font-weight:bold;"><td class="left">Munafa</td><td class="right" style="color:${s.profit >= 0 ? 'green' : '#b30000'};">₹${money(s.profit)}${s.val > 0 ? ' (' + s.margin.toFixed(1) + '%)' : ''}</td></tr>
+        <tr><td class="left">Customer se mila</td><td class="right">₹${money(s.rec)}</td></tr>
+        <tr><td class="left">Customer se aur milna</td><td class="right">₹${money(Math.max(0, s.due))}</td></tr>
+        <tr><td class="left">Kharchon mein dena baaki</td><td class="right">₹${money(s.owe)}</td></tr></tbody></table>
+        <h4>Category ke hisaab se</h4><table class="items-table"><tbody>${Object.keys(cat).map(k => `<tr><td class="left">${esc(k)}</td><td class="right">₹${money(cat[k])}</td><td>${(cat[k] / s.cost * 100).toFixed(0)}%</td></tr>`).join('') || '<tr><td>-</td></tr>'}</tbody></table>
+        <h4>Saare kharche</h4><table class="items-table"><thead><tr><th>Date</th><th>Category</th><th class="left">Item / Kaam</th><th>Amount (₹)</th><th>Kisko</th><th>Paid?</th></tr></thead><tbody>`;
+        [...(p.entries || [])].sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(e => {
+            h += `<tr><td>${fmtDate(e.date)}</td><td>${esc(e.cat)}</td><td class="left">${esc(e.item)}${e.qty ? ' (' + e.qty + (e.rate ? ' × ' + money(e.rate) : '') + ')' : ''}</td><td class="right">${money(e.amount)}</td><td>${esc(e.party || '')}</td><td>${e.paid ? 'Paid' : 'Baaki'}</td></tr>`;
+        });
+        h += '</tbody></table><h4>Customer se mile paise</h4><table class="items-table"><tbody>' + ((p.adv || []).map(a => `<tr><td>${fmtDate(a.date)}</td><td class="right">₹${money(a.amount)}</td><td>${esc(a.mode)}</td><td class="left">${esc(a.note || '')}</td></tr>`).join('') || '<tr><td>-</td></tr>') + '</tbody></table>';
+        showInfo('Project Report — ' + p.name, h);
+    }
+
+    /* ---------- wiring ---------- */
+    g('pNew').addEventListener('click', () => openForm(null));
+    g('pfSave').addEventListener('click', saveForm);
+    g('pfCancel').addEventListener('click', () => { g('pForm').style.display = 'none'; if (curId) { g('pDetail').style.display = 'block'; g('pList').style.display = 'none'; } });
+    g('pFilt').addEventListener('change', () => { filt = g('pFilt').value; list(); });
+    g('pdBack').addEventListener('click', list);
+    g('pdEdit').addEventListener('click', () => { const p = cur(); if (p) openForm(p); });
+    g('pdPrint').addEventListener('click', report);
+    g('peAdd').addEventListener('click', saveEntry);
+    g('peCancel').addEventListener('click', resetEntry);
+    g('peItem').addEventListener('input', stockRow);
+    g('peItem').addEventListener('change', () => {
+        const pr = prodOf(g('peItem').value);
+        if (pr && g('peCat').value === 'Material' && !g('peRate').value) g('peRate').value = pr.cost > 0 ? pr.cost : '';
+        stockRow();
+    });
+    g('peCat').addEventListener('change', stockRow);
+    const calcAmt = () => { const q = parseFloat(g('peQty').value) || 0, r = parseFloat(g('peRate').value) || 0; if (q > 0 && r > 0) g('peAmt').value = round2(q * r); };
+    g('peQty').addEventListener('input', calcAmt); g('peRate').addEventListener('input', calcAmt);
+    g('paAdd').addEventListener('click', () => {
+        const p = cur(), a = parseFloat(g('paAmt').value);
+        if (!p) return;
+        if (!(a > 0)) { toast('Amount daalo'); return; }
+        p.adv = p.adv || [];
+        p.adv.push({ date: g('paDate').value || today(), amount: round2(a), mode: g('paMode').value, note: g('paNote').value.trim() });
+        g('paAmt').value = ''; g('paNote').value = '';
+        saveAll(); detail(); toast('Payment add ho gayi');
+    });
+
+    // Settings switch
+    g('settingsPanel').insertAdjacentHTML('beforeend', '<div class="box-section"><label style="font-size:13px;"><input type="checkbox" id="featProj"> <b>🏗️ Projects / Orders</b> <span style="color:#777;">- Order ka material, labour aur munafa</span></label></div>');
+    g('featProj').addEventListener('change', e => {
+        settings.features = Object.assign({}, settings.features, { project: e.target.checked });
+        saveSettings(); applyP(); toast('Feature setting save ho gayi');
+    });
+    const oRS = window.renderSettings;
+    window.renderSettings = function () { oRS.apply(this, arguments); g('featProj').checked = pOn(); };
+
+    const oSw = window.switchTab;
+    window.switchTab = function (tabID) { oSw.apply(this, arguments); if (tabID === 'project') list(); };
+    applyP();
+})();
+</script>
 </body>
 </html>
 
