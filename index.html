@@ -5534,6 +5534,280 @@ function exportRegisterCsv() {
     applyP();
 })();
 </script>
+    <script>
+/* ===== PATCH 13: Project mein Labour (kitne mazdoor, kitne din) ===== */
+(function () {
+    const g = id => document.getElementById(id);
+    if (!g('peCat') || !g('pdEntries')) return;   // Patch 12 hona zaroori hai
+    const isLab = e => /^Labour/.test(e.cat || '');
+    const dd = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5);
+    const proj = () => {
+        const ps = window.getData().projects || [], t = g('pdTitle').innerText;
+        let m = ps.filter(p => p.name === t);
+        if (m.length > 1) { const sub = g('pdSub').innerText, m2 = m.filter(p => !p.customer || sub.includes(p.customer)); if (m2.length) m = m2; }
+        return m[0] || null;
+    };
+
+    // ---- labour fields (sirf Labour category chunne par dikhte hain) ----
+    g('peCat').closest('.row-flex').insertAdjacentHTML('afterend', `
+    <div id="lbRow" class="row-flex" style="display:none; background:#fff8e1; border:1px solid #f6e05e; padding:6px; border-radius:6px; margin-bottom:6px;">
+        <div><label>👷 Mazdoor kitne</label><input type="number" id="lbN" class="input-field" min="0" step="any"></div>
+        <div><label>Kitne din</label><input type="number" id="lbD" class="input-field" min="0" step="any"></div>
+        <div><label>Rate / mazdoor / din ₹</label><input type="number" id="lbR" class="input-field" min="0" step="0.01"></div>
+        <div id="lbCalc" style="flex:2; font-size:12px; color:#7a5a00; padding-bottom:10px;"></div>
+    </div>`);
+    const lbShow = () => { g('lbRow').style.display = /^Labour/.test(g('peCat').value) ? 'flex' : 'none'; };
+    function lbText() {
+        const n = +g('lbN').value || 0, d = +g('lbD').value || 0, r = +g('lbR').value || 0;
+        g('lbCalc').innerText = n > 0 && d > 0 ? n + ' mazdoor × ' + d + ' din = ' + (n * d) + ' mazdoor-din' + (r > 0 ? ' = ₹' + money(n * d * r) : '') : '';
+    }
+    function lbCalc() {
+        const n = +g('lbN').value || 0, d = +g('lbD').value || 0, r = +g('lbR').value || 0;
+        if (n > 0 && d > 0) {
+            g('peQty').value = round2(n * d);
+            if (r > 0) { g('peRate').value = r; g('peAmt').value = round2(n * d * r); }
+            if (!g('peItem').value.trim()) g('peItem').value = 'Mazdoori';
+        }
+        lbText();
+    }
+    ['lbN', 'lbD', 'lbR'].forEach(id => g(id).addEventListener('input', lbCalc));
+    g('peCat').addEventListener('change', lbShow);
+    const lbClear = () => { ['lbN', 'lbD', 'lbR'].forEach(id => { g(id).value = ''; }); lbText(); lbShow(); };
+    g('peCancel').addEventListener('click', () => setTimeout(lbClear, 0));
+
+    // ---- save: Add / Update dabane par mazdoor aur din entry ke saath save karo ----
+    g('peAdd').addEventListener('click', () => {
+        const p = proj(); if (!p) return;
+        const snap = {}; p.entries.forEach(e => { snap[e.id] = JSON.stringify(e); });
+        const lab = { n: +g('lbN').value || 0, d: +g('lbD').value || 0, r: +g('lbR').value || 0, on: /^Labour/.test(g('peCat').value) };
+        setTimeout(() => {
+            let ch = false;
+            p.entries.forEach(e => {
+                if (snap[e.id] === JSON.stringify(e)) return;
+                ch = true;
+                if (lab.on && lab.n > 0 && lab.d > 0) { e.workers = lab.n; e.days = lab.d; e.drate = lab.r; }
+                else { delete e.workers; delete e.days; delete e.drate; }
+            });
+            if (ch) { saveAll(); lbClear(); decorate(); }
+        }, 0);
+    }, true);
+
+    // ---- table: "3 mazdoor × 5 din" dikhao + edit par fields bharo ----
+    g('pdBreak').previousElementSibling.insertAdjacentHTML('beforebegin', '<div id="lbSum"></div>');
+    function summary() {
+        const p = proj(), box = g('lbSum'); if (!p) { box.innerHTML = ''; return; }
+        const labs = (p.entries || []).filter(isLab);
+        const cost = (p.entries || []).reduce((s, e) => s + e.amount, 0);
+        const lamt = labs.reduce((s, e) => s + e.amount, 0);
+        const md = labs.reduce((s, e) => s + (e.workers && e.days ? e.workers * e.days : 0), 0);
+        const dates = [...new Set(labs.map(e => e.date).filter(Boolean))];
+        let el = '';
+        if (p.start) {
+            const all = (p.entries || []).map(e => e.date).concat((p.adv || []).map(a => a.date)).filter(Boolean).sort();
+            const end = p.status === 'Complete' && all.length ? all[all.length - 1] : today();
+            el = Math.max(1, dd(p.start, end) + 1) + ' din (' + fmtDate(p.start) + ' se ' + fmtDate(end) + (p.status === 'Complete' ? ', aakhri entry tak' : ', aaj tak') + ')';
+        }
+        if (!labs.length) { box.innerHTML = ''; return; }
+        box.innerHTML = `<div class="box-section" style="background:#fff8e1; border-color:#f6e05e;"><h4 style="margin:0 0 6px 0;">👷 Labour ka hisaab</h4>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <div class="stat-card"><h4>Kul mazdoor-din</h4><div>${md ? md : '-'}</div></div>
+            <div class="stat-card"><h4>Labour ka kharcha</h4><div>₹${money(lamt)}</div><small>${cost > 0 ? (lamt / cost * 100).toFixed(0) + '% kul kharche ka' : ''}</small></div>
+            <div class="stat-card"><h4>Ausat ₹ / mazdoor-din</h4><div>${md ? '₹' + money(lamt / md) : '-'}</div></div>
+            <div class="stat-card"><h4>Kaam ke alag-alag din</h4><div>${dates.length}</div></div>
+            ${el ? `<div class="stat-card" style="min-width:240px;"><h4>Project ko shuru se kitne din</h4><div style="font-size:14px;">${el}</div></div>` : ''}</div>
+            ${md === 0 ? '<small style="color:#777;">Purani labour entries mein mazdoor aur din nahi bhare the, isliye mazdoor-din nahi ginte. Unhe Edit karke bhar do.</small>' : ''}</div>`;
+    }
+    const obs = new MutationObserver(() => decorate());
+    function decorate() {
+        const p = proj(); obs.disconnect();
+        if (p) {
+            const sorted = [...p.entries].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            [...g('pdEntries').rows].forEach((row, i) => {
+                const e = sorted[i]; if (!e || row.cells.length < 8) return;
+                if (e.workers && e.days) row.cells[3].innerHTML = e.workers + ' mazdoor × ' + e.days + ' din' + (e.drate ? '<br><small>× ₹' + money(e.drate) + '</small>' : '');
+                const eb = row.querySelector('.e');
+                if (eb && !eb.dataset.lb) {
+                    eb.dataset.lb = 1;
+                    eb.addEventListener('click', () => setTimeout(() => { lbShow(); g('lbN').value = e.workers || ''; g('lbD').value = e.days || ''; g('lbR').value = e.drate || ''; lbText(); }, 0));
+                }
+            });
+        }
+        summary();
+        obs.observe(g('pdEntries'), { childList: true });
+    }
+    obs.observe(g('pdEntries'), { childList: true });
+
+    // ---- report mein labour ki alag table ----
+    g('pdPrint').addEventListener('click', () => {
+        const p = proj(); if (!p) return;
+        const labs = (p.entries || []).filter(isLab).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        if (!labs.length) return;
+        let h = '<h4>👷 Labour ka hisaab</h4><table class="items-table"><thead><tr><th>Date</th><th class="left">Kaam / Naam</th><th>Mazdoor</th><th>Din</th><th>Mazdoor-din</th><th>Amount (₹)</th><th>Kisko</th></tr></thead><tbody>';
+        let md = 0, amt = 0;
+        labs.forEach(e => {
+            const m = e.workers && e.days ? e.workers * e.days : 0; md += m; amt += e.amount;
+            h += `<tr><td>${fmtDate(e.date)}</td><td class="left">${esc(e.item)}</td><td>${e.workers || '-'}</td><td>${e.days || '-'}</td><td>${m || '-'}</td><td class="right">${money(e.amount)}</td><td>${esc(e.party || '')}</td></tr>`;
+        });
+        h += `<tr style="font-weight:bold; background:#f1f3f5;"><td colspan="4" class="right">Total</td><td>${md || '-'}</td><td class="right">${money(amt)}</td><td></td></tr></tbody></table>`;
+        g('infoBody').insertAdjacentHTML('beforeend', h);
+    });
+
+    decorate();
+})();
+</script>
+    <script>
+/* ===== PATCH 14: Project mein Supplier ka hisaab (total, diya, balance, cheque) ===== */
+(function () {
+    const g = id => document.getElementById(id);
+    if (!g('pdEntries') || !g('paBody') || !g('peParty') || !g('pdCards')) return;   // Patch 12 hona zaroori hai
+    const key = s => String(s || '').trim().toLowerCase();
+    const dl = d => d ? Math.round((new Date(d + 'T00:00:00') - new Date(today() + 'T00:00:00')) / 864e5) : null;
+    const proj = () => {
+        const ps = window.getData().projects || [], t = g('pdTitle').innerText;
+        let m = ps.filter(p => p.name === t);
+        if (m.length > 1) { const sub = g('pdSub').innerText, m2 = m.filter(p => !p.customer || sub.includes(p.customer)); if (m2.length) m = m2; }
+        return m[0] || null;
+    };
+
+    g('paBody').closest('.box-section').insertAdjacentHTML('beforebegin', `
+    <div id="spBox" class="box-section" style="margin-top:16px; background:#f3f8ff; border-color:#b6ccf7;">
+        <h4 style="margin-top:0;">🏭 Supplier ka hisaab (is project ka)</h4>
+        <div id="spCards" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px;"></div>
+        <div class="table-wrap"><table class="items-table"><thead><tr><th class="left">Supplier</th><th>Total maal (₹)</th><th>Diya (₹)</th><th>Balance (₹)</th><th>Aakhri payment</th><th>Cheque (baaki)</th><th>Action</th></tr></thead><tbody id="spBody"></tbody></table></div>
+        <div class="box-section" style="margin-top:10px;">
+            <b>+ Supplier ko payment di</b>
+            <div class="row-flex" style="margin-top:6px;">
+                <div style="flex:2;"><label>Supplier</label><input id="spName" class="input-field" list="spList" placeholder="Naam chuno ya likho"></div>
+                <div><label>Amount ₹</label><input type="number" id="spAmt" class="input-field" min="0" step="0.01"></div>
+                <div><label>Kab diya (date)</label><input type="date" id="spDate" class="input-field"></div>
+                <div><label>Mode</label><select id="spMode" class="input-field"><option>Cash</option><option>UPI</option><option>Bank</option><option>Cheque</option></select></div>
+            </div>
+            <div id="spChRow" class="row-flex" style="display:none;">
+                <div><label>Cheque No.</label><input id="spChNo" class="input-field"></div>
+                <div><label>Cheque par kis date ki hai</label><input type="date" id="spChDate" class="input-field"></div>
+            </div>
+            <input id="spNote" class="input-field" placeholder="Note (optional)">
+            <button type="button" id="spAdd" class="btn-success">Add Payment</button>
+            <datalist id="spList"></datalist>
+        </div>
+        <h4 style="margin:10px 0 4px 0;">Payment ki history</h4>
+        <div class="table-wrap"><table class="items-table"><thead><tr><th>Date</th><th class="left">Supplier</th><th>Amount (₹)</th><th>Mode</th><th>Cheque</th><th>Note</th><th>Action</th></tr></thead><tbody id="spHist"></tbody></table></div>
+    </div>`);
+    g('peParty').setAttribute('list', 'spList');
+
+    // ---- hisaab ----
+    function calc(p) {
+        const m = {};
+        const get = n => { const k = key(n); return m[k] || (m[k] = { name: String(n).trim(), total: 0, paid: 0, last: '', ch: [] }); };
+        (p.entries || []).forEach(e => {
+            if (!key(e.party)) return;
+            const s = get(e.party); s.total += e.amount;
+            if (e.paid) { s.paid += e.amount; if ((e.date || '') > s.last) s.last = e.date; }
+        });
+        (p.spay || []).forEach(x => {
+            const s = get(x.party); s.paid += x.amount;
+            if ((x.date || '') > s.last) s.last = x.date;
+            if (x.mode === 'Cheque' && !x.cleared) s.ch.push(x);
+        });
+        return Object.values(m).sort((a, b) => (b.total - b.paid) - (a.total - a.paid));
+    }
+    const chTxt = x => 'No. ' + esc(x.chNo || '-') + ' | ₹' + money(x.amount) + ' | ' + (x.chDate ? fmtDate(x.chDate) : 'date nahi') + (x.chDate ? (dl(x.chDate) > 0 ? ' (' + dl(x.chDate) + ' din baad)' : dl(x.chDate) === 0 ? ' (aaj)' : ' (nikal chuki)') : '');
+
+    function render() {
+        const p = proj(), box = g('spBox');
+        if (!p) { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        if (!g('spDate').value) g('spDate').value = today();
+        const arr = calc(p);
+        let tot = 0, paid = 0;
+        arr.forEach(s => { tot += s.total; paid += s.paid; });
+        const nch = arr.reduce((n, s) => n + s.ch.length, 0), chamt = arr.reduce((n, s) => n + s.ch.reduce((a, x) => a + x.amount, 0), 0);
+        const card = (h, v, c) => `<div class="stat-card"><h4>${h}</h4><div style="color:${c || '#222'};">${v}</div></div>`;
+        g('spCards').innerHTML = card('Total maal (suppliers se)', '₹' + money(tot)) + card('Ab tak diya', '₹' + money(paid), 'green') +
+            card('Kul balance dena', '₹' + money(Math.max(0, tot - paid)), tot - paid > 0 ? '#b30000' : 'green') + card('Cheque jo abhi clear nahi', nch ? nch + ' (₹' + money(chamt) + ')' : '-');
+        g('spList').innerHTML = [...new Set(arr.map(s => s.name).concat((typeof suppliers !== 'undefined' ? suppliers : []).map(s => s.name)))].map(n => `<option value="${esc(n)}">`).join('');
+
+        const tb = g('spBody'); tb.innerHTML = '';
+        arr.forEach(s => {
+            const bal = round2(s.total - s.paid);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td class="left"><b>${esc(s.name)}</b></td><td>${money(s.total)}</td><td>${money(s.paid)}</td>
+                <td style="font-weight:bold; color:${bal > 0 ? '#b30000' : 'green'};">${bal < 0 ? 'Advance ' + money(-bal) : money(bal)}</td>
+                <td>${s.last ? fmtDate(s.last) : '-'}</td><td class="left" style="font-size:11px;">${s.ch.length ? s.ch.map(chTxt).join('<br>') : '-'}</td>
+                <td><button type="button" class="btn-success btn-sm">+ Payment</button></td>`;
+            tr.querySelector('button').addEventListener('click', () => { g('spName').value = s.name; g('spAmt').value = bal > 0 ? bal : ''; g('spAmt').focus(); g('spName').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+            tb.appendChild(tr);
+        });
+        if (!arr.length) tb.innerHTML = '<tr><td colspan="7">Kharche mein "Kisko" (supplier ka naam) bharoge to yahan hisaab aayega</td></tr>';
+
+        const hb = g('spHist'); hb.innerHTML = '';
+        [...(p.spay || [])].sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(x => {
+            const tr = document.createElement('tr');
+            const chCell = x.mode === 'Cheque'
+                ? `No. ${esc(x.chNo || '-')}<br><small>${x.chDate ? fmtDate(x.chDate) : ''}</small><br><button type="button" class="btn-sm tg" style="border:none; border-radius:4px; cursor:pointer; color:#fff; background:${x.cleared ? '#28a745' : '#d9480f'};">${x.cleared ? 'Clear ho gayi' : 'Clear nahi hui'}</button>` : '-';
+            tr.innerHTML = `<td>${fmtDate(x.date)}</td><td class="left">${esc(x.party)}</td><td><b>${money(x.amount)}</b></td><td>${esc(x.mode)}</td><td>${chCell}</td><td class="left">${esc(x.note || '')}</td><td><button type="button" class="btn-danger btn-sm d">Delete</button></td>`;
+            const tg = tr.querySelector('.tg');
+            if (tg) tg.addEventListener('click', () => { x.cleared = !x.cleared; saveAll(); render(); });
+            tr.querySelector('.d').addEventListener('click', () => {
+                if (!confirm('Ye payment entry delete karein?')) return;
+                p.spay = p.spay.filter(y => y.id !== x.id); saveAll(); render(); fixCard();
+            });
+            hb.appendChild(tr);
+        });
+        if (!(p.spay || []).length) hb.innerHTML = '<tr><td colspan="7">Abhi koi payment nahi</td></tr>';
+    }
+
+    // Patch 12 ke "Aapko dena baaki" card ko supplier payments ke saath sahi karo
+    function fixCard() {
+        const p = proj(); if (!p) return;
+        const c = [...g('pdCards').querySelectorAll('.stat-card')].find(x => /Aapko dena baaki/.test(x.innerText)); if (!c) return;
+        let owe = calc(p).reduce((s, x) => s + Math.max(0, x.total - x.paid), 0);
+        (p.entries || []).forEach(e => { if (!key(e.party) && !e.paid) owe += e.amount; });
+        const v = c.querySelector('div'); v.innerText = '₹' + money(owe); v.style.color = owe > 0 ? '#d9480f' : 'green';
+    }
+
+    // ---- payment add ----
+    g('spMode').addEventListener('change', () => { g('spChRow').style.display = g('spMode').value === 'Cheque' ? 'flex' : 'none'; });
+    g('spAdd').addEventListener('click', () => {
+        const p = proj(); if (!p) return;
+        const party = g('spName').value.trim(), a = parseFloat(g('spAmt').value);
+        if (!party) { toast('Supplier ka naam daalo'); return; }
+        if (!(a > 0)) { toast('Amount daalo'); return; }
+        const s = calc(p).find(x => key(x.name) === key(party));
+        if (s && a > s.total - s.paid + 0.01 && !confirm('Amount balance (₹' + money(Math.max(0, s.total - s.paid)) + ') se zyada hai. Phir bhi save karein?')) return;
+        const mode = g('spMode').value;
+        if (mode === 'Cheque' && !g('spChDate').value && !confirm('Cheque ki date nahi bhari. Phir bhi save karein?')) return;
+        p.spay = p.spay || [];
+        p.spay.push({ id: uid(), party, amount: round2(a), date: g('spDate').value || today(), mode, chNo: mode === 'Cheque' ? g('spChNo').value.trim() : '', chDate: mode === 'Cheque' ? g('spChDate').value : '', cleared: false, note: g('spNote').value.trim() });
+        ['spAmt', 'spChNo', 'spChDate', 'spNote'].forEach(id => { g(id).value = ''; });
+        saveAll(); render(); fixCard(); toast('Payment add ho gayi');
+    });
+
+    // project khulne / kharche badalne par dobara banao
+    let tmr = null;
+    const obs = new MutationObserver(() => { clearTimeout(tmr); tmr = setTimeout(() => { render(); fixCard(); }, 40); });
+    obs.observe(g('pdEntries'), { childList: true });
+    obs.observe(g('pdCards'), { childList: true });
+
+    // report mein supplier ki table
+    g('pdPrint').addEventListener('click', () => {
+        const p = proj(); if (!p) return;
+        const arr = calc(p); if (!arr.length) return;
+        let h = '<h4>🏭 Supplier ka hisaab</h4><table class="items-table"><thead><tr><th class="left">Supplier</th><th>Total maal (₹)</th><th>Diya (₹)</th><th>Balance (₹)</th><th>Cheque (baaki)</th></tr></thead><tbody>';
+        arr.forEach(s => { const b = round2(s.total - s.paid); h += `<tr><td class="left">${esc(s.name)}</td><td class="right">${money(s.total)}</td><td class="right">${money(s.paid)}</td><td class="right"><b>${b < 0 ? 'Advance ' + money(-b) : money(b)}</b></td><td class="left" style="font-size:11px;">${s.ch.length ? s.ch.map(chTxt).join('<br>') : '-'}</td></tr>`; });
+        h += '</tbody></table>';
+        const pay = [...(p.spay || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        if (pay.length) {
+            h += '<h4>Supplier payments</h4><table class="items-table"><thead><tr><th>Date</th><th class="left">Supplier</th><th>Amount (₹)</th><th>Mode</th><th>Cheque</th></tr></thead><tbody>';
+            pay.forEach(x => { h += `<tr><td>${fmtDate(x.date)}</td><td class="left">${esc(x.party)}</td><td class="right">${money(x.amount)}</td><td>${esc(x.mode)}</td><td>${x.mode === 'Cheque' ? 'No. ' + esc(x.chNo || '-') + (x.chDate ? ' | ' + fmtDate(x.chDate) : '') + (x.cleared ? ' | Clear' : ' | Baaki') : '-'}</td></tr>`; });
+            h += '</tbody></table>';
+        }
+        g('infoBody').insertAdjacentHTML('beforeend', h);
+    });
+
+    render(); fixCard();
+})();
+</script>
 </body>
 </html>
 
